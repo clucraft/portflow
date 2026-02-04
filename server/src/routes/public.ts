@@ -6,6 +6,99 @@ import { Migration, EndUser } from '../types/index.js';
 
 const router = Router();
 
+// GET /api/public/estimate/:token - Get estimate info for customer acceptance
+router.get('/estimate/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+
+    const migrations = await query<Migration>(
+      `SELECT id, name, site_name, site_city, site_state, telephone_users, physical_phones_needed,
+              target_carrier, routing_type, estimate_user_service_charge, estimate_equipment_charge,
+              estimate_usage_charge, estimate_total_monthly, estimate_total_onetime, estimate_notes,
+              estimate_link_expires_at, estimate_accepted_at
+       FROM migrations
+       WHERE estimate_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    // Check expiration
+    if (migration.estimate_link_expires_at && new Date(migration.estimate_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired. Please contact your administrator for a new link.');
+    }
+
+    res.json({
+      migration: {
+        id: migration.id,
+        name: migration.name,
+        site_name: migration.site_name,
+        site_city: migration.site_city,
+        site_state: migration.site_state,
+        telephone_users: migration.telephone_users,
+        physical_phones_needed: migration.physical_phones_needed,
+        target_carrier: migration.target_carrier,
+        routing_type: migration.routing_type,
+        estimate_user_service_charge: migration.estimate_user_service_charge,
+        estimate_equipment_charge: migration.estimate_equipment_charge,
+        estimate_usage_charge: migration.estimate_usage_charge,
+        estimate_total_monthly: migration.estimate_total_monthly,
+        estimate_total_onetime: migration.estimate_total_onetime,
+        estimate_notes: migration.estimate_notes,
+        estimate_accepted_at: migration.estimate_accepted_at,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/public/estimate/:token/accept - Accept the estimate
+router.post('/estimate/:token/accept', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const { accepted_by } = req.body;
+
+    // Validate token and get migration
+    const migrations = await query<Migration>(
+      `SELECT id, estimate_link_expires_at, estimate_accepted_at FROM migrations WHERE estimate_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    if (migration.estimate_link_expires_at && new Date(migration.estimate_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired');
+    }
+
+    if (migration.estimate_accepted_at) {
+      throw ApiError.badRequest('This estimate has already been accepted');
+    }
+
+    // Accept the estimate and advance workflow
+    await query(
+      `UPDATE migrations SET
+        workflow_stage = 'estimate_accepted',
+        estimate_accepted_at = NOW(),
+        estimate_accepted_by = $1
+      WHERE id = $2`,
+      [accepted_by || 'Customer (via link)', migration.id]
+    );
+
+    res.json({ success: true, message: 'Estimate accepted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/public/collect/:token - Get migration info for customer data entry
 router.get('/collect/:token', async (req: Request, res: Response, next: NextFunction) => {
   try {

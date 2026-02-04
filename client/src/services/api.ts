@@ -104,6 +104,11 @@ export interface Migration {
   magic_link_token: string | null
   magic_link_expires_at: string | null
 
+  // Estimate link
+  estimate_link_token: string | null
+  estimate_link_expires_at: string | null
+  estimate_accepted_by: string | null
+
   // Counts
   total_numbers: number
   ported_numbers: number
@@ -208,6 +213,10 @@ export const migrationsApi = {
   generateMagicLink: (id: string, expires_in_days?: number) =>
     api.post<Migration & { magic_link_url: string }>(`/migrations/${id}/magic-link`, { expires_in_days }).then((r) => r.data),
 
+  // Estimate link for customer acceptance
+  generateEstimateLink: (id: string, expires_in_days?: number) =>
+    api.post<Migration & { estimate_link_url: string }>(`/migrations/${id}/estimate-link`, { expires_in_days }).then((r) => r.data),
+
   delete: (id: string) => api.delete(`/migrations/${id}`),
 }
 
@@ -252,6 +261,11 @@ export const publicApi = {
       `/public/collect/${token}/users`,
       { users }
     ).then((r) => r.data),
+  // Estimate acceptance
+  getEstimate: (token: string) =>
+    api.get<{ migration: Partial<Migration> }>(`/public/estimate/${token}`).then((r) => r.data),
+  acceptEstimate: (token: string, accepted_by?: string) =>
+    api.post<{ success: boolean; message: string }>(`/public/estimate/${token}/accept`, { accepted_by }).then((r) => r.data),
 }
 
 export default api

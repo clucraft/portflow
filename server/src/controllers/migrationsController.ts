@@ -151,7 +151,40 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// Accept estimate (move to Phase 2)
+// Generate estimate acceptance link for customer
+export const generateEstimateLink = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { expires_in_days } = req.body;
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (expires_in_days || 14));
+
+    const migrations = await query<Migration>(
+      `UPDATE migrations SET
+        estimate_link_token = $1,
+        estimate_link_created_at = NOW(),
+        estimate_link_expires_at = $2
+      WHERE id = $3
+      RETURNING *`,
+      [token, expiresAt, id]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Migration not found');
+    }
+
+    res.json({
+      ...migrations[0],
+      estimate_link_url: `/estimate/${token}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Accept estimate (move to Phase 2) - internal override
 export const acceptEstimate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

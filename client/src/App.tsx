@@ -6,12 +6,14 @@ import MigrationDetail from './pages/MigrationDetail'
 import Users from './pages/Users'
 import Scripts from './pages/Scripts'
 import CustomerCollect from './pages/CustomerCollect'
+import EstimateAccept from './pages/EstimateAccept'
 
 function App() {
   return (
     <Routes>
-      {/* Public route for customer data collection */}
+      {/* Public routes */}
       <Route path="/collect/:token" element={<CustomerCollect />} />
+      <Route path="/estimate/:token" element={<EstimateAccept />} />
 
       {/* App routes */}
       <Route path="/" element={<Layout />}>

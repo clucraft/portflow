@@ -142,6 +142,12 @@ export interface Migration {
   magic_link_expires_at: Date | null;
   magic_link_accessed_at: Date | null;
 
+  // Estimate link for customer acceptance
+  estimate_link_token: string | null;
+  estimate_link_created_at: Date | null;
+  estimate_link_expires_at: Date | null;
+  estimate_accepted_by: string | null;
+
   // Completion
   completed_at: Date | null;
 

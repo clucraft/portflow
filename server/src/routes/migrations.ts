@@ -37,6 +37,9 @@ router.patch('/:id/estimate', migrationsController.updateEstimate);
 // POST /api/migrations/:id/accept-estimate - Accept estimate (move to phase 2)
 router.post('/:id/accept-estimate', migrationsController.acceptEstimate);
 
+// POST /api/migrations/:id/estimate-link - Generate estimate acceptance link for customer
+router.post('/:id/estimate-link', migrationsController.generateEstimateLink);
+
 // === Phase 2: Verizon Setup ===
 
 // PATCH /api/migrations/:id/verizon-request - Update Verizon request info
