@@ -1,0 +1,134 @@
+import { Router } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { query } from '../utils/db.js';
+import { ApiError } from '../middleware/errorHandler.js';
+import { Migration, EndUser } from '../types/index.js';
+
+const router = Router();
+
+// GET /api/public/collect/:token - Get migration info for customer data entry
+router.get('/collect/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+
+    const migrations = await query<Migration>(
+      `SELECT id, name, site_name, routing_type, magic_link_expires_at
+       FROM migrations
+       WHERE magic_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    // Check expiration
+    if (migration.magic_link_expires_at && new Date(migration.magic_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired. Please contact your administrator for a new link.');
+    }
+
+    // Update accessed timestamp
+    await query(
+      `UPDATE migrations SET magic_link_accessed_at = NOW() WHERE id = $1`,
+      [migration.id]
+    );
+
+    // Get existing users for this migration
+    const users = await query<EndUser>(
+      `SELECT id, display_name, upn, phone_number FROM end_users WHERE migration_id = $1 ORDER BY display_name`,
+      [migration.id]
+    );
+
+    res.json({
+      migration: {
+        id: migration.id,
+        name: migration.name,
+        site_name: migration.site_name,
+        routing_type: migration.routing_type,
+      },
+      users,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/public/collect/:token/users - Submit user data via magic link
+router.post('/collect/:token/users', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const { users } = req.body;
+
+    if (!Array.isArray(users) || users.length === 0) {
+      throw ApiError.badRequest('users array is required');
+    }
+
+    // Validate token and get migration
+    const migrations = await query<Migration>(
+      `SELECT id, magic_link_expires_at FROM migrations WHERE magic_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    if (migration.magic_link_expires_at && new Date(migration.magic_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired');
+    }
+
+    // Insert/update users
+    const results = { success: 0, failed: 0, errors: [] as { row: number; error: string }[] };
+
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+
+      if (!user.display_name || !user.upn) {
+        results.failed++;
+        results.errors.push({ row: i + 1, error: 'display_name and upn are required' });
+        continue;
+      }
+
+      // Validate phone number format if provided
+      if (user.phone_number && !/^\+[1-9]\d{1,14}$/.test(user.phone_number)) {
+        results.failed++;
+        results.errors.push({ row: i + 1, error: 'Phone number must be in E.164 format (e.g., +12125551234)' });
+        continue;
+      }
+
+      try {
+        await query(
+          `INSERT INTO end_users (migration_id, display_name, upn, phone_number, department, entered_via_magic_link)
+           VALUES ($1, $2, $3, $4, $5, true)
+           ON CONFLICT (migration_id, upn) DO UPDATE SET
+             display_name = EXCLUDED.display_name,
+             phone_number = COALESCE(EXCLUDED.phone_number, end_users.phone_number),
+             department = COALESCE(EXCLUDED.department, end_users.department)`,
+          [migration.id, user.display_name, user.upn, user.phone_number, user.department]
+        );
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({ row: i + 1, error: (err as Error).message });
+      }
+    }
+
+    // Mark user data collection as complete if we have users
+    if (results.success > 0) {
+      await query(
+        `UPDATE migrations SET user_data_collection_complete = true WHERE id = $1`,
+        [migration.id]
+      );
+    }
+
+    res.json(results);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;

@@ -1,0 +1,59 @@
+# PortFlow Docker Compose - Production
+# Uses pre-built images from GitHub Container Registry
+#
+# For local development with source builds, use: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: portflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-portflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portflow}
+      POSTGRES_DB: ${POSTGRES_DB:-portflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portflow -d portflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Node.js API Server
+  api:
+    image: ghcr.io/clucraft/portflow-api:latest
+    container_name: portflow-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-portflow}:${POSTGRES_PASSWORD:-portflow}@db:5432/${POSTGRES_DB:-portflow}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # React Frontend (served via nginx)
+  client:
+    image: ghcr.io/clucraft/portflow-client:latest
+    container_name: portflow-client
+    restart: unless-stopped
+    ports:
+      - "${CLIENT_PORT:-5173}:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
