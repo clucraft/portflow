@@ -188,7 +188,7 @@ export default function EstimateAccept() {
           </div>
           <p className="text-zinc-300 text-sm">
             This estimate covers Teams Enterprise Voice migration for <strong>{migration.telephone_users} users</strong>
-            {migration.physical_phones_needed > 0 && (
+            {(migration.physical_phones_needed ?? 0) > 0 && (
               <> with <strong>{migration.physical_phones_needed} physical phones</strong></>
             )}
             {' '}using <strong className="capitalize">{migration.routing_type?.replace('_', ' ')}</strong> via{' '}
