@@ -6,18 +6,39 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        mono: ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
+        sans: ['JetBrains Mono', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        // Charcoal background tones
+        surface: {
+          900: '#121214', // Main background
+          800: '#1a1a1e', // Card/elevated surfaces
+          700: '#222226', // Hover states
+          600: '#2a2a30', // Borders
+        },
+        // Primary accent - Cyan (telecom/connectivity)
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#ecfeff',
+          100: '#cffafe',
+          200: '#a5f3fc',
+          300: '#67e8f9',
+          400: '#22d3ee',
+          500: '#06b6d4',
+          600: '#0891b2',
+          700: '#0e7490',
+          800: '#155e75',
+          900: '#164e63',
+        },
+        // Workflow stage colors
+        stage: {
+          gray: '#6b7280',      // estimate
+          cyan: '#06b6d4',      // estimate_accepted
+          red: '#ef4444',       // verizon_*
+          amber: '#f59e0b',     // porting_*
+          purple: '#a855f7',    // user_config
+          green: '#22c55e',     // completed
         },
       },
     },

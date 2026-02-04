@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { migrationsApi } from '../services/api'
 
 export default function NewMigration() {
@@ -66,34 +66,36 @@ export default function NewMigration() {
     <div className="max-w-2xl mx-auto">
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 mb-6 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Dashboard
       </button>
 
       <div className="card">
-        <h1 className="text-xl font-bold mb-6">New EV Migration Project</h1>
+        <h1 className="text-xl font-bold text-zinc-100 mb-6">New EV Migration Project</h1>
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-8">
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border transition-all ${
                   s === step
-                    ? 'bg-primary-600 text-white'
+                    ? 'bg-primary-600 text-white border-primary-500 glow-primary'
                     : s < step
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-600'
+                    ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                    : 'bg-surface-700 text-zinc-500 border-surface-600'
                 }`}
               >
-                {s}
+                {s < step ? <Check className="h-4 w-4" /> : s}
               </div>
-              {s < 3 && <div className={`w-12 h-1 ${s < step ? 'bg-green-500' : 'bg-gray-200'}`} />}
+              {s < 3 && (
+                <div className={`w-12 h-0.5 ${s < step ? 'bg-green-500' : 'bg-surface-600'}`} />
+              )}
             </div>
           ))}
-          <div className="ml-4 text-sm text-gray-600">
+          <div className="ml-4 text-sm text-zinc-400">
             {step === 1 && 'Site Information'}
             {step === 2 && 'Estimate Details'}
             {step === 3 && 'Configuration'}
@@ -123,7 +125,7 @@ export default function NewMigration() {
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
               />
-              <p className="text-xs text-gray-500 mt-1">Optional - will default to site name</p>
+              <p className="text-xs text-zinc-500 mt-1">Optional - will default to site name</p>
             </div>
 
             <div>
@@ -219,7 +221,7 @@ export default function NewMigration() {
                 value={formData.telephone_users || ''}
                 onChange={(e) => updateField('telephone_users', parseInt(e.target.value) || 0)}
               />
-              <p className="text-xs text-gray-500 mt-1">Users who need phone service in Teams</p>
+              <p className="text-xs text-zinc-500 mt-1">Users who need phone service in Teams</p>
             </div>
 
             <div>
@@ -231,7 +233,7 @@ export default function NewMigration() {
                 value={formData.physical_phones_needed || ''}
                 onChange={(e) => updateField('physical_phones_needed', parseInt(e.target.value) || 0)}
               />
-              <p className="text-xs text-gray-500 mt-1">Desk phones, conference phones, etc.</p>
+              <p className="text-xs text-zinc-500 mt-1">Desk phones, conference phones, etc.</p>
             </div>
 
             <div>
@@ -243,20 +245,20 @@ export default function NewMigration() {
                 value={formData.monthly_calling_minutes || ''}
                 onChange={(e) => updateField('monthly_calling_minutes', parseInt(e.target.value) || 0)}
               />
-              <p className="text-xs text-gray-500 mt-1">From existing carrier invoice (optional)</p>
+              <p className="text-xs text-zinc-500 mt-1">From existing carrier invoice (optional)</p>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <label className="flex items-center gap-3">
+            <div className="p-4 bg-surface-700/50 rounded-lg border border-surface-600">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-4 h-4"
+                  className="w-4 h-4 rounded bg-surface-800 border-surface-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-surface-900"
                   checked={formData.is_porting_numbers}
                   onChange={(e) => updateField('is_porting_numbers', e.target.checked)}
                 />
-                <span className="font-medium">Porting existing phone numbers</span>
+                <span className="font-medium text-zinc-200">Porting existing phone numbers</span>
               </label>
-              <p className="text-xs text-gray-500 mt-2 ml-7">
+              <p className="text-xs text-zinc-500 mt-2 ml-7">
                 Uncheck if requesting new numbers from carrier
               </p>
             </div>
@@ -302,7 +304,7 @@ export default function NewMigration() {
                 <option value="direct_routing">Direct Routing</option>
                 <option value="operator_connect">Operator Connect</option>
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-zinc-500 mt-1">
                 {formData.routing_type === 'direct_routing'
                   ? 'Use your own SBC for PSTN connectivity'
                   : 'Carrier-managed connection to Teams'}
@@ -310,28 +312,28 @@ export default function NewMigration() {
             </div>
 
             {/* Summary */}
-            <div className="mt-6 p-4 bg-primary-50 rounded-lg">
-              <h3 className="font-medium mb-2">Summary</h3>
-              <dl className="text-sm space-y-1">
+            <div className="mt-6 p-4 bg-primary-500/10 rounded-lg border border-primary-500/30">
+              <h3 className="font-medium text-primary-400 mb-3">Summary</h3>
+              <dl className="text-sm space-y-2">
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Site:</dt>
-                  <dd>{formData.site_name || '-'}</dd>
+                  <dt className="text-zinc-500">Site:</dt>
+                  <dd className="text-zinc-200">{formData.site_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Users:</dt>
-                  <dd>{formData.telephone_users}</dd>
+                  <dt className="text-zinc-500">Users:</dt>
+                  <dd className="text-zinc-200">{formData.telephone_users}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Phones:</dt>
-                  <dd>{formData.physical_phones_needed}</dd>
+                  <dt className="text-zinc-500">Phones:</dt>
+                  <dd className="text-zinc-200">{formData.physical_phones_needed}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Carrier:</dt>
-                  <dd className="capitalize">{formData.target_carrier}</dd>
+                  <dt className="text-zinc-500">Carrier:</dt>
+                  <dd className="text-zinc-200 capitalize">{formData.target_carrier}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Porting Numbers:</dt>
-                  <dd>{formData.is_porting_numbers ? 'Yes' : 'No'}</dd>
+                  <dt className="text-zinc-500">Porting Numbers:</dt>
+                  <dd className="text-zinc-200">{formData.is_porting_numbers ? 'Yes' : 'No'}</dd>
                 </div>
               </dl>
             </div>
@@ -339,7 +341,7 @@ export default function NewMigration() {
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between mt-8 pt-6 border-t">
+        <div className="flex justify-between mt-8 pt-6 border-t border-surface-600">
           {step > 1 ? (
             <button
               onClick={() => setStep(step - 1)}
@@ -356,7 +358,7 @@ export default function NewMigration() {
             <button
               onClick={() => setStep(step + 1)}
               disabled={step === 1 && !formData.site_name}
-              className="btn btn-primary flex items-center gap-2"
+              className="btn btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
               <ArrowRight className="h-4 w-4" />
@@ -365,7 +367,7 @@ export default function NewMigration() {
             <button
               onClick={handleSubmit}
               disabled={createMutation.isPending || !formData.telephone_users}
-              className="btn btn-primary"
+              className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Migration'}
             </button>
