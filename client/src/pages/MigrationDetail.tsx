@@ -612,9 +612,20 @@ export default function MigrationDetail() {
                     </div>
                   )}
 
-                  {isDone && phase.id === 2 && migration.verizon_site_id && (
+                  {isDone && phase.id === 2 && (
                     <div className="mt-1 ml-3 text-sm text-zinc-500">
-                      Site ID: {migration.verizon_site_id}
+                      {migration.verizon_request_submitted_at && (
+                        <span>Submitted {new Date(migration.verizon_request_submitted_at).toLocaleDateString()}</span>
+                      )}
+                      {migration.verizon_request_email_sent_to && (
+                        <span> to {migration.verizon_request_email_sent_to}</span>
+                      )}
+                      {migration.verizon_setup_complete_at && (
+                        <span> &bull; Completed {new Date(migration.verizon_setup_complete_at).toLocaleDateString()}</span>
+                      )}
+                      {migration.verizon_site_id && (
+                        <span> &bull; Site ID: {migration.verizon_site_id}</span>
+                      )}
                     </div>
                   )}
 
