@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-02-04
+
+### Added
+- Terminal-style progress bar with `[✓] [►] [ ]` indicators
+- Timeline list layout for migration phases with vertical connector lines
+- CSV upload for customer data collection with downloadable template
+- CSV supports flexible column names (display_name/name, upn/email, etc.)
+
+### Changed
+- Complete redesign of Migration Detail page from tile-based to timeline layout
+- Active phase expands to show form/actions, completed phases collapse to summary
+- CustomerCollect page now uses dark theme matching rest of application
+- Script naming now uses "Site Name - Project Name" format
+- Removed "New Migration" from sidebar (use dashboard button instead)
+
+### Fixed
+- CustomerCollect page had white background instead of dark theme
+
+### Database Migration Required
+```sql
+-- Create trigger function for user counts
+CREATE OR REPLACE FUNCTION update_migration_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE migrations SET
+        total_numbers = (SELECT COUNT(*) FROM phone_numbers WHERE migration_id = COALESCE(NEW.migration_id, OLD.migration_id)),
+        ported_numbers = (SELECT COUNT(*) FROM phone_numbers WHERE migration_id = COALESCE(NEW.migration_id, OLD.migration_id) AND porting_status IN ('ported', 'verified')),
+        total_users = (SELECT COUNT(*) FROM end_users WHERE migration_id = COALESCE(NEW.migration_id, OLD.migration_id)),
+        configured_users = (SELECT COUNT(*) FROM end_users WHERE migration_id = COALESCE(NEW.migration_id, OLD.migration_id) AND is_configured = true)
+    WHERE id = COALESCE(NEW.migration_id, OLD.migration_id);
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers
+DROP TRIGGER IF EXISTS update_counts_end_users ON end_users;
+CREATE TRIGGER update_counts_end_users AFTER INSERT OR UPDATE OR DELETE ON end_users FOR EACH ROW EXECUTE FUNCTION update_migration_counts();
+
+-- Fix existing counts
+UPDATE migrations m SET
+    total_users = (SELECT COUNT(*) FROM end_users WHERE migration_id = m.id),
+    configured_users = (SELECT COUNT(*) FROM end_users WHERE migration_id = m.id AND is_configured = true);
+```
+
 ## [0.3.0] - 2025-02-04
 
 ### Added
@@ -70,7 +114,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/clucraft/portflow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/clucraft/portflow/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/clucraft/portflow/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/clucraft/portflow/releases/tag/v0.1.0
