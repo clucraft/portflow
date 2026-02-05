@@ -3,9 +3,16 @@ name: Build and Push Docker Images
 on:
   push:
     branches: [main]
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - '.github/workflows/**'
     tags: ['v*']
   pull_request:
     branches: [main]
+    paths:
+      - 'client/**'
+      - 'server/**'
 
 env:
   REGISTRY: ghcr.io
