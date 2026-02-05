@@ -8,13 +8,13 @@ import {
 import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 
 // Phase definitions with their stages
-// Note: estimate_accepted moves to Phase 2 since Phase 1 is complete at that point
-// Phase 2 name is dynamic based on carrier - use getPhases() instead
+// Transition stages (estimate_accepted, verizon_complete, porting_complete) belong to the NEXT phase
+// This way completing a phase marks it "done" and activates the next phase
 const BASE_PHASES = [
   { id: 1, name: 'Cost Estimate', stages: ['estimate'] as WorkflowStage[], icon: DollarSign, color: 'primary' },
-  { id: 2, name: 'Carrier Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress', 'verizon_complete'] as WorkflowStage[], icon: Building, color: 'red' },
-  { id: 3, name: 'Number Porting', stages: ['porting_submitted', 'porting_scheduled', 'porting_complete'] as WorkflowStage[], icon: Phone, color: 'amber' },
-  { id: 4, name: 'Teams Config', stages: ['user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
+  { id: 2, name: 'Carrier Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'] as WorkflowStage[], icon: Building, color: 'red' },
+  { id: 3, name: 'Number Porting', stages: ['verizon_complete', 'porting_submitted', 'porting_scheduled'] as WorkflowStage[], icon: Phone, color: 'amber' },
+  { id: 4, name: 'Teams Config', stages: ['porting_complete', 'user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
 ]
 
 // Format carrier name for display
