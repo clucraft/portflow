@@ -5,6 +5,7 @@ import NewMigration from './pages/NewMigration'
 import MigrationDetail from './pages/MigrationDetail'
 import Users from './pages/Users'
 import Scripts from './pages/Scripts'
+import Reports from './pages/Reports'
 import CustomerCollect from './pages/CustomerCollect'
 import EstimateAccept from './pages/EstimateAccept'
 
@@ -21,6 +22,7 @@ function App() {
         <Route path="new" element={<NewMigration />} />
         <Route path="migrations/:id" element={<MigrationDetail />} />
         <Route path="migrations/:id/users" element={<Users />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="scripts" element={<Scripts />} />
       </Route>
     </Routes>

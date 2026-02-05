@@ -1,9 +1,10 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, FileCode, Phone, Zap } from 'lucide-react'
+import { LayoutDashboard, FileCode, Phone, Zap, BarChart3 } from 'lucide-react'
 import ParticleBackground from './ParticleBackground'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Scripts', href: '/scripts', icon: FileCode },
 ]
 
