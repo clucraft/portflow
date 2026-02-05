@@ -95,6 +95,27 @@ export default function Reports() {
     downloadCSV(headers, rows, 'completed-migrations.csv')
   }
 
+  const exportAllMigrations = () => {
+    const allMigrations = migrations || []
+    const headers = ['Project Name', 'Site Name', 'Carrier', 'Routing Type', 'Phase', 'Status', 'Users', 'Created Date', 'Submitted Date', 'FOC Date', 'Port Date', 'Completed Date']
+    const rows = allMigrations.map(m => [
+      m.name,
+      m.site_name,
+      formatCarrierName(m.target_carrier),
+      m.routing_type.replace('_', ' '),
+      getPhaseFromStage(m.workflow_stage),
+      m.workflow_stage.replace('_', ' '),
+      m.telephone_users,
+      new Date(m.created_at).toLocaleDateString(),
+      m.verizon_request_submitted_at ? new Date(m.verizon_request_submitted_at).toLocaleDateString() : '',
+      m.foc_date ? new Date(m.foc_date).toLocaleDateString() : '',
+      m.scheduled_port_date ? new Date(m.scheduled_port_date).toLocaleDateString() : '',
+      m.completed_at ? new Date(m.completed_at).toLocaleDateString() : '',
+    ])
+
+    downloadCSV(headers, rows, 'all-migrations.csv')
+  }
+
   const downloadCSV = (headers: string[], rows: (string | number)[][], filename: string) => {
     const csvContent = [
       headers.join(','),
@@ -122,12 +143,20 @@ export default function Reports() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={exportAllMigrations}
+            className="btn btn-primary flex items-center gap-2"
+            disabled={!migrations || migrations.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            Export All ({migrations?.length || 0})
+          </button>
+          <button
             onClick={exportActiveMigrations}
             className="btn btn-secondary flex items-center gap-2"
             disabled={activeMigrations.length === 0}
           >
             <Download className="h-4 w-4" />
-            Export Active ({activeMigrations.length})
+            Active ({activeMigrations.length})
           </button>
           <button
             onClick={exportCompletedMigrations}
@@ -135,7 +164,7 @@ export default function Reports() {
             disabled={completedMigrations.length === 0}
           >
             <Download className="h-4 w-4" />
-            Export Completed ({completedMigrations.length})
+            Completed ({completedMigrations.length})
           </button>
         </div>
       </div>
