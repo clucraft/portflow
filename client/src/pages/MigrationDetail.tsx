@@ -8,12 +8,19 @@ import {
 import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 
 // Phase definitions with their stages
+// Note: estimate_accepted moves to Phase 2 since Phase 1 is complete at that point
 const PHASES = [
-  { id: 1, name: 'Cost Estimate', stages: ['estimate', 'estimate_accepted'] as WorkflowStage[], icon: DollarSign, color: 'primary' },
-  { id: 2, name: 'Verizon Setup', stages: ['verizon_submitted', 'verizon_in_progress', 'verizon_complete'] as WorkflowStage[], icon: Building, color: 'red' },
+  { id: 1, name: 'Cost Estimate', stages: ['estimate'] as WorkflowStage[], icon: DollarSign, color: 'primary' },
+  { id: 2, name: 'Verizon Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress', 'verizon_complete'] as WorkflowStage[], icon: Building, color: 'red' },
   { id: 3, name: 'Number Porting', stages: ['porting_submitted', 'porting_scheduled', 'porting_complete'] as WorkflowStage[], icon: Phone, color: 'amber' },
   { id: 4, name: 'Teams Config', stages: ['user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
 ]
+
+// Helper to safely format currency (handles string/number/null from PostgreSQL)
+const formatCurrency = (value: unknown): string => {
+  const num = Number(value)
+  return isNaN(num) ? '0.00' : num.toFixed(2)
+}
 
 function getPhaseForStage(stage: WorkflowStage): number {
   for (const phase of PHASES) {
@@ -248,7 +255,7 @@ export default function MigrationDetail() {
                         <span>Accepted {new Date(migration.estimate_accepted_at).toLocaleDateString()}</span>
                       )}
                       {phase.id === 1 && isDone && (
-                        <span className="ml-3 font-mono">${migration.estimate_total_monthly?.toFixed(0) || 0}/mo</span>
+                        <span className="ml-3 font-mono">${formatCurrency(migration.estimate_total_monthly).split('.')[0]}/mo</span>
                       )}
                       {phase.id === 2 && isDone && migration.verizon_setup_complete_at && (
                         <span>Complete {new Date(migration.verizon_setup_complete_at).toLocaleDateString()}</span>
@@ -538,7 +545,7 @@ export default function MigrationDetail() {
                   {/* Completed phase summary */}
                   {isDone && phase.id === 1 && (
                     <div className="mt-1 ml-3 text-sm text-zinc-500">
-                      Monthly: ${migration.estimate_total_monthly?.toFixed(2) || '0.00'} &bull; One-time: ${migration.estimate_total_onetime?.toFixed(2) || '0.00'}
+                      Monthly: ${formatCurrency(migration.estimate_total_monthly)} &bull; One-time: ${formatCurrency(migration.estimate_total_onetime)}
                       {migration.estimate_accepted_by && <span> &bull; Accepted by: {migration.estimate_accepted_by}</span>}
                     </div>
                   )}
