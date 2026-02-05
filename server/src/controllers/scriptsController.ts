@@ -160,7 +160,7 @@ if ($errors.Count -gt 0) {
       [
         migration_id,
         'user_assignment',
-        `User Assignments - ${new Date().toLocaleDateString()}`,
+        `${migration.site_name} - ${migration.name}`,
         `Assigns phone numbers to ${usersWithNumbers.length} users`,
         script,
       ]

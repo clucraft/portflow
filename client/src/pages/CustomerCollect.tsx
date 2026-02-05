@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Phone, Plus, Trash2, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react'
+import { Phone, Plus, Trash2, CheckCircle, AlertCircle, HelpCircle, Upload, Download, Zap } from 'lucide-react'
 import { publicApi } from '../services/api'
 
 interface UserRow {
@@ -11,13 +11,20 @@ interface UserRow {
   department: string
 }
 
+const CSV_TEMPLATE = `display_name,upn,phone_number,department
+John Smith,john.smith@company.com,+12125551234,Sales
+Jane Doe,jane.doe@company.com,+12125555678,Marketing
+Bob Wilson,bob.wilson@company.com,,Engineering`
+
 export default function CustomerCollect() {
   const { token } = useParams<{ token: string }>()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [users, setUsers] = useState<UserRow[]>([
     { display_name: '', upn: '', phone_number: '', department: '' },
   ])
   const [submitted, setSubmitted] = useState(false)
   const [results, setResults] = useState<{ success: number; failed: number; errors: { row: number; error: string }[] } | null>(null)
+  const [csvError, setCsvError] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['collect', token],
@@ -50,14 +57,82 @@ export default function CustomerCollect() {
     setUsers(newUsers)
   }
 
+  const downloadTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'user_import_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setCsvError(null)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        const lines = text.split('\n').filter(line => line.trim())
+
+        if (lines.length < 2) {
+          setCsvError('CSV file must have a header row and at least one data row')
+          return
+        }
+
+        const header = lines[0].toLowerCase().split(',').map(h => h.trim())
+        const nameIdx = header.findIndex(h => h === 'display_name' || h === 'name' || h === 'displayname')
+        const upnIdx = header.findIndex(h => h === 'upn' || h === 'email' || h === 'userprincipalname')
+        const phoneIdx = header.findIndex(h => h === 'phone_number' || h === 'phone' || h === 'phonenumber')
+        const deptIdx = header.findIndex(h => h === 'department' || h === 'dept')
+
+        if (nameIdx === -1 || upnIdx === -1) {
+          setCsvError('CSV must have "display_name" (or "name") and "upn" (or "email") columns')
+          return
+        }
+
+        const newUsers: UserRow[] = []
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''))
+          if (values[nameIdx] && values[upnIdx]) {
+            newUsers.push({
+              display_name: values[nameIdx] || '',
+              upn: values[upnIdx] || '',
+              phone_number: phoneIdx !== -1 ? values[phoneIdx] || '' : '',
+              department: deptIdx !== -1 ? values[deptIdx] || '' : '',
+            })
+          }
+        }
+
+        if (newUsers.length === 0) {
+          setCsvError('No valid user rows found in CSV')
+          return
+        }
+
+        setUsers(newUsers)
+      } catch {
+        setCsvError('Failed to parse CSV file')
+      }
+    }
+    reader.readAsText(file)
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const validRows = users.filter(u => u.display_name && u.upn).length
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <Zap className="h-8 w-8 text-primary-500 mx-auto animate-pulse" />
+          <p className="mt-4 text-zinc-500">Loading...</p>
         </div>
       </div>
     )
@@ -65,11 +140,11 @@ export default function CustomerCollect() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
         <div className="card max-w-md text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid or Expired Link</h1>
-          <p className="text-gray-600">
+          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-zinc-100 mb-2">Invalid or Expired Link</h1>
+          <p className="text-zinc-400">
             This link is no longer valid. Please contact your administrator for a new link.
           </p>
         </div>
@@ -79,23 +154,25 @@ export default function CustomerCollect() {
 
   if (submitted && results) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
         <div className="card max-w-md text-center">
-          <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Data Submitted Successfully</h1>
-          <p className="text-gray-600 mb-4">
+          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+            <CheckCircle className="h-8 w-8 text-green-400" />
+          </div>
+          <h1 className="text-xl font-bold text-zinc-100 mb-2">Data Submitted Successfully</h1>
+          <p className="text-zinc-400 mb-4">
             {results.success} user(s) submitted successfully.
             {results.failed > 0 && ` ${results.failed} failed.`}
           </p>
           {results.errors.length > 0 && (
-            <div className="bg-red-50 rounded-lg p-4 text-left text-sm">
-              <p className="font-medium text-red-800 mb-2">Errors:</p>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-left text-sm mb-4">
+              <p className="font-medium text-red-400 mb-2">Errors:</p>
               {results.errors.map((e, i) => (
-                <p key={i} className="text-red-600">Row {e.row}: {e.error}</p>
+                <p key={i} className="text-red-300">Row {e.row}: {e.error}</p>
               ))}
             </div>
           )}
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-zinc-500">
             You can close this window. Your administrator will be notified.
           </p>
         </div>
@@ -104,56 +181,90 @@ export default function CustomerCollect() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-surface-900 py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Phone className="h-8 w-8 text-primary-600" />
-            <h1 className="text-2xl font-bold text-gray-900">PortFlow</h1>
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="relative">
+              <Phone className="h-8 w-8 text-primary-400" />
+              <Zap className="h-3 w-3 text-primary-300 absolute -top-1 -right-1" />
+            </div>
+            <h1 className="text-2xl font-bold text-primary-400 text-glow">PortFlow</h1>
           </div>
-          <h2 className="text-xl text-gray-700 mb-1">User Data Collection</h2>
-          <p className="text-gray-600">
-            <strong>{data.migration.site_name}</strong> - {data.migration.name}
+          <h2 className="text-xl text-zinc-200 mb-1">User Data Collection</h2>
+          <p className="text-zinc-400">
+            <strong className="text-zinc-200">{data.migration.site_name}</strong> - {data.migration.name}
           </p>
         </div>
 
         {/* Instructions */}
-        <div className="card mb-6 bg-blue-50 border-blue-200">
+        <div className="card mb-6 bg-primary-500/10 border-primary-500/30">
           <div className="flex gap-3">
-            <HelpCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <HelpCircle className="h-5 w-5 text-primary-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-blue-900 mb-1">Instructions</p>
-              <ul className="text-blue-800 space-y-1">
-                <li>• Enter each user who needs a phone number assigned</li>
-                <li>• <strong>Display Name</strong>: User's full name as it appears in your organization</li>
-                <li>• <strong>UPN (Email)</strong>: User's Microsoft 365 email address</li>
-                <li>• <strong>Phone Number</strong>: Must be in E.164 format (e.g., +12125551234)</li>
-                <li>• Department is optional but helps with organization</li>
+              <p className="font-medium text-primary-400 mb-2">Instructions</p>
+              <ul className="text-zinc-300 space-y-1">
+                <li>Enter each user who needs a phone number assigned in Microsoft Teams</li>
+                <li><strong className="text-zinc-100">Display Name</strong>: User's full name as it appears in your organization</li>
+                <li><strong className="text-zinc-100">UPN (Email)</strong>: User's Microsoft 365 email address (required)</li>
+                <li><strong className="text-zinc-100">Phone Number</strong>: Must be in E.164 format: +[country code][number] (e.g., +12125551234)</li>
+                <li><strong className="text-zinc-100">Department</strong>: Optional, helps with organization</li>
               </ul>
+              <div className="mt-3 pt-3 border-t border-primary-500/30">
+                <p className="text-zinc-400 mb-2">You can also upload a CSV file with the columns: display_name, upn, phone_number, department</p>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* CSV Upload Section */}
+        <div className="card mb-6">
+          <h3 className="font-medium text-zinc-100 mb-3">Import from CSV</h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={downloadTemplate}
+              className="btn btn-secondary flex items-center gap-2 text-sm"
+            >
+              <Download className="h-4 w-4" />
+              Download Template
+            </button>
+            <label className="btn btn-secondary flex items-center gap-2 text-sm cursor-pointer">
+              <Upload className="h-4 w-4" />
+              Upload CSV
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
+          {csvError && (
+            <p className="text-red-400 text-sm mt-2">{csvError}</p>
+          )}
         </div>
 
         {/* Existing Users */}
         {data.users && data.users.length > 0 && (
           <div className="card mb-6">
-            <h3 className="font-medium mb-3">Previously Submitted Users ({data.users.length})</h3>
+            <h3 className="font-medium text-zinc-100 mb-3">Previously Submitted Users ({data.users.length})</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Name</th>
-                    <th className="text-left py-2">UPN</th>
-                    <th className="text-left py-2">Phone</th>
+                  <tr className="border-b border-surface-600">
+                    <th className="text-left py-2 text-zinc-500">Name</th>
+                    <th className="text-left py-2 text-zinc-500">UPN</th>
+                    <th className="text-left py-2 text-zinc-500">Phone</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.users.map((user) => (
-                    <tr key={user.id} className="border-b border-gray-100">
-                      <td className="py-2">{user.display_name}</td>
-                      <td className="py-2 text-gray-600">{user.upn}</td>
-                      <td className="py-2 font-mono text-gray-600">{user.phone_number || '-'}</td>
+                    <tr key={user.id} className="border-b border-surface-700">
+                      <td className="py-2 text-zinc-200">{user.display_name}</td>
+                      <td className="py-2 text-zinc-400">{user.upn}</td>
+                      <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -165,7 +276,7 @@ export default function CustomerCollect() {
         {/* Data Entry Form */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">Add Users</h3>
+            <h3 className="font-medium text-zinc-100">Add Users</h3>
             <button onClick={addRow} className="btn btn-secondary text-sm flex items-center gap-1">
               <Plus className="h-4 w-4" />
               Add Row
@@ -175,17 +286,17 @@ export default function CustomerCollect() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-2 text-sm font-medium text-gray-600">Display Name *</th>
-                  <th className="text-left py-2 px-2 text-sm font-medium text-gray-600">UPN (Email) *</th>
-                  <th className="text-left py-2 px-2 text-sm font-medium text-gray-600">Phone Number</th>
-                  <th className="text-left py-2 px-2 text-sm font-medium text-gray-600">Department</th>
+                <tr className="border-b border-surface-600">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Display Name *</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">UPN (Email) *</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Phone Number</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Department</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user, index) => (
-                  <tr key={index} className="border-b border-gray-100">
+                  <tr key={index} className="border-b border-surface-700">
                     <td className="py-2 px-2">
                       <input
                         type="text"
@@ -225,7 +336,7 @@ export default function CustomerCollect() {
                     <td className="py-2 px-2">
                       <button
                         onClick={() => removeRow(index)}
-                        className="p-1 text-gray-400 hover:text-red-500"
+                        className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
                         disabled={users.length === 1}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -237,8 +348,8 @@ export default function CustomerCollect() {
             </table>
           </div>
 
-          <div className="mt-6 flex items-center justify-between pt-4 border-t">
-            <p className="text-sm text-gray-600">
+          <div className="mt-6 flex items-center justify-between pt-4 border-t border-surface-600">
+            <p className="text-sm text-zinc-400">
               {validRows} valid row(s) ready to submit
             </p>
             <button
@@ -252,9 +363,9 @@ export default function CustomerCollect() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-500">
+        <div className="text-center mt-8 text-sm text-zinc-600">
           <p>This is a secure data collection form for {data.migration.site_name}.</p>
-          <p>Questions? Contact your IT administrator.</p>
+          <p className="mt-1">Powered by PortFlow - Enterprise Voice Migration Manager</p>
         </div>
       </div>
     </div>
