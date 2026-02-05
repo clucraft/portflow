@@ -41,6 +41,16 @@ function getStageNumber(stage: WorkflowStage): number {
   return index >= 0 ? index + 1 : 0
 }
 
+// Format carrier name for display
+function formatCarrierName(carrier: string): string {
+  const names: Record<string, string> = {
+    verizon: 'Verizon',
+    fusionconnect: 'FusionConnect',
+    gtt: 'GTT',
+  }
+  return names[carrier?.toLowerCase()] || carrier || 'Carrier'
+}
+
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -235,7 +245,7 @@ export default function Dashboard() {
                     {!migration.scheduled_port_date && !migration.foc_date && migration.verizon_request_submitted_at && (
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        Verizon submitted: {new Date(migration.verizon_request_submitted_at).toLocaleDateString()}
+                        {formatCarrierName(migration.target_carrier)} submitted: {new Date(migration.verizon_request_submitted_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
