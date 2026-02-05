@@ -250,6 +250,8 @@ export const scriptsApi = {
   get: (id: string) => api.get<GeneratedScript>(`/scripts/${id}`).then((r) => r.data),
   generateUserAssignments: (migration_id: string) =>
     api.post<GeneratedScript>('/scripts/generate/user-assignments', { migration_id }).then((r) => r.data),
+  generateAdPhoneNumbers: (migration_id: string) =>
+    api.post<GeneratedScript>('/scripts/generate/ad-phone-numbers', { migration_id }).then((r) => r.data),
   delete: (id: string) => api.delete(`/scripts/${id}`),
 }
 

@@ -12,6 +12,9 @@ router.get('/:id', scriptsController.getById);
 // POST /api/scripts/generate/user-assignments - Generate user number assignment script
 router.post('/generate/user-assignments', scriptsController.generateUserAssignments);
 
+// POST /api/scripts/generate/ad-phone-numbers - Generate AD phone number update script
+router.post('/generate/ad-phone-numbers', scriptsController.generateAdPhoneNumbers);
+
 // POST /api/scripts/generate/resource-accounts - Generate resource account creation script
 router.post('/generate/resource-accounts', scriptsController.generateResourceAccounts);
 

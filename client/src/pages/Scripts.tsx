@@ -1,7 +1,21 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileCode, Copy, Check, Search, Download, Trash2 } from 'lucide-react'
+import { FileCode, Copy, Check, Search, Download, Trash2, Users, Building2 } from 'lucide-react'
 import { scriptsApi } from '../services/api'
+
+// Script type display configuration
+const SCRIPT_TYPE_CONFIG: Record<string, { label: string; badge: string; icon: typeof FileCode }> = {
+  user_assignment: { label: 'Teams User Assignment', badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: Users },
+  ad_phone_numbers: { label: 'AD Phone Numbers', badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Building2 },
+  resource_account: { label: 'Resource Accounts', badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: FileCode },
+  auto_attendant: { label: 'Auto Attendant', badge: 'bg-green-500/20 text-green-400 border-green-500/30', icon: FileCode },
+  call_queue: { label: 'Call Queue', badge: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', icon: FileCode },
+  full_migration: { label: 'Full Migration', badge: 'bg-primary-500/20 text-primary-400 border-primary-500/30', icon: FileCode },
+}
+
+function getScriptTypeConfig(type: string) {
+  return SCRIPT_TYPE_CONFIG[type] || { label: type.replace(/_/g, ' '), badge: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30', icon: FileCode }
+}
 
 export default function Scripts() {
   const queryClient = useQueryClient()
@@ -111,28 +125,34 @@ export default function Scripts() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Script List */}
         <div className="space-y-3">
-          {filteredScripts?.map((script) => (
-            <button
-              key={script.id}
-              onClick={() => setSelectedScript(script.id)}
-              className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                selectedScript === script.id
-                  ? 'border-primary-500 bg-primary-500/10'
-                  : 'border-surface-600 hover:border-surface-500 bg-surface-800'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <FileCode className="h-5 w-5 text-zinc-400 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-zinc-200 truncate">{script.name}</p>
-                  <p className="text-sm text-zinc-500">{script.script_type.replace('_', ' ')}</p>
-                  <p className="text-xs text-zinc-600 mt-1">
-                    {new Date(script.generated_at).toLocaleString()}
-                  </p>
+          {filteredScripts?.map((script) => {
+            const typeConfig = getScriptTypeConfig(script.script_type)
+            const TypeIcon = typeConfig.icon
+            return (
+              <button
+                key={script.id}
+                onClick={() => setSelectedScript(script.id)}
+                className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                  selectedScript === script.id
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-surface-600 hover:border-surface-500 bg-surface-800'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <TypeIcon className="h-5 w-5 text-zinc-400 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-zinc-200 truncate">{script.name}</p>
+                    <span className={`inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium border ${typeConfig.badge}`}>
+                      {typeConfig.label}
+                    </span>
+                    <p className="text-xs text-zinc-600 mt-1">
+                      {new Date(script.generated_at).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
 
           {filteredScripts?.length === 0 && (
             <div className="text-center py-12 text-zinc-500 card">
@@ -155,8 +175,13 @@ export default function Scripts() {
             <div className="card h-full flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="font-semibold text-zinc-100">{scriptDetail.name}</h2>
-                  <p className="text-sm text-zinc-500">{scriptDetail.description}</p>
+                  <div className="flex items-center gap-3">
+                    <h2 className="font-semibold text-zinc-100">{scriptDetail.name}</h2>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getScriptTypeConfig(scriptDetail.script_type).badge}`}>
+                      {getScriptTypeConfig(scriptDetail.script_type).label}
+                    </span>
+                  </div>
+                  <p className="text-sm text-zinc-500 mt-1">{scriptDetail.description}</p>
                 </div>
                 <div className="flex gap-2">
                   <button

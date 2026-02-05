@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
-  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2
+  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown
 } from 'lucide-react'
-import { migrationsApi, type WorkflowStage } from '../services/api'
+import { migrationsApi, scriptsApi, type WorkflowStage } from '../services/api'
 
 // Phase definitions with their stages
 // Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
@@ -99,6 +99,19 @@ export default function MigrationDetail() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [copiedEstimate, setCopiedEstimate] = useState(false)
+  const [scriptDropdownOpen, setScriptDropdownOpen] = useState(false)
+  const scriptDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (scriptDropdownRef.current && !scriptDropdownRef.current.contains(event.target as Node)) {
+        setScriptDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Form states for each phase
   const [estimateForm, setEstimateForm] = useState({
@@ -171,6 +184,24 @@ export default function MigrationDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['migrations'] })
       navigate('/')
+    },
+  })
+
+  const generateTeamsScriptMutation = useMutation({
+    mutationFn: () => scriptsApi.generateUserAssignments(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setScriptDropdownOpen(false)
+      navigate('/scripts')
+    },
+  })
+
+  const generateAdScriptMutation = useMutation({
+    mutationFn: () => scriptsApi.generateAdPhoneNumbers(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setScriptDropdownOpen(false)
+      navigate('/scripts')
     },
   })
 
@@ -593,10 +624,49 @@ export default function MigrationDetail() {
                                 <Users className="h-4 w-4" />
                                 Manage Users
                               </Link>
-                              <Link to="/scripts" className="btn btn-secondary flex items-center gap-2">
-                                <FileCode className="h-4 w-4" />
-                                Generate Script
-                              </Link>
+                              {/* Script Generation Dropdown */}
+                              <div className="relative" ref={scriptDropdownRef}>
+                                <button
+                                  onClick={() => setScriptDropdownOpen(!scriptDropdownOpen)}
+                                  className="btn btn-secondary flex items-center gap-2"
+                                  disabled={generateTeamsScriptMutation.isPending || generateAdScriptMutation.isPending}
+                                >
+                                  <FileCode className="h-4 w-4" />
+                                  Generate Script
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${scriptDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {scriptDropdownOpen && (
+                                  <div className="absolute right-0 mt-2 w-64 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50">
+                                    <div className="p-2">
+                                      <button
+                                        onClick={() => generateTeamsScriptMutation.mutate()}
+                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors"
+                                        disabled={generateTeamsScriptMutation.isPending}
+                                      >
+                                        <div className="font-medium text-zinc-200">Teams User Assignment</div>
+                                        <div className="text-xs text-zinc-500">Assign phone numbers in Microsoft Teams</div>
+                                      </button>
+                                      <button
+                                        onClick={() => generateAdScriptMutation.mutate()}
+                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors mt-1"
+                                        disabled={generateAdScriptMutation.isPending}
+                                      >
+                                        <div className="font-medium text-zinc-200">Active Directory</div>
+                                        <div className="text-xs text-zinc-500">Update phone numbers in AD user accounts</div>
+                                      </button>
+                                    </div>
+                                    <div className="border-t border-surface-600 p-2">
+                                      <Link
+                                        to="/scripts"
+                                        className="block w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors text-sm text-zinc-400"
+                                        onClick={() => setScriptDropdownOpen(false)}
+                                      >
+                                        View All Scripts
+                                      </Link>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
 

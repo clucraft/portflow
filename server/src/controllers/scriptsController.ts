@@ -544,6 +544,121 @@ Write-Host "Migration steps complete. Verify all configurations in Teams Admin C
   }
 };
 
+export const generateAdPhoneNumbers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { migration_id } = req.body;
+
+    if (!migration_id) {
+      throw ApiError.badRequest('migration_id is required');
+    }
+
+    // Get migration details
+    const migrations = await query<Migration>(
+      'SELECT * FROM migrations WHERE id = $1',
+      [migration_id]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Migration not found');
+    }
+
+    const migration = migrations[0];
+
+    // Get users with phone numbers
+    const usersWithNumbers = await query<UserWithNumber>(
+      `SELECT id, display_name, upn, phone_number, department
+       FROM end_users
+       WHERE migration_id = $1 AND phone_number IS NOT NULL AND phone_number != ''
+       ORDER BY display_name`,
+      [migration_id]
+    );
+
+    if (usersWithNumbers.length === 0) {
+      throw ApiError.badRequest('No users with assigned phone numbers found');
+    }
+
+    // Generate PowerShell script for AD phone number updates
+    let script = `# PortFlow - Active Directory Phone Number Update Script
+# Migration: ${migration.name}
+# Generated: ${new Date().toISOString()}
+# Total Users: ${usersWithNumbers.length}
+#
+# Prerequisites:
+#   - Active Directory PowerShell Module installed
+#   - Appropriate AD permissions to modify user attributes
+#
+# Usage: Run this script on a domain controller or machine with RSAT tools
+# ============================================================
+
+# Import Active Directory module (uncomment if not already loaded)
+# Import-Module ActiveDirectory
+
+Write-Host "Starting AD phone number updates for ${migration.name}..." -ForegroundColor Cyan
+Write-Host "Total users to process: ${usersWithNumbers.length}" -ForegroundColor Cyan
+Write-Host ""
+
+$successCount = 0
+$failCount = 0
+$errors = @()
+
+`;
+
+    for (const user of usersWithNumbers) {
+      // Format phone number for E.164 (remove any existing formatting first)
+      const cleanNumber = user.phone_number.replace(/[^0-9+]/g, '');
+
+      script += `# ${user.display_name}${user.department ? ` (${user.department})` : ''}
+try {
+    Write-Host "Updating phone number for ${user.upn}..." -NoNewline
+    Set-ADUser -Identity "${user.upn}" -Replace @{telephoneNumber="${cleanNumber}"}
+    Write-Host " SUCCESS" -ForegroundColor Green
+    $successCount++
+} catch {
+    Write-Host " FAILED: \$(\$_.Exception.Message)" -ForegroundColor Red
+    $failCount++
+    \$errors += @{ User = "${user.upn}"; Error = \$_.Exception.Message }
+}
+
+`;
+    }
+
+    script += `# Summary
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "AD Phone Number Update Complete" -ForegroundColor Cyan
+Write-Host "  Successful: $successCount" -ForegroundColor Green
+Write-Host "  Failed: $failCount" -ForegroundColor $(if ($failCount -gt 0) { "Red" } else { "Green" })
+Write-Host "============================================" -ForegroundColor Cyan
+
+if ($errors.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Failed Updates:" -ForegroundColor Red
+    $errors | ForEach-Object {
+        Write-Host "  $($_.User): $($_.Error)" -ForegroundColor Red
+    }
+}
+`;
+
+    // Save script to database
+    const savedScripts = await query<GeneratedScript>(
+      `INSERT INTO generated_scripts (migration_id, script_type, name, description, script_content)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        migration_id,
+        'ad_phone_numbers',
+        `${migration.site_name} - ${migration.name} (AD)`,
+        `Updates AD phone numbers for ${usersWithNumbers.length} users`,
+        script,
+      ]
+    );
+
+    res.status(201).json(savedScripts[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
