@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { FileCode, Copy, Check, Search } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { FileCode, Copy, Check, Search, Download, Trash2 } from 'lucide-react'
 import { scriptsApi } from '../services/api'
 
 export default function Scripts() {
+  const queryClient = useQueryClient()
   const [selectedScript, setSelectedScript] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -19,6 +20,14 @@ export default function Scripts() {
     enabled: !!selectedScript,
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => scriptsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setSelectedScript(null)
+    },
+  })
+
   // Filter scripts by search query
   const filteredScripts = scripts?.filter((script) => {
     if (!searchQuery.trim()) return true
@@ -27,10 +36,52 @@ export default function Scripts() {
   })
 
   const copyToClipboard = async () => {
-    if (scriptDetail?.script_content) {
+    if (!scriptDetail?.script_content) return
+
+    try {
+      // Try the modern clipboard API first
       await navigator.clipboard.writeText(scriptDetail.script_content)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers or when clipboard API fails
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = scriptDetail.script_content
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        textArea.remove()
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch {
+        console.error('Failed to copy to clipboard')
+      }
+    }
+  }
+
+  const downloadScript = () => {
+    if (!scriptDetail?.script_content || !scriptDetail?.name) return
+
+    const blob = new Blob([scriptDetail.script_content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${scriptDetail.name.replace(/[^a-z0-9]/gi, '_')}.ps1`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDelete = () => {
+    if (!selectedScript) return
+    if (confirm('Are you sure you want to delete this script?')) {
+      deleteMutation.mutate(selectedScript)
     }
   }
 
@@ -111,6 +162,7 @@ export default function Scripts() {
                   <button
                     onClick={copyToClipboard}
                     className="btn btn-secondary flex items-center gap-2"
+                    title="Copy to clipboard"
                   >
                     {copied ? (
                       <>
@@ -123,6 +175,22 @@ export default function Scripts() {
                         Copy
                       </>
                     )}
+                  </button>
+                  <button
+                    onClick={downloadScript}
+                    className="btn btn-secondary flex items-center gap-2"
+                    title="Download as .ps1 file"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+                    title="Delete script"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
