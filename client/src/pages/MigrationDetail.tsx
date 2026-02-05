@@ -9,12 +9,28 @@ import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/
 
 // Phase definitions with their stages
 // Note: estimate_accepted moves to Phase 2 since Phase 1 is complete at that point
-const PHASES = [
+// Phase 2 name is dynamic based on carrier - use getPhases() instead
+const BASE_PHASES = [
   { id: 1, name: 'Cost Estimate', stages: ['estimate'] as WorkflowStage[], icon: DollarSign, color: 'primary' },
-  { id: 2, name: 'Verizon Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress', 'verizon_complete'] as WorkflowStage[], icon: Building, color: 'red' },
+  { id: 2, name: 'Carrier Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress', 'verizon_complete'] as WorkflowStage[], icon: Building, color: 'red' },
   { id: 3, name: 'Number Porting', stages: ['porting_submitted', 'porting_scheduled', 'porting_complete'] as WorkflowStage[], icon: Phone, color: 'amber' },
   { id: 4, name: 'Teams Config', stages: ['user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
 ]
+
+// Format carrier name for display
+const formatCarrierName = (carrier: string): string => {
+  const names: Record<string, string> = {
+    verizon: 'Verizon',
+    fusionconnect: 'FusionConnect',
+    gtt: 'GTT',
+  }
+  return names[carrier?.toLowerCase()] || carrier || 'Carrier'
+}
+
+// Get phases with dynamic carrier name
+const getPhases = (carrierName: string) => BASE_PHASES.map(phase =>
+  phase.id === 2 ? { ...phase, name: `${carrierName} Setup` } : phase
+)
 
 // Helper to safely format currency (handles string/number/null from PostgreSQL)
 const formatCurrency = (value: unknown): string => {
@@ -23,7 +39,7 @@ const formatCurrency = (value: unknown): string => {
 }
 
 function getPhaseForStage(stage: WorkflowStage): number {
-  for (const phase of PHASES) {
+  for (const phase of BASE_PHASES) {
     if (phase.stages.includes(stage)) return phase.id
   }
   return 1
@@ -169,7 +185,7 @@ export default function MigrationDetail() {
           <span className="text-primary-400">{progress}% complete</span>
         </div>
         <div className="flex gap-2 mb-3">
-          {PHASES.map((phase) => {
+          {BASE_PHASES.map((phase) => {
             const status = getPhaseStatus(phase.id, migration.workflow_stage)
             return (
               <div key={phase.id} className="flex items-center gap-1">
@@ -202,7 +218,7 @@ export default function MigrationDetail() {
 
       {/* Timeline List */}
       <div className="space-y-0">
-        {PHASES.map((phase) => {
+        {getPhases(formatCarrierName(migration.target_carrier)).map((phase) => {
           const status = getPhaseStatus(phase.id, migration.workflow_stage)
           const PhaseIcon = phase.icon
           const isActive = status === 'active'
@@ -367,7 +383,7 @@ export default function MigrationDetail() {
                         </div>
                       )}
 
-                      {/* Phase 2: Verizon */}
+                      {/* Phase 2: Carrier Setup */}
                       {phase.id === 2 && migration.workflow_stage === 'estimate_accepted' && (
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -391,13 +407,13 @@ export default function MigrationDetail() {
                             </div>
                           </div>
                           <div>
-                            <label className="label">Verizon Email Sent To</label>
+                            <label className="label">{formatCarrierName(migration.target_carrier)} Email Sent To</label>
                             <input
                               type="email"
                               className="input"
                               value={verizonForm.email_sent_to}
                               onChange={(e) => setVerizonForm({ ...verizonForm, email_sent_to: e.target.value })}
-                              placeholder="verizon-rep@vzw.com"
+                              placeholder="carrier-rep@example.com"
                             />
                           </div>
                           <button
@@ -405,7 +421,7 @@ export default function MigrationDetail() {
                             className="btn btn-primary"
                             disabled={submitVerizonMutation.isPending}
                           >
-                            Mark Verizon Request Submitted
+                            Mark {formatCarrierName(migration.target_carrier)} Request Submitted
                           </button>
                         </div>
                       )}
@@ -415,13 +431,13 @@ export default function MigrationDetail() {
                           <p className="text-zinc-400">
                             Submitted: {migration.verizon_request_submitted_at && new Date(migration.verizon_request_submitted_at).toLocaleDateString()}
                           </p>
-                          <p className="text-amber-400 text-sm">Waiting for Verizon to complete setup (typically 1-2 weeks)</p>
+                          <p className="text-amber-400 text-sm">Waiting for {formatCarrierName(migration.target_carrier)} to complete setup (typically 1-2 weeks)</p>
                           <button
                             onClick={() => completeVerizonMutation.mutate()}
                             className="btn btn-primary"
                             disabled={completeVerizonMutation.isPending}
                           >
-                            Mark Verizon Setup Complete
+                            Mark {formatCarrierName(migration.target_carrier)} Setup Complete
                           </button>
                         </div>
                       )}
@@ -441,7 +457,7 @@ export default function MigrationDetail() {
 
                       {phase.id === 3 && migration.is_porting_numbers && migration.workflow_stage === 'verizon_complete' && (
                         <div className="space-y-4">
-                          <p className="text-zinc-400">Submit LOA to Verizon for number porting</p>
+                          <p className="text-zinc-400">Submit LOA to {formatCarrierName(migration.target_carrier)} for number porting</p>
                           <button
                             onClick={() => updateStageMutation.mutate('porting_submitted')}
                             className="btn btn-primary"
