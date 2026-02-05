@@ -5,7 +5,7 @@ import {
   ArrowLeft, Users, FileCode, Copy, Check,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink
 } from 'lucide-react'
-import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
+import { migrationsApi, type WorkflowStage } from '../services/api'
 
 // Phase definitions with their stages
 // Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
@@ -18,9 +18,6 @@ const BASE_PHASES = [
 
 // Stages where porting is complete (Phase 3 done)
 const PORTING_COMPLETE_STAGES: WorkflowStage[] = ['porting_complete', 'user_config', 'completed']
-
-// Stages where Phase 3 & 4 can run in parallel
-const PARALLEL_PHASE_STAGES: WorkflowStage[] = ['verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete', 'user_config']
 
 // Format carrier name for display
 const formatCarrierName = (carrier: string): string => {
@@ -41,14 +38,6 @@ const getPhases = (carrierName: string) => BASE_PHASES.map(phase =>
 const formatCurrency = (value: unknown): string => {
   const num = Number(value)
   return isNaN(num) ? '0.00' : num.toFixed(2)
-}
-
-function getPhaseForStage(stage: WorkflowStage): number {
-  // For parallel phases, return the "primary" track (porting)
-  if (stage === 'estimate') return 1
-  if (['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(stage)) return 2
-  if (['verizon_complete', 'porting_submitted', 'porting_scheduled'].includes(stage)) return 3
-  return 4
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
