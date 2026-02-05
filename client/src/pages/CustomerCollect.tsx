@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Phone, Plus, Trash2, CheckCircle, AlertCircle, HelpCircle, Upload, Download, Zap } from 'lucide-react'
 import { publicApi } from '../services/api'
+import { validatePhoneNumber } from '../utils/phoneValidation'
 
 interface UserRow {
   display_name: string
@@ -22,6 +23,7 @@ export default function CustomerCollect() {
   const [users, setUsers] = useState<UserRow[]>([
     { display_name: '', upn: '', phone_number: '', department: '' },
   ])
+  const [phoneErrors, setPhoneErrors] = useState<(string | null)[]>([null])
   const [submitted, setSubmitted] = useState(false)
   const [results, setResults] = useState<{ success: number; failed: number; errors: { row: number; error: string }[] } | null>(null)
   const [csvError, setCsvError] = useState<string | null>(null)
@@ -43,11 +45,13 @@ export default function CustomerCollect() {
 
   const addRow = () => {
     setUsers([...users, { display_name: '', upn: '', phone_number: '', department: '' }])
+    setPhoneErrors([...phoneErrors, null])
   }
 
   const removeRow = (index: number) => {
     if (users.length > 1) {
       setUsers(users.filter((_, i) => i !== index))
+      setPhoneErrors(phoneErrors.filter((_, i) => i !== index))
     }
   }
 
@@ -55,6 +59,14 @@ export default function CustomerCollect() {
     const newUsers = [...users]
     newUsers[index][field] = value
     setUsers(newUsers)
+
+    // Validate phone number if that field changed
+    if (field === 'phone_number' && data?.migration?.country_code) {
+      const validation = validatePhoneNumber(value, data.migration.country_code)
+      const newPhoneErrors = [...phoneErrors]
+      newPhoneErrors[index] = validation.error || null
+      setPhoneErrors(newPhoneErrors)
+    }
   }
 
   const downloadTemplate = () => {
@@ -113,6 +125,19 @@ export default function CustomerCollect() {
         }
 
         setUsers(newUsers)
+        // Validate all phone numbers from CSV
+        if (data?.migration?.country_code) {
+          const errors = newUsers.map(u => {
+            if (u.phone_number) {
+              const validation = validatePhoneNumber(u.phone_number, data.migration.country_code!)
+              return validation.error || null
+            }
+            return null
+          })
+          setPhoneErrors(errors)
+        } else {
+          setPhoneErrors(newUsers.map(() => null))
+        }
       } catch {
         setCsvError('Failed to parse CSV file')
       }
@@ -125,6 +150,7 @@ export default function CustomerCollect() {
     }
   }
 
+  const hasPhoneErrors = phoneErrors.some(e => e !== null)
   const validRows = users.filter(u => u.display_name && u.upn).length
 
   if (isLoading) {
@@ -208,7 +234,7 @@ export default function CustomerCollect() {
                 <li>Enter each user who needs a phone number assigned in Microsoft Teams</li>
                 <li><strong className="text-zinc-100">Display Name</strong>: User's full name as it appears in your organization</li>
                 <li><strong className="text-zinc-100">UPN (Email)</strong>: User's Microsoft 365 email address (required)</li>
-                <li><strong className="text-zinc-100">Phone Number</strong>: Must be in E.164 format: +[country code][number] (e.g., +12125551234)</li>
+                <li><strong className="text-zinc-100">Phone Number</strong>: Must be in E.164 format starting with <strong className="text-primary-400 font-mono">{data?.migration?.country_code || '+1'}</strong> (e.g., {data?.migration?.country_code || '+1'}2125551234)</li>
                 <li><strong className="text-zinc-100">Department</strong>: Optional, helps with organization</li>
               </ul>
               <div className="mt-3 pt-3 border-t border-primary-500/30">
@@ -318,11 +344,14 @@ export default function CustomerCollect() {
                     <td className="py-2 px-2">
                       <input
                         type="tel"
-                        className="input text-sm font-mono"
-                        placeholder="+12125551234"
+                        className={`input text-sm font-mono ${phoneErrors[index] ? 'border-red-500 focus:border-red-500' : ''}`}
+                        placeholder={data?.migration?.country_code ? `${data.migration.country_code}1234567890` : '+12125551234'}
                         value={user.phone_number}
                         onChange={(e) => updateRow(index, 'phone_number', e.target.value)}
                       />
+                      {phoneErrors[index] && (
+                        <p className="text-red-400 text-xs mt-1">{phoneErrors[index]}</p>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <input
@@ -349,12 +378,17 @@ export default function CustomerCollect() {
           </div>
 
           <div className="mt-6 flex items-center justify-between pt-4 border-t border-surface-600">
-            <p className="text-sm text-zinc-400">
-              {validRows} valid row(s) ready to submit
-            </p>
+            <div>
+              <p className="text-sm text-zinc-400">
+                {validRows} valid row(s) ready to submit
+              </p>
+              {hasPhoneErrors && (
+                <p className="text-sm text-red-400">Please fix phone number errors before submitting</p>
+              )}
+            </div>
             <button
               onClick={() => submitMutation.mutate()}
-              disabled={validRows === 0 || submitMutation.isPending}
+              disabled={validRows === 0 || submitMutation.isPending || hasPhoneErrors}
               className="btn btn-primary"
             >
               {submitMutation.isPending ? 'Submitting...' : 'Submit Users'}

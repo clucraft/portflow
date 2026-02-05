@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Trash2, FileCode, Check, X, Link2, Copy, ExternalLink, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, FileCode, Check, X, Link2, Copy, ExternalLink, ChevronDown, AlertCircle } from 'lucide-react'
 import { usersApi, migrationsApi, scriptsApi } from '../services/api'
+import { validatePhoneNumber } from '../utils/phoneValidation'
 
 export default function Users() {
   const { id: migrationId } = useParams<{ id: string }>()
@@ -18,6 +19,7 @@ export default function Users() {
     phone_number: '',
     department: '',
   })
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -281,11 +283,29 @@ export default function Users() {
               <label className="label">Phone Number</label>
               <input
                 type="tel"
-                className="input font-mono"
+                className={`input font-mono ${phoneError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 value={newUser.phone_number}
-                onChange={(e) => setNewUser({ ...newUser, phone_number: e.target.value })}
-                placeholder="+12125551234"
+                onChange={(e) => {
+                  const value = e.target.value
+                  setNewUser({ ...newUser, phone_number: value })
+                  if (migration?.country_code && value) {
+                    const validation = validatePhoneNumber(value, migration.country_code)
+                    setPhoneError(validation.error || null)
+                  } else {
+                    setPhoneError(null)
+                  }
+                }}
+                placeholder={migration?.country_code ? `${migration.country_code}1234567890` : '+12125551234'}
               />
+              {phoneError && (
+                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {phoneError}
+                </p>
+              )}
+              {migration?.country_code && !phoneError && (
+                <p className="text-zinc-500 text-xs mt-1">Must start with {migration.country_code}</p>
+              )}
             </div>
             <div>
               <label className="label">Department</label>
@@ -301,7 +321,7 @@ export default function Users() {
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => addUserMutation.mutate()}
-              disabled={!newUser.display_name || !newUser.upn || addUserMutation.isPending}
+              disabled={!newUser.display_name || !newUser.upn || addUserMutation.isPending || !!phoneError}
               className="btn btn-primary"
             >
               {addUserMutation.isPending ? 'Adding...' : 'Add User'}

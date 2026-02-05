@@ -74,6 +74,7 @@ export interface Migration {
   workflow_stage: WorkflowStage;
   target_carrier: TargetCarrier;
   routing_type: RoutingType;
+  country_code: string;  // E.164 country code for phone number validation (e.g., '+1')
 
   // Site info
   site_name: string;

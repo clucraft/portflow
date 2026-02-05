@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { migrationsApi } from '../services/api'
+import { COUNTRY_CODES } from '../utils/phoneValidation'
 
 export default function NewMigration() {
   const navigate = useNavigate()
@@ -29,6 +30,7 @@ export default function NewMigration() {
     // Config
     target_carrier: 'verizon',
     routing_type: 'direct_routing',
+    country_code: '+1',
   })
 
   const createMutation = useMutation({
@@ -311,6 +313,24 @@ export default function NewMigration() {
               </p>
             </div>
 
+            <div>
+              <label className="label">Phone Number Country Code</label>
+              <select
+                className="input"
+                value={formData.country_code}
+                onChange={(e) => updateField('country_code', e.target.value)}
+              >
+                {COUNTRY_CODES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.code} - {country.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">
+                All phone numbers in this migration must use this country code (E.164 format)
+              </p>
+            </div>
+
             {/* Summary */}
             <div className="mt-6 p-4 bg-primary-500/10 rounded-lg border border-primary-500/30">
               <h3 className="font-medium text-primary-400 mb-3">Summary</h3>
@@ -334,6 +354,10 @@ export default function NewMigration() {
                 <div className="flex justify-between">
                   <dt className="text-zinc-500">Porting Numbers:</dt>
                   <dd className="text-zinc-200">{formData.is_porting_numbers ? 'Yes' : 'No'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Country Code:</dt>
+                  <dd className="text-zinc-200 font-mono">{formData.country_code}</dd>
                 </div>
               </dl>
             </div>

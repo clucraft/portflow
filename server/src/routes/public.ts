@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, EndUser } from '../types/index.js';
+import { validatePhoneNumber } from '../utils/phoneValidation.js';
 
 const router = Router();
 
@@ -105,7 +106,7 @@ router.get('/collect/:token', async (req: Request, res: Response, next: NextFunc
     const { token } = req.params;
 
     const migrations = await query<Migration>(
-      `SELECT id, name, site_name, routing_type, magic_link_expires_at
+      `SELECT id, name, site_name, routing_type, country_code, magic_link_expires_at
        FROM migrations
        WHERE magic_link_token = $1`,
       [token]
@@ -140,6 +141,7 @@ router.get('/collect/:token', async (req: Request, res: Response, next: NextFunc
         name: migration.name,
         site_name: migration.site_name,
         routing_type: migration.routing_type,
+        country_code: migration.country_code,
       },
       users,
     });
@@ -158,9 +160,9 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
       throw ApiError.badRequest('users array is required');
     }
 
-    // Validate token and get migration
+    // Validate token and get migration (including country_code)
     const migrations = await query<Migration>(
-      `SELECT id, magic_link_expires_at FROM migrations WHERE magic_link_token = $1`,
+      `SELECT id, country_code, magic_link_expires_at FROM migrations WHERE magic_link_token = $1`,
       [token]
     );
 
@@ -186,8 +188,16 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
         continue;
       }
 
-      // Validate phone number format if provided
-      if (user.phone_number && !/^\+[1-9]\d{1,14}$/.test(user.phone_number)) {
+      // Validate phone number against migration's country code
+      if (user.phone_number && migration.country_code) {
+        const validation = validatePhoneNumber(user.phone_number, migration.country_code);
+        if (!validation.isValid) {
+          results.failed++;
+          results.errors.push({ row: i + 1, error: validation.error || 'Invalid phone number format' });
+          continue;
+        }
+      } else if (user.phone_number && !/^\+[1-9]\d{1,14}$/.test(user.phone_number)) {
+        // Fallback validation if no country code set
         results.failed++;
         results.errors.push({ row: i + 1, error: 'Phone number must be in E.164 format (e.g., +12125551234)' });
         continue;

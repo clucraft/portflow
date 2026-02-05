@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
-import { EndUser } from '../types/index.js';
+import { EndUser, Migration } from '../types/index.js';
+import { validatePhoneNumber } from '../utils/phoneValidation.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -60,6 +61,20 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       throw ApiError.badRequest('migration_id, display_name, and upn are required');
     }
 
+    // Validate phone number if provided
+    if (phone_number) {
+      const migrations = await query<Migration>(
+        'SELECT country_code FROM migrations WHERE id = $1',
+        [migration_id]
+      );
+      if (migrations.length > 0 && migrations[0].country_code) {
+        const validation = validatePhoneNumber(phone_number, migrations[0].country_code);
+        if (!validation.isValid) {
+          throw ApiError.badRequest(validation.error || 'Invalid phone number format');
+        }
+      }
+    }
+
     const users = await query<EndUser>(
       `INSERT INTO end_users (
         migration_id, display_name, upn, phone_number, department, job_title, notes
@@ -82,11 +97,26 @@ export const importBulk = async (req: Request, res: Response, next: NextFunction
       throw ApiError.badRequest('migration_id and users array are required');
     }
 
+    // Get migration's country code for validation
+    const migrations = await query<Migration>(
+      'SELECT country_code FROM migrations WHERE id = $1',
+      [migration_id]
+    );
+    const countryCode = migrations.length > 0 ? migrations[0].country_code : null;
+
     const results = { success: 0, failed: 0, errors: [] as { row: number; error: string }[] };
 
     for (let i = 0; i < users.length; i++) {
       const user = users[i];
       try {
+        // Validate phone number if provided
+        if (user.phone_number && countryCode) {
+          const validation = validatePhoneNumber(user.phone_number, countryCode);
+          if (!validation.isValid) {
+            throw new Error(validation.error || 'Invalid phone number format');
+          }
+        }
+
         await query(
           `INSERT INTO end_users (migration_id, display_name, upn, phone_number, department)
            VALUES ($1, $2, $3, $4, $5)
