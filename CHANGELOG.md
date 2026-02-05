@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-02-04
+
+### Added
+- Search bar on Dashboard to filter by site name or project name
+- Search bar on Scripts page to filter by script name or type
+- Parallel workflow: Phase 3 (Porting) and Phase 4 (Teams Config) now run simultaneously
+- Phase 2 completion summary shows submitted date, email, completed date, and site ID
+- Customer name from estimate acceptance now displays in Phase 1 summary
+
+### Changed
+- Phase 2 label dynamically shows selected carrier (Verizon/FusionConnect/GTT Setup)
+- All carrier-specific field labels and buttons now use dynamic carrier name
+- README redesigned with terminal-style ASCII art matching app aesthetic
+- "Mark Migration Complete" button disabled until porting completes
+
+### Fixed
+- Estimate acceptance page showing blank (PostgreSQL returns numbers as strings)
+- Phase progression not advancing after completing Phase 1 or Phase 2
+- Phase 3 and 4 status now correctly reflects parallel workflow
+- Scripts page was using light theme classes instead of dark theme
+
 ## [0.4.0] - 2025-02-04
 
 ### Added
@@ -114,7 +135,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/clucraft/portflow/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/clucraft/portflow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/clucraft/portflow/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/clucraft/portflow/compare/v0.1.0...v0.2.0
