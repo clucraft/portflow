@@ -1,20 +1,34 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Trash2, FileCode, Check, X, Link2, Copy, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, FileCode, Check, X, Link2, Copy, ExternalLink, ChevronDown } from 'lucide-react'
 import { usersApi, migrationsApi, scriptsApi } from '../services/api'
 
 export default function Users() {
   const { id: migrationId } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showAddForm, setShowAddForm] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [scriptDropdownOpen, setScriptDropdownOpen] = useState(false)
+  const scriptDropdownRef = useRef<HTMLDivElement>(null)
   const [newUser, setNewUser] = useState({
     display_name: '',
     upn: '',
     phone_number: '',
     department: '',
   })
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (scriptDropdownRef.current && !scriptDropdownRef.current.contains(event.target as Node)) {
+        setScriptDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const { data: migration } = useQuery({
     queryKey: ['migration', migrationId],
@@ -47,10 +61,21 @@ export default function Users() {
     },
   })
 
-  const generateScriptMutation = useMutation({
+  const generateTeamsScriptMutation = useMutation({
     mutationFn: () => scriptsApi.generateUserAssignments(migrationId!),
     onSuccess: () => {
-      alert('Script generated! View it in the Scripts section.')
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setScriptDropdownOpen(false)
+      navigate('/scripts')
+    },
+  })
+
+  const generateAdScriptMutation = useMutation({
+    mutationFn: () => scriptsApi.generateAdPhoneNumbers(migrationId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setScriptDropdownOpen(false)
+      navigate('/scripts')
     },
   })
 
@@ -88,14 +113,49 @@ export default function Users() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => generateScriptMutation.mutate()}
-            disabled={usersWithPhones === 0 || generateScriptMutation.isPending}
-            className="btn btn-secondary flex items-center gap-2"
-          >
-            <FileCode className="h-5 w-5" />
-            Generate Script
-          </button>
+          {/* Script Generation Dropdown */}
+          <div className="relative" ref={scriptDropdownRef}>
+            <button
+              onClick={() => setScriptDropdownOpen(!scriptDropdownOpen)}
+              disabled={usersWithPhones === 0 || generateTeamsScriptMutation.isPending || generateAdScriptMutation.isPending}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <FileCode className="h-5 w-5" />
+              Generate Script
+              <ChevronDown className={`h-4 w-4 transition-transform ${scriptDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {scriptDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50">
+                <div className="p-2">
+                  <button
+                    onClick={() => generateTeamsScriptMutation.mutate()}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors"
+                    disabled={generateTeamsScriptMutation.isPending}
+                  >
+                    <div className="font-medium text-zinc-200">Teams User Assignment</div>
+                    <div className="text-xs text-zinc-500">Assign phone numbers in Microsoft Teams</div>
+                  </button>
+                  <button
+                    onClick={() => generateAdScriptMutation.mutate()}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors mt-1"
+                    disabled={generateAdScriptMutation.isPending}
+                  >
+                    <div className="font-medium text-zinc-200">Active Directory</div>
+                    <div className="text-xs text-zinc-500">Update phone numbers in AD user accounts</div>
+                  </button>
+                </div>
+                <div className="border-t border-surface-600 p-2">
+                  <Link
+                    to="/scripts"
+                    className="block w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors text-sm text-zinc-400"
+                    onClick={() => setScriptDropdownOpen(false)}
+                  >
+                    View All Scripts
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setShowAddForm(true)}
             className="btn btn-primary flex items-center gap-2"
