@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap } from 'lucide-react'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search } from 'lucide-react'
 import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 
 const stageColors: Record<string, string> = {
@@ -41,13 +42,22 @@ function getStageNumber(stage: WorkflowStage): number {
 }
 
 export default function Dashboard() {
+  const [searchQuery, setSearchQuery] = useState('')
+
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
     queryFn: migrationsApi.dashboard,
   })
 
+  // Filter by search query (site name or project name)
+  const filterBySearch = (m: { name: string; site_name: string }) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return m.name.toLowerCase().includes(query) || m.site_name.toLowerCase().includes(query)
+  }
+
   const activeMigrations = migrations?.filter((m) =>
-    !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage)
+    !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage) && filterBySearch(m)
   ) || []
 
   const completedCount = migrations?.filter((m) => m.workflow_stage === 'completed').length || 0
@@ -66,15 +76,27 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">EV Migrations Dashboard</h1>
           <p className="text-zinc-500">Track enterprise voice migration projects</p>
         </div>
-        <Link to="/new" className="btn btn-primary flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          New Migration
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search sites or projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input pl-9 w-64"
+            />
+          </div>
+          <Link to="/new" className="btn btn-primary flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            New Migration
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -230,7 +252,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-zinc-100 mb-4">Recently Completed</h2>
           <div className="space-y-2">
             {migrations
-              ?.filter(m => m.workflow_stage === 'completed')
+              ?.filter(m => m.workflow_stage === 'completed' && filterBySearch(m))
               .slice(0, 5)
               .map(m => (
                 <Link
