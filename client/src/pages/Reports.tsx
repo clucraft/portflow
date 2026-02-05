@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Download, Calendar, Users, CheckCircle, Clock, TrendingUp } from 'lucide-react'
-import { migrationsApi, type Migration } from '../services/api'
+import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp } from 'lucide-react'
+import { migrationsApi } from '../services/api'
 
 // Format carrier name for display
 function formatCarrierName(carrier: string): string {
