@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
-  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, ChevronRight
+  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink
 } from 'lucide-react'
 import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 
@@ -128,7 +128,6 @@ export default function MigrationDetail() {
     return <div className="text-center py-12 text-zinc-500">Migration not found</div>
   }
 
-  const currentPhase = getPhaseForStage(migration.workflow_stage)
   const progress = getOverallProgress(migration.workflow_stage)
 
   return (
