@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
-  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink
+  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2
 } from 'lucide-react'
 import { migrationsApi, type WorkflowStage } from '../services/api'
 
@@ -96,6 +96,7 @@ function getOverallProgress(stage: WorkflowStage): number {
 
 export default function MigrationDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [copiedEstimate, setCopiedEstimate] = useState(false)
 
@@ -165,6 +166,20 @@ export default function MigrationDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration', id] }),
   })
 
+  const deleteMigrationMutation = useMutation({
+    mutationFn: () => migrationsApi.delete(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['migrations'] })
+      navigate('/')
+    },
+  })
+
+  const handleDelete = () => {
+    if (confirm(`Are you sure you want to delete "${migration?.name}"? This action cannot be undone.`)) {
+      deleteMigrationMutation.mutate()
+    }
+  }
+
   const copyEstimateLink = async () => {
     if (migration?.estimate_link_token) {
       await navigator.clipboard.writeText(`${window.location.origin}/estimate/${migration.estimate_link_token}`)
@@ -212,6 +227,14 @@ export default function MigrationDetail() {
             <FileCode className="h-4 w-4" />
             Scripts
           </Link>
+          <button
+            onClick={handleDelete}
+            className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+            title="Delete migration"
+            disabled={deleteMigrationMutation.isPending}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
