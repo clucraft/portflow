@@ -264,7 +264,14 @@ export default function Dashboard() {
                     <span className="font-medium text-zinc-200">{m.name}</span>
                     <span className="text-zinc-500 text-sm ml-2">{m.site_name}</span>
                   </div>
-                  <CheckCircle className="h-5 w-5 text-green-400" />
+                  <div className="flex items-center gap-3">
+                    {m.completed_at && (
+                      <span className="text-zinc-500 text-sm">
+                        {new Date(m.completed_at).toLocaleDateString()}
+                      </span>
+                    )}
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  </div>
                 </Link>
               ))}
           </div>

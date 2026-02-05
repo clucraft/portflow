@@ -121,6 +121,7 @@ export interface Migration {
   notes: string | null
   created_at: string
   updated_at: string
+  completed_at: string | null
 }
 
 export interface EndUser {
