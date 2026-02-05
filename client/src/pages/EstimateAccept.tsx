@@ -4,6 +4,12 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { Phone, Zap, DollarSign, Users, Check, AlertCircle } from 'lucide-react'
 import { publicApi } from '../services/api'
 
+// Helper to safely format currency (handles string/number/null)
+const formatCurrency = (value: unknown): string => {
+  const num = Number(value)
+  return isNaN(num) ? '0.00' : num.toFixed(2)
+}
+
 export default function EstimateAccept() {
   const { token } = useParams<{ token: string }>()
   const [acceptedBy, setAcceptedBy] = useState('')
@@ -156,19 +162,19 @@ export default function EstimateAccept() {
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">User Service Charge (Monthly)</span>
               <span className="text-zinc-200 font-mono">
-                ${migration.estimate_user_service_charge?.toFixed(2) || '0.00'}
+                ${formatCurrency(migration.estimate_user_service_charge)}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">Usage Charge (Monthly)</span>
               <span className="text-zinc-200 font-mono">
-                ${migration.estimate_usage_charge?.toFixed(2) || '0.00'}
+                ${formatCurrency(migration.estimate_usage_charge)}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">Equipment Charge (One-time)</span>
               <span className="text-zinc-200 font-mono">
-                ${migration.estimate_equipment_charge?.toFixed(2) || '0.00'}
+                ${formatCurrency(migration.estimate_equipment_charge)}
               </span>
             </div>
 
@@ -177,13 +183,13 @@ export default function EstimateAccept() {
               <div className="flex justify-between text-lg">
                 <span className="text-zinc-300 font-medium">Monthly Total</span>
                 <span className="text-primary-400 font-bold font-mono">
-                  ${migration.estimate_total_monthly?.toFixed(2) || '0.00'}
+                  ${formatCurrency(migration.estimate_total_monthly)}
                 </span>
               </div>
               <div className="flex justify-between text-lg">
                 <span className="text-zinc-300 font-medium">One-time Total</span>
                 <span className="text-primary-400 font-bold font-mono">
-                  ${migration.estimate_total_onetime?.toFixed(2) || '0.00'}
+                  ${formatCurrency(migration.estimate_total_onetime)}
                 </span>
               </div>
             </div>
