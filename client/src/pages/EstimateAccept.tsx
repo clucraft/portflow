@@ -35,13 +35,20 @@ export default function EstimateAccept() {
   }
 
   if (error) {
+    const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      || (error as Error)?.message
+      || 'Unknown error'
+
     return (
-      <div className="min-h-screen bg-surface-900 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
         <div className="card max-w-md text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-zinc-100 mb-2">Link Invalid or Expired</h1>
-          <p className="text-zinc-400">
+          <p className="text-zinc-400 mb-4">
             This estimate link is no longer valid. Please contact your administrator for a new link.
+          </p>
+          <p className="text-xs text-zinc-600 font-mono bg-surface-800 p-2 rounded">
+            {errorMessage}
           </p>
         </div>
       </div>
@@ -51,7 +58,17 @@ export default function EstimateAccept() {
   const migration = data?.migration
 
   if (!migration) {
-    return null
+    return (
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center">
+        <div className="card max-w-md text-center">
+          <AlertCircle className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-zinc-100 mb-2">Estimate Not Found</h1>
+          <p className="text-zinc-400">
+            Unable to load estimate data. The link may be invalid or the estimate hasn't been created yet.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   const alreadyAccepted = !!migration.estimate_accepted_at
