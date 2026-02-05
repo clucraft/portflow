@@ -8,14 +8,19 @@ import {
 import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 
 // Phase definitions with their stages
-// Transition stages (estimate_accepted, verizon_complete, porting_complete) belong to the NEXT phase
-// This way completing a phase marks it "done" and activates the next phase
+// Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
 const BASE_PHASES = [
   { id: 1, name: 'Cost Estimate', stages: ['estimate'] as WorkflowStage[], icon: DollarSign, color: 'primary' },
   { id: 2, name: 'Carrier Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'] as WorkflowStage[], icon: Building, color: 'red' },
-  { id: 3, name: 'Number Porting', stages: ['verizon_complete', 'porting_submitted', 'porting_scheduled'] as WorkflowStage[], icon: Phone, color: 'amber' },
-  { id: 4, name: 'Teams Config', stages: ['porting_complete', 'user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
+  { id: 3, name: 'Number Porting', stages: ['verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete'] as WorkflowStage[], icon: Phone, color: 'amber' },
+  { id: 4, name: 'Teams Config', stages: ['user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
 ]
+
+// Stages where porting is complete (Phase 3 done)
+const PORTING_COMPLETE_STAGES: WorkflowStage[] = ['porting_complete', 'user_config', 'completed']
+
+// Stages where Phase 3 & 4 can run in parallel
+const PARALLEL_PHASE_STAGES: WorkflowStage[] = ['verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete', 'user_config']
 
 // Format carrier name for display
 const formatCarrierName = (carrier: string): string => {
@@ -39,22 +44,65 @@ const formatCurrency = (value: unknown): string => {
 }
 
 function getPhaseForStage(stage: WorkflowStage): number {
-  for (const phase of BASE_PHASES) {
-    if (phase.stages.includes(stage)) return phase.id
-  }
-  return 1
+  // For parallel phases, return the "primary" track (porting)
+  if (stage === 'estimate') return 1
+  if (['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(stage)) return 2
+  if (['verizon_complete', 'porting_submitted', 'porting_scheduled'].includes(stage)) return 3
+  return 4
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
-  const currentPhase = getPhaseForStage(currentStage)
-  if (phaseId < currentPhase) return 'done'
-  if (phaseId === currentPhase) return 'active'
+  // Phase 1: done once we move past estimate
+  if (phaseId === 1) {
+    return currentStage === 'estimate' ? 'active' : 'done'
+  }
+
+  // Phase 2: done once carrier setup completes (verizon_complete or beyond)
+  if (phaseId === 2) {
+    if (currentStage === 'estimate') return 'pending'
+    if (['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(currentStage)) return 'active'
+    return 'done'
+  }
+
+  // Phase 3 (Porting): active once Phase 2 done, done once porting completes
+  if (phaseId === 3) {
+    if (['estimate', 'estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(currentStage)) return 'pending'
+    if (PORTING_COMPLETE_STAGES.includes(currentStage)) return 'done'
+    return 'active'
+  }
+
+  // Phase 4 (Teams Config): active in PARALLEL with Phase 3 after Phase 2 completes
+  if (phaseId === 4) {
+    if (['estimate', 'estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(currentStage)) return 'pending'
+    if (currentStage === 'completed') return 'done'
+    return 'active' // Active alongside Phase 3
+  }
+
   return 'pending'
 }
 
+// Check if porting is complete (for gating Phase 4 completion)
+function isPortingComplete(stage: WorkflowStage): boolean {
+  return PORTING_COMPLETE_STAGES.includes(stage)
+}
+
 function getOverallProgress(stage: WorkflowStage): number {
-  const stageIndex = WORKFLOW_STAGES.findIndex(s => s.stage === stage)
-  return Math.round(((stageIndex + 1) / WORKFLOW_STAGES.length) * 100)
+  // Progress based on both tracks:
+  // Phase 1 complete: 25%
+  // Phase 2 complete: 50%
+  // Phase 3 OR 4 progress adds up to remaining 50%
+
+  if (stage === 'estimate') return 10
+  if (stage === 'estimate_accepted') return 25
+  if (stage === 'verizon_submitted') return 35
+  if (stage === 'verizon_in_progress') return 45
+  if (stage === 'verizon_complete') return 55
+  if (stage === 'porting_submitted') return 65
+  if (stage === 'porting_scheduled') return 75
+  if (stage === 'porting_complete') return 85
+  if (stage === 'user_config') return 90
+  if (stage === 'completed') return 100
+  return 0
 }
 
 export default function MigrationDetail() {
@@ -521,8 +569,8 @@ export default function MigrationDetail() {
                         </div>
                       )}
 
-                      {/* Phase 4: User Config */}
-                      {phase.id === 4 && ['porting_complete', 'user_config'].includes(migration.workflow_stage) && (
+                      {/* Phase 4: User Config - runs in PARALLEL with Phase 3 */}
+                      {phase.id === 4 && ['verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete', 'user_config'].includes(migration.workflow_stage) && (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-400">
@@ -539,9 +587,18 @@ export default function MigrationDetail() {
                               </Link>
                             </div>
                           </div>
+
+                          {/* Show waiting message if porting not complete */}
+                          {!isPortingComplete(migration.workflow_stage) && (
+                            <p className="text-amber-400 text-sm">
+                              Waiting for number porting to complete before finalizing migration
+                            </p>
+                          )}
+
                           <button
                             onClick={() => updateStageMutation.mutate('completed')}
                             className="btn btn-primary"
+                            disabled={!isPortingComplete(migration.workflow_stage)}
                           >
                             Mark Migration Complete
                           </button>
