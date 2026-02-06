@@ -8,9 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Phase 4 subtask checklist (Auto Attendants & Call Queues, Holiday Sets, Physical Phone Deployment)
+- Task progress shown on Phase 4 header ("2/3 tasks" alongside user count)
+- JSONB `phase_tasks` column for flexible per-phase task definitions
 - Voice Routing Policy field for Direct Routing migrations (hidden for Operator Connect)
 - Voice routing policy included in Teams user assignment script (`Grant-CsOnlineVoiceRoutingPolicy`)
 - Searchable country code dropdown with full worldwide list (~200 countries)
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_phase_tasks.sql
+ALTER TABLE migrations ADD COLUMN IF NOT EXISTS phase_tasks JSONB DEFAULT '{}';
+-- Also recreates the migration_dashboard view to include phase_tasks
+```
 
 ## [0.6.0] - 2025-02-05
 

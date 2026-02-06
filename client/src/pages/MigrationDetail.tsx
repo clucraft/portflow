@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
-  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X
+  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
+  CheckSquare, Square
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, type WorkflowStage } from '../services/api'
+import { migrationsApi, scriptsApi, type WorkflowStage, type PhaseTask } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 
 // Phase definitions with their stages
@@ -39,6 +40,23 @@ const getPhases = (carrierName: string) => BASE_PHASES.map(phase =>
 const formatCurrency = (value: unknown): string => {
   const num = Number(value)
   return isNaN(num) ? '0.00' : num.toFixed(2)
+}
+
+// Default subtasks for Phase 4
+const DEFAULT_PHASE_TASKS: Record<string, PhaseTask[]> = {
+  phase_4: [
+    { key: 'aa_cq_config', label: 'Auto Attendants & Call Queues', done: false },
+    { key: 'holiday_sets', label: 'Holiday Sets', done: false },
+    { key: 'phone_deployment', label: 'Physical Phone Deployment', done: false },
+  ],
+}
+
+// Get tasks for a phase, falling back to defaults for migrations without phase_tasks
+function getPhaseTasks(migration: { phase_tasks: Record<string, PhaseTask[]> | null }, phaseId: string): PhaseTask[] {
+  if (migration.phase_tasks && migration.phase_tasks[phaseId]) {
+    return migration.phase_tasks[phaseId]
+  }
+  return DEFAULT_PHASE_TASKS[phaseId] || []
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
@@ -228,6 +246,12 @@ export default function MigrationDetail() {
       queryClient.invalidateQueries({ queryKey: ['migrations'] })
       setEditingDetails(false)
     },
+  })
+
+  const updatePhaseTasksMutation = useMutation({
+    mutationFn: (phase_tasks: Record<string, PhaseTask[]>) =>
+      migrationsApi.update(id!, { phase_tasks } as Partial<import('../services/api').Migration>),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration', id] }),
   })
 
   const openEditDetails = () => {
@@ -569,9 +593,17 @@ export default function MigrationDetail() {
                       {phase.id === 3 && isActive && migration.scheduled_port_date && (
                         <span>Port: {new Date(migration.scheduled_port_date).toLocaleDateString()}</span>
                       )}
-                      {phase.id === 4 && (
-                        <span>{migration.configured_users}/{migration.total_users} configured</span>
-                      )}
+                      {phase.id === 4 && (() => {
+                        const tasks = getPhaseTasks(migration, 'phase_4')
+                        const doneCount = tasks.filter(t => t.done).length
+                        return (
+                          <span>
+                            {migration.configured_users}/{migration.total_users} configured
+                            <span className="mx-2 text-zinc-600">&bull;</span>
+                            {doneCount}/{tasks.length} tasks
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -865,6 +897,45 @@ export default function MigrationDetail() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Phase 4 Subtask Checklist */}
+                          {(() => {
+                            const tasks = getPhaseTasks(migration, 'phase_4')
+                            const doneCount = tasks.filter(t => t.done).length
+                            return (
+                              <div className="border border-surface-600 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-sm font-medium text-zinc-300">Configuration Tasks</span>
+                                  <span className="text-xs text-zinc-500">{doneCount}/{tasks.length} tasks complete</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {tasks.map((task) => (
+                                    <button
+                                      key={task.key}
+                                      className="flex items-center gap-3 w-full text-left px-2 py-1.5 rounded hover:bg-surface-700 transition-colors group"
+                                      disabled={updatePhaseTasksMutation.isPending}
+                                      onClick={() => {
+                                        const updatedTasks = tasks.map(t =>
+                                          t.key === task.key ? { ...t, done: !t.done } : t
+                                        )
+                                        const allPhaseTasks = { ...(migration.phase_tasks || {}), phase_4: updatedTasks }
+                                        updatePhaseTasksMutation.mutate(allPhaseTasks)
+                                      }}
+                                    >
+                                      {task.done ? (
+                                        <CheckSquare className="h-4 w-4 text-green-400 flex-shrink-0" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-zinc-500 group-hover:text-zinc-400 flex-shrink-0" />
+                                      )}
+                                      <span className={task.done ? 'text-zinc-500 line-through' : 'text-zinc-300'}>
+                                        {task.label}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
 
                           {/* Show waiting message if porting not complete */}
                           {!isPortingComplete(migration.workflow_stage) && (

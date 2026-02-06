@@ -35,6 +35,12 @@ export const WORKFLOW_STAGES: { stage: WorkflowStage; label: string; description
   { stage: 'completed', label: 'Completed', description: 'Migration complete' },
 ]
 
+export interface PhaseTask {
+  key: string
+  label: string
+  done: boolean
+}
+
 export interface Migration {
   id: string
   name: string
@@ -110,6 +116,9 @@ export interface Migration {
   estimate_link_token: string | null
   estimate_link_expires_at: string | null
   estimate_accepted_by: string | null
+
+  // Phase subtask checklists
+  phase_tasks: Record<string, PhaseTask[]> | null
 
   // Counts
   total_numbers: number

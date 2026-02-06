@@ -55,6 +55,12 @@ export const WORKFLOW_STAGES: { stage: WorkflowStage; label: string; description
   { stage: 'completed', label: 'Completed', description: 'Migration complete' },
 ];
 
+export interface PhaseTask {
+  key: string;
+  label: string;
+  done: boolean;
+}
+
 // Entity interfaces
 
 export interface TeamMember {
@@ -152,6 +158,9 @@ export interface Migration {
 
   // Completion
   completed_at: Date | null;
+
+  // Phase subtask checklists
+  phase_tasks: Record<string, PhaseTask[]> | null;
 
   // Summary counts
   total_numbers: number;
