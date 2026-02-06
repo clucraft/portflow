@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
-  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown
+  DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, type WorkflowStage } from '../services/api'
+import { COUNTRY_CODES } from '../utils/phoneValidation'
 
 // Phase definitions with their stages
 // Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
@@ -100,6 +101,19 @@ export default function MigrationDetail() {
   const queryClient = useQueryClient()
   const [copiedEstimate, setCopiedEstimate] = useState(false)
   const [scriptDropdownOpen, setScriptDropdownOpen] = useState(false)
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [detailsForm, setDetailsForm] = useState({
+    name: '',
+    site_name: '',
+    site_address: '',
+    site_city: '',
+    site_state: '',
+    site_country: '',
+    site_timezone: '',
+    current_pbx_type: '',
+    current_carrier: '',
+    country_code: '+1',
+  })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -205,6 +219,33 @@ export default function MigrationDetail() {
     },
   })
 
+  const updateDetailsMutation = useMutation({
+    mutationFn: (data: typeof detailsForm) => migrationsApi.update(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['migration', id] })
+      queryClient.invalidateQueries({ queryKey: ['migrations'] })
+      setEditingDetails(false)
+    },
+  })
+
+  const openEditDetails = () => {
+    if (migration) {
+      setDetailsForm({
+        name: migration.name || '',
+        site_name: migration.site_name || '',
+        site_address: migration.site_address || '',
+        site_city: migration.site_city || '',
+        site_state: migration.site_state || '',
+        site_country: migration.site_country || '',
+        site_timezone: migration.site_timezone || '',
+        current_pbx_type: migration.current_pbx_type || '',
+        current_carrier: migration.current_carrier || '',
+        country_code: migration.country_code || '+1',
+      })
+      setEditingDetails(true)
+    }
+  }
+
   const handleDelete = () => {
     if (confirm(`Are you sure you want to delete "${migration?.name}"? This action cannot be undone.`)) {
       deleteMigrationMutation.mutate()
@@ -244,9 +285,19 @@ export default function MigrationDetail() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-zinc-100 truncate">{migration.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-zinc-100 truncate">{migration.name}</h1>
+            <button
+              onClick={openEditDetails}
+              className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-surface-700 rounded-lg transition-colors"
+              title="Edit project details"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
           <p className="text-zinc-500 text-sm">
             {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; <span className="capitalize">{migration.routing_type.replace('_', ' ')}</span>
+            {migration.country_code && <span> &bull; <span className="font-mono">{migration.country_code}</span></span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -268,6 +319,142 @@ export default function MigrationDetail() {
           </button>
         </div>
       </div>
+
+      {/* Edit Details Form */}
+      {editingDetails && (
+        <div className="card border-primary-500/30 bg-primary-500/5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-zinc-100">Edit Project Details</h3>
+            <button
+              onClick={() => setEditingDetails(false)}
+              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Project Name</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.name}
+                onChange={(e) => setDetailsForm({ ...detailsForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Site Name</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.site_name}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_name: e.target.value })}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="label">Address</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.site_address}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_address: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">City</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.site_city}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_city: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">State/Province</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.site_state}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_state: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Country</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.site_country}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_country: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Timezone</label>
+              <select
+                className="input"
+                value={detailsForm.site_timezone}
+                onChange={(e) => setDetailsForm({ ...detailsForm, site_timezone: e.target.value })}
+              >
+                {[
+                  'America/New_York', 'America/Chicago', 'America/Denver',
+                  'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage',
+                  'Pacific/Honolulu', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo',
+                ].map((tz) => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Current PBX Type</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.current_pbx_type}
+                onChange={(e) => setDetailsForm({ ...detailsForm, current_pbx_type: e.target.value })}
+                placeholder="e.g., Avaya, Cisco, Mitel"
+              />
+            </div>
+            <div>
+              <label className="label">Current Carrier</label>
+              <input
+                type="text"
+                className="input"
+                value={detailsForm.current_carrier}
+                onChange={(e) => setDetailsForm({ ...detailsForm, current_carrier: e.target.value })}
+                placeholder="e.g., AT&T, CenturyLink"
+              />
+            </div>
+            <div>
+              <label className="label">Phone Number Country Code</label>
+              <select
+                className="input"
+                value={detailsForm.country_code}
+                onChange={(e) => setDetailsForm({ ...detailsForm, country_code: e.target.value })}
+              >
+                {COUNTRY_CODES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.code} - {country.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4 pt-4 border-t border-surface-600">
+            <button
+              onClick={() => updateDetailsMutation.mutate(detailsForm)}
+              disabled={!detailsForm.name || !detailsForm.site_name || updateDetailsMutation.isPending}
+              className="btn btn-primary"
+            >
+              {updateDetailsMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button
+              onClick={() => setEditingDetails(false)}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Terminal-style Progress */}
       <div className="card font-mono text-sm">
