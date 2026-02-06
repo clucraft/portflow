@@ -6,7 +6,7 @@ import {
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, type WorkflowStage } from '../services/api'
-import { COUNTRY_CODES } from '../utils/phoneValidation'
+import CountryCodeSelect from '../components/CountryCodeSelect'
 
 // Phase definitions with their stages
 // Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
@@ -425,17 +425,10 @@ export default function MigrationDetail() {
             </div>
             <div>
               <label className="label">Phone Number Country Code</label>
-              <select
-                className="input"
+              <CountryCodeSelect
                 value={detailsForm.country_code}
-                onChange={(e) => setDetailsForm({ ...detailsForm, country_code: e.target.value })}
-              >
-                {COUNTRY_CODES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.code} - {country.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setDetailsForm({ ...detailsForm, country_code: val })}
+              />
             </div>
           </div>
           <div className="flex gap-2 mt-4 pt-4 border-t border-surface-600">

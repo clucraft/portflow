@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { migrationsApi } from '../services/api'
-import { COUNTRY_CODES } from '../utils/phoneValidation'
+import CountryCodeSelect from '../components/CountryCodeSelect'
 
 export default function NewMigration() {
   const navigate = useNavigate()
@@ -315,17 +315,10 @@ export default function NewMigration() {
 
             <div>
               <label className="label">Phone Number Country Code</label>
-              <select
-                className="input"
+              <CountryCodeSelect
                 value={formData.country_code}
-                onChange={(e) => updateField('country_code', e.target.value)}
-              >
-                {COUNTRY_CODES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.code} - {country.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => updateField('country_code', val)}
+              />
               <p className="text-xs text-zinc-500 mt-1">
                 All phone numbers in this migration must use this country code (E.164 format)
               </p>
