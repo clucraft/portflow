@@ -112,6 +112,8 @@ export default function MigrationDetail() {
     site_timezone: '',
     current_pbx_type: '',
     current_carrier: '',
+    routing_type: 'direct_routing',
+    voice_routing_policy: '',
     country_code: '+1',
   })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
@@ -240,6 +242,8 @@ export default function MigrationDetail() {
         site_timezone: migration.site_timezone || '',
         current_pbx_type: migration.current_pbx_type || '',
         current_carrier: migration.current_carrier || '',
+        routing_type: migration.routing_type || 'direct_routing',
+        voice_routing_policy: migration.voice_routing_policy || '',
         country_code: migration.country_code || '+1',
       })
       setEditingDetails(true)
@@ -423,6 +427,18 @@ export default function MigrationDetail() {
                 placeholder="e.g., AT&T, CenturyLink"
               />
             </div>
+            {detailsForm.routing_type === 'direct_routing' && (
+              <div>
+                <label className="label">Voice Routing Policy</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g., International"
+                  value={detailsForm.voice_routing_policy}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, voice_routing_policy: e.target.value })}
+                />
+              </div>
+            )}
             <div>
               <label className="label">Phone Number Country Code</label>
               <CountryCodeSelect

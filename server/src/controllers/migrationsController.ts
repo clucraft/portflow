@@ -79,6 +79,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       new_numbers_requested,
       target_carrier,
       routing_type,
+      voice_routing_policy,
     } = req.body;
 
     if (!name || !site_name || !telephone_users) {
@@ -90,8 +91,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         name, site_name, site_address, site_city, site_state, site_country, site_timezone,
         current_pbx_type, current_carrier, telephone_users, physical_phones_needed,
         monthly_calling_minutes, is_porting_numbers, new_numbers_requested,
-        target_carrier, routing_type, workflow_stage
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'estimate')
+        target_carrier, routing_type, voice_routing_policy, workflow_stage
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'estimate')
       RETURNING *`,
       [
         name, site_name, site_address, site_city, site_state,
@@ -100,6 +101,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         physical_phones_needed || 0, monthly_calling_minutes,
         is_porting_numbers ?? true, new_numbers_requested || 0,
         target_carrier || 'verizon', routing_type || 'direct_routing',
+        (routing_type || 'direct_routing') === 'direct_routing' ? (voice_routing_policy || null) : null,
       ]
     );
 
@@ -538,7 +540,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       'name', 'site_name', 'site_address', 'site_city', 'site_state', 'site_country',
       'site_timezone', 'current_pbx_type', 'current_carrier', 'telephone_users',
       'physical_phones_needed', 'monthly_calling_minutes', 'is_porting_numbers',
-      'new_numbers_requested', 'target_carrier', 'routing_type', 'notes',
+      'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'notes',
     ];
 
     const updates: string[] = [];

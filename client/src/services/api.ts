@@ -41,6 +41,7 @@ export interface Migration {
   workflow_stage: WorkflowStage
   target_carrier: string
   routing_type: string
+  voice_routing_policy: string | null  // Only for direct_routing
   country_code: string  // E.164 country code for phone number validation (e.g., '+1')
 
   // Site info

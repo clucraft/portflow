@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Voice Routing Policy field for Direct Routing migrations (hidden for Operator Connect)
+- Voice routing policy included in Teams user assignment script (`Grant-CsOnlineVoiceRoutingPolicy`)
+- Searchable country code dropdown with full worldwide list (~200 countries)
+
 ## [0.6.0] - 2025-02-05
 
 ### Added

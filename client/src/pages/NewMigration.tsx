@@ -30,6 +30,7 @@ export default function NewMigration() {
     // Config
     target_carrier: 'verizon',
     routing_type: 'direct_routing',
+    voice_routing_policy: '',
     country_code: '+1',
   })
 
@@ -301,7 +302,10 @@ export default function NewMigration() {
               <select
                 className="input"
                 value={formData.routing_type}
-                onChange={(e) => updateField('routing_type', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setFormData({ ...formData, routing_type: val, voice_routing_policy: val === 'operator_connect' ? '' : formData.voice_routing_policy })
+                }}
               >
                 <option value="direct_routing">Direct Routing</option>
                 <option value="operator_connect">Operator Connect</option>
@@ -312,6 +316,22 @@ export default function NewMigration() {
                   : 'Carrier-managed connection to Teams'}
               </p>
             </div>
+
+            {formData.routing_type === 'direct_routing' && (
+              <div>
+                <label className="label">Voice Routing Policy</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g., International"
+                  value={formData.voice_routing_policy}
+                  onChange={(e) => updateField('voice_routing_policy', e.target.value)}
+                />
+                <p className="text-xs text-zinc-500 mt-1">
+                  The Teams voice routing policy to assign to each user
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="label">Phone Number Country Code</label>
@@ -348,6 +368,12 @@ export default function NewMigration() {
                   <dt className="text-zinc-500">Porting Numbers:</dt>
                   <dd className="text-zinc-200">{formData.is_porting_numbers ? 'Yes' : 'No'}</dd>
                 </div>
+                {formData.routing_type === 'direct_routing' && formData.voice_routing_policy && (
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Voice Routing Policy:</dt>
+                    <dd className="text-zinc-200">{formData.voice_routing_policy}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-zinc-500">Country Code:</dt>
                   <dd className="text-zinc-200 font-mono">{formData.country_code}</dd>
