@@ -322,7 +322,7 @@ export default function MigrationDetail() {
 
       {/* Edit Details Form */}
       {editingDetails && (
-        <div className="card border-primary-500/30 bg-primary-500/5">
+        <div className="card border-primary-500/30 bg-primary-500/5 relative z-10">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium text-zinc-100">Edit Project Details</h3>
             <button
