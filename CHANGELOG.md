@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-02-05
+
+### Added
+- Reports page with live summary data and CSV export capabilities
+- Export All, Active, and Completed migrations to CSV
+- Active Directory phone number script generation
+- Script generation dropdown menu (Teams User Assignment vs AD Phone Numbers)
+- Script type badges with distinct colors and icons in Scripts page
+- Delete button for migrations (with confirmation prompt)
+- Delete and download buttons for scripts
+- E.164 phone number validation with country code enforcement
+- Country code selector in New Migration form (Step 3)
+- Phone validation on admin Users page, customer collect page, and server-side
+
+### Changed
+- "Generate Script" button replaced with dropdown for script type selection
+- Scripts page now shows clear script type labels (Teams User Assignment, AD Phone Numbers)
+- Dashboard status now shows dynamic carrier name instead of hardcoded "Verizon"
+- Completed migrations show completion date in dashboard list
+
+### Fixed
+- Copy to clipboard on Scripts page now works with fallback method
+- Scripts page using light theme classes instead of dark theme
+
+### Database Migration Required
+```sql
+ALTER TABLE migrations
+ADD COLUMN IF NOT EXISTS country_code VARCHAR(10) NOT NULL DEFAULT '+1';
+```
+
 ## [0.5.0] - 2025-02-04
 
 ### Added
@@ -135,7 +165,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/clucraft/portflow/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/clucraft/portflow/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/clucraft/portflow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/clucraft/portflow/compare/v0.2.0...v0.3.0
