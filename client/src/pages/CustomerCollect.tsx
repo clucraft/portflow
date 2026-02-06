@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { Phone, Plus, Trash2, CheckCircle, AlertCircle, HelpCircle, Upload, Download, Zap } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Phone, Plus, Trash2, CheckCircle, AlertCircle, HelpCircle, Upload, Download, Zap, Save } from 'lucide-react'
 import { publicApi } from '../services/api'
 import { validatePhoneNumber } from '../utils/phoneValidation'
 
@@ -19,6 +19,7 @@ Bob Wilson,bob.wilson@company.com,,Engineering`
 
 export default function CustomerCollect() {
   const { token } = useParams<{ token: string }>()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [users, setUsers] = useState<UserRow[]>([
     { display_name: '', upn: '', phone_number: '', department: '' },
@@ -27,6 +28,8 @@ export default function CustomerCollect() {
   const [submitted, setSubmitted] = useState(false)
   const [results, setResults] = useState<{ success: number; failed: number; errors: { row: number; error: string }[] } | null>(null)
   const [csvError, setCsvError] = useState<string | null>(null)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [draftSaved, setDraftSaved] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['collect', token],
@@ -35,13 +38,59 @@ export default function CustomerCollect() {
     retry: false,
   })
 
+  const isCollectionComplete = data?.migration?.user_data_collection_complete === true
+
+  // Populate form rows with existing magic-link users on initial load (draft mode only)
+  useEffect(() => {
+    if (!data || initialLoadDone || isCollectionComplete) return
+    const magicLinkUsers = data.users?.filter(u => u.entered_via_magic_link) || []
+    if (magicLinkUsers.length > 0) {
+      const rows: UserRow[] = magicLinkUsers.map(u => ({
+        display_name: u.display_name || '',
+        upn: u.upn || '',
+        phone_number: u.phone_number || '',
+        department: u.department || '',
+      }))
+      setUsers(rows)
+      // Validate phone numbers
+      if (data.migration?.country_code) {
+        const errors = rows.map(u => {
+          if (u.phone_number) {
+            const validation = validatePhoneNumber(u.phone_number, data.migration.country_code!)
+            return validation.error || null
+          }
+          return null
+        })
+        setPhoneErrors(errors)
+      } else {
+        setPhoneErrors(rows.map(() => null))
+      }
+    }
+    setInitialLoadDone(true)
+  }, [data, initialLoadDone, isCollectionComplete])
+
+  const saveDraftMutation = useMutation({
+    mutationFn: () => publicApi.submitUsers(token!, users.filter(u => u.display_name && u.upn), false),
+    onSuccess: () => {
+      setDraftSaved(true)
+      queryClient.invalidateQueries({ queryKey: ['collect', token] })
+    },
+  })
+
   const submitMutation = useMutation({
-    mutationFn: () => publicApi.submitUsers(token!, users.filter(u => u.display_name && u.upn)),
+    mutationFn: () => publicApi.submitUsers(token!, users.filter(u => u.display_name && u.upn), true),
     onSuccess: (data) => {
       setResults(data)
       setSubmitted(true)
     },
   })
+
+  // Auto-dismiss draft saved banner after 5s
+  useEffect(() => {
+    if (!draftSaved) return
+    const timer = setTimeout(() => setDraftSaved(false), 5000)
+    return () => clearTimeout(timer)
+  }, [draftSaved])
 
   const addRow = () => {
     setUsers([...users, { display_name: '', upn: '', phone_number: '', department: '' }])
@@ -153,6 +202,9 @@ export default function CustomerCollect() {
   const hasPhoneErrors = phoneErrors.some(e => e !== null)
   const validRows = users.filter(u => u.display_name && u.upn).length
 
+  // Separate admin-added users from magic-link users
+  const adminUsers = data?.users?.filter(u => !u.entered_via_magic_link) || []
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-900 flex items-center justify-center">
@@ -178,6 +230,7 @@ export default function CustomerCollect() {
     )
   }
 
+  // Success screen after final submit
   if (submitted && results) {
     return (
       <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
@@ -224,6 +277,14 @@ export default function CustomerCollect() {
           </p>
         </div>
 
+        {/* Draft saved banner */}
+        {draftSaved && (
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+            <p className="text-green-300">Draft saved! You can close this tab and come back later.</p>
+          </div>
+        )}
+
         {/* Instructions */}
         <div className="card mb-6 bg-primary-500/10 border-primary-500/30">
           <div className="flex gap-3">
@@ -243,6 +304,64 @@ export default function CustomerCollect() {
             </div>
           </div>
         </div>
+
+        {/* Admin-added users (always read-only) */}
+        {adminUsers.length > 0 && (
+          <div className="card mb-6">
+            <h3 className="font-medium text-zinc-100 mb-3">Admin-Added Users ({adminUsers.length})</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-surface-600">
+                    <th className="text-left py-2 text-zinc-500">Name</th>
+                    <th className="text-left py-2 text-zinc-500">UPN</th>
+                    <th className="text-left py-2 text-zinc-500">Phone</th>
+                    <th className="text-left py-2 text-zinc-500">Department</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminUsers.map((user) => (
+                    <tr key={user.id} className="border-b border-surface-700">
+                      <td className="py-2 text-zinc-200">{user.display_name}</td>
+                      <td className="py-2 text-zinc-400">{user.upn}</td>
+                      <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
+                      <td className="py-2 text-zinc-400">{user.department || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Submitted mode: show all users read-only, then form for adding more */}
+        {isCollectionComplete && (
+          <div className="card mb-6">
+            <h3 className="font-medium text-zinc-100 mb-3">Submitted Users ({(data.users?.filter(u => u.entered_via_magic_link) || []).length})</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-surface-600">
+                    <th className="text-left py-2 text-zinc-500">Name</th>
+                    <th className="text-left py-2 text-zinc-500">UPN</th>
+                    <th className="text-left py-2 text-zinc-500">Phone</th>
+                    <th className="text-left py-2 text-zinc-500">Department</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.users?.filter(u => u.entered_via_magic_link) || []).map((user) => (
+                    <tr key={user.id} className="border-b border-surface-700">
+                      <td className="py-2 text-zinc-200">{user.display_name}</td>
+                      <td className="py-2 text-zinc-400">{user.upn}</td>
+                      <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
+                      <td className="py-2 text-zinc-400">{user.department || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* CSV Upload Section */}
         <div className="card mb-6">
@@ -272,37 +391,12 @@ export default function CustomerCollect() {
           )}
         </div>
 
-        {/* Existing Users */}
-        {data.users && data.users.length > 0 && (
-          <div className="card mb-6">
-            <h3 className="font-medium text-zinc-100 mb-3">Previously Submitted Users ({data.users.length})</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-surface-600">
-                    <th className="text-left py-2 text-zinc-500">Name</th>
-                    <th className="text-left py-2 text-zinc-500">UPN</th>
-                    <th className="text-left py-2 text-zinc-500">Phone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.users.map((user) => (
-                    <tr key={user.id} className="border-b border-surface-700">
-                      <td className="py-2 text-zinc-200">{user.display_name}</td>
-                      <td className="py-2 text-zinc-400">{user.upn}</td>
-                      <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {/* Data Entry Form */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-zinc-100">Add Users</h3>
+            <h3 className="font-medium text-zinc-100">
+              {isCollectionComplete ? 'Add More Users' : 'Add Users'}
+            </h3>
             <button onClick={addRow} className="btn btn-secondary text-sm flex items-center gap-1">
               <Plus className="h-4 w-4" />
               Add Row
@@ -386,13 +480,26 @@ export default function CustomerCollect() {
                 <p className="text-sm text-red-400">Please fix phone number errors before submitting</p>
               )}
             </div>
-            <button
-              onClick={() => submitMutation.mutate()}
-              disabled={validRows === 0 || submitMutation.isPending || hasPhoneErrors}
-              className="btn btn-primary"
-            >
-              {submitMutation.isPending ? 'Submitting...' : 'Submit Users'}
-            </button>
+            <div className="flex gap-2">
+              {/* Save Draft button - only in draft mode (not yet submitted) */}
+              {!isCollectionComplete && (
+                <button
+                  onClick={() => saveDraftMutation.mutate()}
+                  disabled={saveDraftMutation.isPending || hasPhoneErrors}
+                  className="btn btn-secondary flex items-center gap-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+                >
+                  <Save className="h-4 w-4" />
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
+                </button>
+              )}
+              <button
+                onClick={() => submitMutation.mutate()}
+                disabled={validRows === 0 || submitMutation.isPending || hasPhoneErrors}
+                className="btn btn-primary"
+              >
+                {submitMutation.isPending ? 'Submitting...' : 'Submit Users'}
+              </button>
+            </div>
           </div>
         </div>
 

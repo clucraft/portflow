@@ -106,7 +106,7 @@ router.get('/collect/:token', async (req: Request, res: Response, next: NextFunc
     const { token } = req.params;
 
     const migrations = await query<Migration>(
-      `SELECT id, name, site_name, routing_type, country_code, magic_link_expires_at
+      `SELECT id, name, site_name, routing_type, country_code, magic_link_expires_at, user_data_collection_complete
        FROM migrations
        WHERE magic_link_token = $1`,
       [token]
@@ -131,7 +131,7 @@ router.get('/collect/:token', async (req: Request, res: Response, next: NextFunc
 
     // Get existing users for this migration
     const users = await query<EndUser>(
-      `SELECT id, display_name, upn, phone_number FROM end_users WHERE migration_id = $1 ORDER BY display_name`,
+      `SELECT id, display_name, upn, phone_number, entered_via_magic_link, department FROM end_users WHERE migration_id = $1 ORDER BY display_name`,
       [migration.id]
     );
 
@@ -142,6 +142,7 @@ router.get('/collect/:token', async (req: Request, res: Response, next: NextFunc
         site_name: migration.site_name,
         routing_type: migration.routing_type,
         country_code: migration.country_code,
+        user_data_collection_complete: migration.user_data_collection_complete,
       },
       users,
     });
@@ -155,14 +156,20 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
   try {
     const { token } = req.params;
     const { users } = req.body;
+    const submit = req.body.submit !== false; // default true for backward compat
 
-    if (!Array.isArray(users) || users.length === 0) {
+    if (!Array.isArray(users)) {
       throw ApiError.badRequest('users array is required');
     }
 
-    // Validate token and get migration (including country_code)
+    // Allow empty users array for draft saves, but require users for submit
+    if (submit && users.length === 0) {
+      throw ApiError.badRequest('users array is required');
+    }
+
+    // Validate token and get migration (including country_code and collection status)
     const migrations = await query<Migration>(
-      `SELECT id, country_code, magic_link_expires_at FROM migrations WHERE magic_link_token = $1`,
+      `SELECT id, country_code, magic_link_expires_at, user_data_collection_complete FROM migrations WHERE magic_link_token = $1`,
       [token]
     );
 
@@ -176,7 +183,7 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
       throw ApiError.badRequest('This link has expired');
     }
 
-    // Insert/update users
+    // Validate phone numbers first (for both draft and submit)
     const results = { success: 0, failed: 0, errors: [] as { row: number; error: string }[] };
 
     for (let i = 0; i < users.length; i++) {
@@ -197,11 +204,32 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
           continue;
         }
       } else if (user.phone_number && !/^\+[1-9]\d{1,14}$/.test(user.phone_number)) {
-        // Fallback validation if no country code set
         results.failed++;
         results.errors.push({ row: i + 1, error: 'Phone number must be in E.164 format (e.g., +12125551234)' });
         continue;
       }
+    }
+
+    // If there are validation errors, return early
+    if (results.failed > 0) {
+      res.json(results);
+      return;
+    }
+
+    const isAppendMode = submit && migration.user_data_collection_complete;
+
+    // Draft mode or Submit mode (collection not yet complete): delete all magic-link users first, then insert
+    // This handles removals cleanly -- admin-added users (entered_via_magic_link = false) are preserved
+    if (!isAppendMode) {
+      await query(
+        `DELETE FROM end_users WHERE migration_id = $1 AND entered_via_magic_link = true`,
+        [migration.id]
+      );
+    }
+
+    // Insert/upsert users
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
 
       try {
         await query(
@@ -220,8 +248,8 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
       }
     }
 
-    // Mark user data collection as complete if we have users
-    if (results.success > 0) {
+    // Mark user data collection as complete only on submit (not draft)
+    if (submit && results.success > 0) {
       await query(
         `UPDATE migrations SET user_data_collection_complete = true WHERE id = $1`,
         [migration.id]

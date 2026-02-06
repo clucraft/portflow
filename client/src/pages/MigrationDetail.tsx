@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square
+  CheckSquare, Square, AlertCircle, CheckCircle
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, type WorkflowStage, type PhaseTask } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
@@ -897,6 +897,20 @@ export default function MigrationDetail() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Data collection status indicator */}
+                          {!migration.user_data_collection_complete && migration.total_users > 0 && (
+                            <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                              <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                              <span className="text-sm text-amber-300">Draft in progress ({migration.total_users} users saved)</span>
+                            </div>
+                          )}
+                          {migration.user_data_collection_complete && (
+                            <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                              <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
+                              <span className="text-sm text-green-300">Data collection complete</span>
+                            </div>
+                          )}
 
                           {/* Phase 4 Subtask Checklist */}
                           {(() => {

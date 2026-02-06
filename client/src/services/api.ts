@@ -270,10 +270,10 @@ export const scriptsApi = {
 export const publicApi = {
   getCollectPage: (token: string) =>
     api.get<{ migration: Partial<Migration>; users: EndUser[] }>(`/public/collect/${token}`).then((r) => r.data),
-  submitUsers: (token: string, users: Partial<EndUser>[]) =>
+  submitUsers: (token: string, users: Partial<EndUser>[], submit: boolean = true) =>
     api.post<{ success: number; failed: number; errors: { row: number; error: string }[] }>(
       `/public/collect/${token}/users`,
-      { users }
+      { users, submit }
     ).then((r) => r.data),
   // Estimate acceptance
   getEstimate: (token: string) =>

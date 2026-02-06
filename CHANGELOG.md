@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Save Draft for customer data collection: customers can save progress and return later via the same magic link
+- Draft/complete status indicators on Migration Detail Phase 4 panel
+- Append mode: customers can add more users after initial submission
+- Admin-added users shown in separate read-only section on customer collect page
 - Phase 4 subtask checklist (Auto Attendants & Call Queues, Holiday Sets, Physical Phone Deployment)
 - Task progress shown on Phase 4 header ("2/3 tasks" alongside user count)
 - JSONB `phase_tasks` column for flexible per-phase task definitions
