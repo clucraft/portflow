@@ -9,20 +9,19 @@ interface UserRow {
   display_name: string
   upn: string
   phone_number: string
-  department: string
 }
 
-const CSV_TEMPLATE = `display_name,upn,phone_number,department
-John Smith,john.smith@company.com,+12125551234,Sales
-Jane Doe,jane.doe@company.com,+12125555678,Marketing
-Bob Wilson,bob.wilson@company.com,,Engineering`
+const CSV_TEMPLATE = `display_name,upn,phone_number
+John Smith,john.smith@company.com,+12125551234
+Jane Doe,jane.doe@company.com,+12125555678
+Bob Wilson,bob.wilson@company.com,`
 
 export default function CustomerCollect() {
   const { token } = useParams<{ token: string }>()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [users, setUsers] = useState<UserRow[]>([
-    { display_name: '', upn: '', phone_number: '', department: '' },
+    { display_name: '', upn: '', phone_number: '' },
   ])
   const [phoneErrors, setPhoneErrors] = useState<(string | null)[]>([null])
   const [submitted, setSubmitted] = useState(false)
@@ -49,7 +48,6 @@ export default function CustomerCollect() {
         display_name: u.display_name || '',
         upn: u.upn || '',
         phone_number: u.phone_number || '',
-        department: u.department || '',
       }))
       setUsers(rows)
       // Validate phone numbers
@@ -93,7 +91,7 @@ export default function CustomerCollect() {
   }, [draftSaved])
 
   const addRow = () => {
-    setUsers([...users, { display_name: '', upn: '', phone_number: '', department: '' }])
+    setUsers([...users, { display_name: '', upn: '', phone_number: '' }])
     setPhoneErrors([...phoneErrors, null])
   }
 
@@ -148,7 +146,6 @@ export default function CustomerCollect() {
         const nameIdx = header.findIndex(h => h === 'display_name' || h === 'name' || h === 'displayname')
         const upnIdx = header.findIndex(h => h === 'upn' || h === 'email' || h === 'userprincipalname')
         const phoneIdx = header.findIndex(h => h === 'phone_number' || h === 'phone' || h === 'phonenumber')
-        const deptIdx = header.findIndex(h => h === 'department' || h === 'dept')
 
         if (nameIdx === -1 || upnIdx === -1) {
           setCsvError('CSV must have "display_name" (or "name") and "upn" (or "email") columns')
@@ -163,7 +160,6 @@ export default function CustomerCollect() {
               display_name: values[nameIdx] || '',
               upn: values[upnIdx] || '',
               phone_number: phoneIdx !== -1 ? values[phoneIdx] || '' : '',
-              department: deptIdx !== -1 ? values[deptIdx] || '' : '',
             })
           }
         }
@@ -296,10 +292,9 @@ export default function CustomerCollect() {
                 <li><strong className="text-zinc-100">Display Name</strong>: User's full name as it appears in your organization</li>
                 <li><strong className="text-zinc-100">UPN (Email)</strong>: User's Microsoft 365 email address (required)</li>
                 <li><strong className="text-zinc-100">Phone Number</strong>: Must be in E.164 format starting with <strong className="text-primary-400 font-mono">{data?.migration?.country_code || '+1'}</strong> (e.g., {data?.migration?.country_code || '+1'}2125551234)</li>
-                <li><strong className="text-zinc-100">Department</strong>: Optional, helps with organization</li>
               </ul>
               <div className="mt-3 pt-3 border-t border-primary-500/30">
-                <p className="text-zinc-400 mb-2">You can also upload a CSV file with the columns: display_name, upn, phone_number, department</p>
+                <p className="text-zinc-400 mb-2">You can also upload a CSV file with the columns: display_name, upn, phone_number</p>
               </div>
             </div>
           </div>
@@ -316,7 +311,6 @@ export default function CustomerCollect() {
                     <th className="text-left py-2 text-zinc-500">Name</th>
                     <th className="text-left py-2 text-zinc-500">UPN</th>
                     <th className="text-left py-2 text-zinc-500">Phone</th>
-                    <th className="text-left py-2 text-zinc-500">Department</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,7 +319,6 @@ export default function CustomerCollect() {
                       <td className="py-2 text-zinc-200">{user.display_name}</td>
                       <td className="py-2 text-zinc-400">{user.upn}</td>
                       <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
-                      <td className="py-2 text-zinc-400">{user.department || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -345,7 +338,6 @@ export default function CustomerCollect() {
                     <th className="text-left py-2 text-zinc-500">Name</th>
                     <th className="text-left py-2 text-zinc-500">UPN</th>
                     <th className="text-left py-2 text-zinc-500">Phone</th>
-                    <th className="text-left py-2 text-zinc-500">Department</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,7 +346,6 @@ export default function CustomerCollect() {
                       <td className="py-2 text-zinc-200">{user.display_name}</td>
                       <td className="py-2 text-zinc-400">{user.upn}</td>
                       <td className="py-2 font-mono text-zinc-400">{user.phone_number || '-'}</td>
-                      <td className="py-2 text-zinc-400">{user.department || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -410,7 +401,6 @@ export default function CustomerCollect() {
                   <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Display Name *</th>
                   <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">UPN (Email) *</th>
                   <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Phone Number</th>
-                  <th className="text-left py-2 px-2 text-xs font-medium text-zinc-500 uppercase">Department</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -446,15 +436,6 @@ export default function CustomerCollect() {
                       {phoneErrors[index] && (
                         <p className="text-red-400 text-xs mt-1">{phoneErrors[index]}</p>
                       )}
-                    </td>
-                    <td className="py-2 px-2">
-                      <input
-                        type="text"
-                        className="input text-sm"
-                        placeholder="Sales"
-                        value={user.department}
-                        onChange={(e) => updateRow(index, 'department', e.target.value)}
-                      />
                     </td>
                     <td className="py-2 px-2">
                       <button
