@@ -17,7 +17,6 @@ export default function Users() {
     display_name: '',
     upn: '',
     phone_number: '',
-    department: '',
   })
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
@@ -51,7 +50,7 @@ export default function Users() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users', { migration_id: migrationId }] })
-      setNewUser({ display_name: '', upn: '', phone_number: '', department: '' })
+      setNewUser({ display_name: '', upn: '', phone_number: '' })
       setShowAddForm(false)
     },
   })
@@ -258,7 +257,7 @@ export default function Users() {
       {showAddForm && (
         <div className="card bg-primary-500/10 border-primary-500/30">
           <h3 className="font-medium text-zinc-100 mb-4">Add New User</h3>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">Display Name *</label>
               <input
@@ -307,16 +306,6 @@ export default function Users() {
                 <p className="text-zinc-500 text-xs mt-1">Must start with {migration.country_code}</p>
               )}
             </div>
-            <div>
-              <label className="label">Department</label>
-              <input
-                type="text"
-                className="input"
-                value={newUser.department}
-                onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                placeholder="Sales"
-              />
-            </div>
           </div>
           <div className="flex gap-2 mt-4">
             <button
@@ -351,7 +340,6 @@ export default function Users() {
               <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">Name</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">UPN</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">Phone Number</th>
-              <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">Department</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">Configured</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">Source</th>
               <th className="w-10"></th>
@@ -367,7 +355,6 @@ export default function Users() {
                     <span className="text-zinc-600">Not assigned</span>
                   )}
                 </td>
-                <td className="py-3 px-4 text-zinc-400">{user.department || '-'}</td>
                 <td className="py-3 px-4">
                   {user.is_configured ? (
                     <Check className="h-5 w-5 text-green-500" />
