@@ -81,6 +81,7 @@ export interface Migration {
   target_carrier: TargetCarrier;
   routing_type: RoutingType;
   voice_routing_policy: string | null;  // Only for direct_routing
+  dial_plan: string | null;
   country_code: string;  // E.164 country code for phone number validation (e.g., '+1')
 
   // Site info

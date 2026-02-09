@@ -123,13 +123,17 @@ $errors = @()
     const voiceRoutingPolicyParam = migration.routing_type === 'direct_routing' && migration.voice_routing_policy
       ? `\n    Grant-CsOnlineVoiceRoutingPolicy -Identity "${'{upn}'}" -PolicyName "${migration.voice_routing_policy}"`
       : '';
+    const dialPlanParam = migration.dial_plan
+      ? `\n    Grant-CsTenantDialPlan -Identity "${'{upn}'}" -PolicyName "${migration.dial_plan}"`
+      : '';
 
     for (const user of usersWithNumbers) {
       const userVrpLine = voiceRoutingPolicyParam.replace('{upn}', user.upn);
+      const userDialPlanLine = dialPlanParam.replace('{upn}', user.upn);
       script += `# ${user.display_name}${user.department ? ` (${user.department})` : ''}
 try {
     Write-Host "Assigning ${user.phone_number} to ${user.upn}..." -NoNewline
-    Set-CsPhoneNumberAssignment -Identity "${user.upn}" -PhoneNumber "${user.phone_number}" -PhoneNumberType ${phoneNumberType}${userVrpLine}
+    Set-CsPhoneNumberAssignment -Identity "${user.upn}" -PhoneNumber "${user.phone_number}" -PhoneNumberType ${phoneNumberType}${userVrpLine}${userDialPlanLine}
     Write-Host " SUCCESS" -ForegroundColor Green
     $successCount++
 } catch {

@@ -31,6 +31,7 @@ export default function NewMigration() {
     target_carrier: 'verizon',
     routing_type: 'direct_routing',
     voice_routing_policy: '',
+    dial_plan: '',
     country_code: '+1',
   })
 
@@ -334,6 +335,20 @@ export default function NewMigration() {
             )}
 
             <div>
+              <label className="label">Tenant Dial Plan</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g., US-DialPlan"
+                value={formData.dial_plan}
+                onChange={(e) => updateField('dial_plan', e.target.value)}
+              />
+              <p className="text-xs text-zinc-500 mt-1">
+                The Teams tenant dial plan to assign to each user
+              </p>
+            </div>
+
+            <div>
               <label className="label">Phone Number Country Code</label>
               <CountryCodeSelect
                 value={formData.country_code}
@@ -372,6 +387,12 @@ export default function NewMigration() {
                   <div className="flex justify-between">
                     <dt className="text-zinc-500">Voice Routing Policy:</dt>
                     <dd className="text-zinc-200">{formData.voice_routing_policy}</dd>
+                  </div>
+                )}
+                {formData.dial_plan && (
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Dial Plan:</dt>
+                    <dd className="text-zinc-200">{formData.dial_plan}</dd>
                   </div>
                 )}
                 <div className="flex justify-between">

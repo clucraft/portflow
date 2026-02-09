@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Tenant Dial Plan field for migrations (`Grant-CsTenantDialPlan`), applies to both Direct Routing and Operator Connect
 - Save Draft for customer data collection: customers can save progress and return later via the same magic link
 - Draft/complete status indicators on Migration Detail Phase 4 panel
 - Append mode: customers can add more users after initial submission

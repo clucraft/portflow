@@ -132,6 +132,7 @@ export default function MigrationDetail() {
     current_carrier: '',
     routing_type: 'direct_routing',
     voice_routing_policy: '',
+    dial_plan: '',
     country_code: '+1',
   })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
@@ -268,6 +269,7 @@ export default function MigrationDetail() {
         current_carrier: migration.current_carrier || '',
         routing_type: migration.routing_type || 'direct_routing',
         voice_routing_policy: migration.voice_routing_policy || '',
+        dial_plan: migration.dial_plan || '',
         country_code: migration.country_code || '+1',
       })
       setEditingDetails(true)
@@ -463,6 +465,16 @@ export default function MigrationDetail() {
                 />
               </div>
             )}
+            <div>
+              <label className="label">Tenant Dial Plan</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g., US-DialPlan"
+                value={detailsForm.dial_plan}
+                onChange={(e) => setDetailsForm({ ...detailsForm, dial_plan: e.target.value })}
+              />
+            </div>
             <div>
               <label className="label">Phone Number Country Code</label>
               <CountryCodeSelect
