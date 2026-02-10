@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Voice Routing Policy field for Direct Routing migrations (hidden for Operator Connect)
 - Voice routing policy included in Teams user assignment script (`Grant-CsOnlineVoiceRoutingPolicy`)
 - Searchable country code dropdown with full worldwide list (~200 countries)
+- **Editable completed phases** (admin only) — pencil icon on completed phase headers expands inline edit forms
+- Inline edit form for Phase 1 (estimate charges and notes), Phase 2 (email sent to, site ID), Phase 3 (FOC date, scheduled/actual port dates)
+- **Revert Phase** button (admin only) — moves workflow stage backward with confirmation dialog
 
 ### Database Migration Required
 ```sql
