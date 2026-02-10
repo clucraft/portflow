@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileCode, Copy, Check, Search, Download, Trash2, Users, Building2 } from 'lucide-react'
 import { scriptsApi } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 // Script type display configuration
 const SCRIPT_TYPE_CONFIG: Record<string, { label: string; badge: string; icon: typeof FileCode }> = {
@@ -18,6 +19,7 @@ function getScriptTypeConfig(type: string) {
 }
 
 export default function Scripts() {
+  const { canWrite } = useAuth()
   const queryClient = useQueryClient()
   const [selectedScript, setSelectedScript] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -209,14 +211,16 @@ export default function Scripts() {
                     <Download className="h-4 w-4" />
                     Download
                   </button>
-                  <button
-                    onClick={handleDelete}
-                    className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
-                    title="Delete script"
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {canWrite && (
+                    <button
+                      onClick={handleDelete}
+                      className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+                      title="Delete script"
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               <pre className="flex-1 bg-surface-900 text-zinc-100 p-4 rounded-lg overflow-auto text-sm font-mono border border-surface-600">

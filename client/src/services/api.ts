@@ -7,6 +7,31 @@ const api = axios.create({
   },
 })
 
+// Request interceptor: attach JWT token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('portflow_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Response interceptor: handle 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Don't redirect if already on auth pages
+      const path = window.location.pathname
+      if (path !== '/login' && path !== '/setup') {
+        localStorage.removeItem('portflow_token')
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 // Types
 export type WorkflowStage =
   | 'estimate'
@@ -168,7 +193,135 @@ export interface GeneratedScript {
   generated_at: string
 }
 
+export interface TeamMember {
+  id: string
+  email: string
+  display_name: string
+  role: 'admin' | 'member' | 'viewer'
+  is_active: boolean
+  last_login_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Carrier {
+  id: string
+  slug: string
+  display_name: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface VoiceRoutingPolicy {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DialPlan {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AppSetting {
+  key: string
+  value: unknown
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface AuditLogEntry {
+  id: string
+  team_member_id: string | null
+  action: string
+  details: string | null
+  migration_id: string | null
+  created_at: string
+  actor_name?: string
+  actor_email?: string
+  migration_name?: string
+}
+
 // API functions
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post<{ token: string; user: TeamMember }>('/auth/login', { email, password }).then((r) => r.data),
+  me: () => api.get<TeamMember>('/auth/me').then((r) => r.data),
+  changePassword: (current_password: string, new_password: string) =>
+    api.post('/auth/change-password', { current_password, new_password }).then((r) => r.data),
+  setup: (data: { email: string; display_name: string; password: string }) =>
+    api.post<{ token: string; user: TeamMember }>('/auth/setup', data).then((r) => r.data),
+  checkSetup: () => api.get<{ setup_complete: boolean }>('/auth/check-setup').then((r) => r.data),
+}
+
+export const teamApi = {
+  list: () => api.get<TeamMember[]>('/team').then((r) => r.data),
+  get: (id: string) => api.get<TeamMember>(`/team/${id}`).then((r) => r.data),
+  create: (data: { email: string; display_name: string; role?: string; password?: string }) =>
+    api.post<TeamMember>('/team', data).then((r) => r.data),
+  update: (id: string, data: Partial<TeamMember>) =>
+    api.put<TeamMember>(`/team/${id}`, data).then((r) => r.data),
+  resetPassword: (id: string, new_password: string) =>
+    api.post(`/team/${id}/reset-password`, { new_password }).then((r) => r.data),
+  remove: (id: string) => api.delete(`/team/${id}`),
+}
+
+export const settingsApi = {
+  getAll: () => api.get<AppSetting[]>('/settings').then((r) => r.data),
+  get: (key: string) => api.get<AppSetting>(`/settings/${key}`).then((r) => r.data),
+  update: (key: string, value: unknown) =>
+    api.put<AppSetting>(`/settings/${key}`, { value }).then((r) => r.data),
+}
+
+export const carriersApi = {
+  list: () => api.get<Carrier[]>('/settings/carriers').then((r) => r.data),
+  create: (data: Partial<Carrier>) => api.post<Carrier>('/settings/carriers', data).then((r) => r.data),
+  update: (id: string, data: Partial<Carrier>) =>
+    api.put<Carrier>(`/settings/carriers/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/settings/carriers/${id}`),
+}
+
+export const voiceRoutingPoliciesApi = {
+  list: () => api.get<VoiceRoutingPolicy[]>('/settings/voice-routing-policies').then((r) => r.data),
+  create: (data: Partial<VoiceRoutingPolicy>) =>
+    api.post<VoiceRoutingPolicy>('/settings/voice-routing-policies', data).then((r) => r.data),
+  update: (id: string, data: Partial<VoiceRoutingPolicy>) =>
+    api.put<VoiceRoutingPolicy>(`/settings/voice-routing-policies/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/settings/voice-routing-policies/${id}`),
+}
+
+export const dialPlansApi = {
+  list: () => api.get<DialPlan[]>('/settings/dial-plans').then((r) => r.data),
+  create: (data: Partial<DialPlan>) =>
+    api.post<DialPlan>('/settings/dial-plans', data).then((r) => r.data),
+  update: (id: string, data: Partial<DialPlan>) =>
+    api.put<DialPlan>(`/settings/dial-plans/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/settings/dial-plans/${id}`),
+}
+
+export const notificationsApi = {
+  subscribe: (migrationId: string) =>
+    api.post(`/migrations/${migrationId}/subscribe`).then((r) => r.data),
+  unsubscribe: (migrationId: string) =>
+    api.delete(`/migrations/${migrationId}/subscribe`).then((r) => r.data),
+  getMySubscriptions: () =>
+    api.get<string[]>('/notifications/my-subscriptions').then((r) => r.data),
+}
+
+export const auditApi = {
+  list: (params?: { migration_id?: string; team_member_id?: string; action?: string; from?: string; to?: string; page?: number; limit?: number }) =>
+    api.get<{ entries: AuditLogEntry[]; total: number }>('/settings/audit-log', { params }).then((r) => r.data),
+}
+
 export const migrationsApi = {
   list: (params?: { stage?: string }) =>
     api.get<Migration[]>('/migrations', { params }).then((r) => r.data),

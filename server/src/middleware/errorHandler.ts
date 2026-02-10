@@ -48,6 +48,14 @@ export class ApiError extends Error {
     return new ApiError(message, 409, 'CONFLICT');
   }
 
+  static unauthorized(message: string) {
+    return new ApiError(message, 401, 'UNAUTHORIZED');
+  }
+
+  static forbidden(message: string) {
+    return new ApiError(message, 403, 'FORBIDDEN');
+  }
+
   static internal(message: string) {
     return new ApiError(message, 500, 'INTERNAL_ERROR');
   }

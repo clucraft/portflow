@@ -14,7 +14,7 @@ export type WorkflowStage =
   | 'on_hold'
   | 'cancelled';
 
-export type TargetCarrier = 'verizon' | 'fusionconnect' | 'gtt';
+export type TargetCarrier = string;
 
 export type RoutingType = 'direct_routing' | 'operator_connect';
 

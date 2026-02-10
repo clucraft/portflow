@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search } from 'lucide-react'
-import { migrationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
+import { migrationsApi, carriersApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 const stageColors: Record<string, string> = {
   estimate: 'bg-zinc-500',
@@ -41,8 +42,8 @@ function getStageNumber(stage: WorkflowStage): number {
   return index >= 0 ? index + 1 : 0
 }
 
-// Format carrier name for display
-function formatCarrierName(carrier: string): string {
+// Fallback carrier name formatting
+function formatCarrierNameFallback(carrier: string): string {
   const names: Record<string, string> = {
     verizon: 'Verizon',
     fusionconnect: 'FusionConnect',
@@ -52,12 +53,20 @@ function formatCarrierName(carrier: string): string {
 }
 
 export default function Dashboard() {
+  const { canWrite } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
 
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
     queryFn: migrationsApi.dashboard,
   })
+
+  const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
+
+  const formatCarrierName = (carrier: string): string => {
+    const found = carriers?.find(c => c.slug === carrier)
+    return found?.display_name || formatCarrierNameFallback(carrier)
+  }
 
   // Filter by search query (site name or project name)
   const filterBySearch = (m: { name: string; site_name: string }) => {
@@ -102,10 +111,12 @@ export default function Dashboard() {
               className="input pl-9 w-64"
             />
           </div>
-          <Link to="/new" className="btn btn-primary flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            New Migration
-          </Link>
+          {canWrite && (
+            <Link to="/new" className="btn btn-primary flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              New Migration
+            </Link>
+          )}
         </div>
       </div>
 

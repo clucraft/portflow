@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as migrationsController from '../controllers/migrationsController.js';
+import * as notificationsController from '../controllers/notificationsController.js';
 
 const router = Router();
 
@@ -69,5 +70,16 @@ router.post('/:id/complete-porting', migrationsController.completePorting);
 
 // POST /api/migrations/:id/magic-link - Generate magic link for customer data entry
 router.post('/:id/magic-link', migrationsController.generateMagicLink);
+
+// === Notifications ===
+
+// POST /api/migrations/:id/subscribe - Subscribe to notifications
+router.post('/:id/subscribe', notificationsController.subscribe);
+
+// DELETE /api/migrations/:id/subscribe - Unsubscribe from notifications
+router.delete('/:id/subscribe', notificationsController.unsubscribe);
+
+// GET /api/migrations/:id/subscribers - List subscribers
+router.get('/:id/subscribers', notificationsController.getSubscribers);
 
 export default router;

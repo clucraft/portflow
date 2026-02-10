@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Authentication system** with email + password login (bcrypt + JWT)
+- First-run setup page to create initial admin account
+- Role-based access control: admin (full), member (read+write), viewer (read-only)
+- Protected routes — all app pages require authentication
+- Login page with ParticleBackground matching app aesthetic
+- User management in Settings (add, edit, deactivate, reset password)
+- Change password for self
+- **Settings page** with tabbed navigation (Users, Carriers, Policies, Email, Audit Log)
+- **Dynamic carriers** — carriers stored in database with admin CRUD (replaces hardcoded ENUM)
+- **Voice routing policies** and **dial plans** as pre-defined database entries with admin CRUD
+- ComboBox component for selecting pre-defined options or entering custom values
+- **Email relay notifications** — configurable SMTP settings with test button
+- Migration notification subscriptions — bell icon to subscribe/unsubscribe per migration
+- Email notifications sent to subscribers on workflow stage transitions
+- **Audit log** — tracks all create/update/delete actions across the system
+- Audit log viewer in Settings with filters (action, date range) and pagination
+- Viewer role strictly read-only: all write UI elements hidden, server rejects mutations with 403
 - Tenant Dial Plan field for migrations (`Grant-CsTenantDialPlan`), applies to both Direct Routing and Operator Connect
 - Save Draft for customer data collection: customers can save progress and return later via the same magic link
 - Draft/complete status indicators on Migration Detail Phase 4 panel
@@ -22,10 +39,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Database Migration Required
 ```sql
--- Run docs/migration_add_phase_tasks.sql
+-- Round 1: Run docs/migration_settings_round1.sql
+-- Adds password_hash to team_members, creates app_settings table
+
+-- Round 2: Run docs/migration_settings_round2.sql
+-- Creates carriers, voice_routing_policies, dial_plans tables
+-- Converts migrations.target_carrier from ENUM to TEXT
+-- Recreates migration_dashboard view
+
+-- Round 3: Run docs/migration_settings_round3.sql
+-- Creates notification_subscriptions table
+
+-- Also run docs/migration_add_phase_tasks.sql
 ALTER TABLE migrations ADD COLUMN IF NOT EXISTS phase_tasks JSONB DEFAULT '{}';
 -- Also recreates the migration_dashboard view to include phase_tasks
 ```
+
+### Environment Variables
+```
+JWT_SECRET=<your-secret-key>
+JWT_EXPIRES_IN=24h  # optional, defaults to 24h
+```
+
+### New Dependencies
+- `bcryptjs`, `jsonwebtoken` (Round 1)
+- `nodemailer` (Round 3)
 
 ## [0.6.0] - 2025-02-05
 

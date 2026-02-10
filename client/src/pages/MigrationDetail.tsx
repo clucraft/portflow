@@ -4,10 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, type WorkflowStage, type PhaseTask } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, type WorkflowStage, type PhaseTask } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
+import ComboBox from '../components/ComboBox'
+import { useAuth } from '../contexts/AuthContext'
 
 // Phase definitions with their stages
 // Phase 3 (Porting) and Phase 4 (Teams Config) can run in PARALLEL after Phase 2 completes
@@ -21,8 +23,8 @@ const BASE_PHASES = [
 // Stages where porting is complete (Phase 3 done)
 const PORTING_COMPLETE_STAGES: WorkflowStage[] = ['porting_complete', 'user_config', 'completed']
 
-// Format carrier name for display
-const formatCarrierName = (carrier: string): string => {
+// Format carrier name for display (fallback for when carriers haven't loaded)
+const formatCarrierNameFallback = (carrier: string): string => {
   const names: Record<string, string> = {
     verizon: 'Verizon',
     fusionconnect: 'FusionConnect',
@@ -114,6 +116,7 @@ function getOverallProgress(stage: WorkflowStage): number {
 }
 
 export default function MigrationDetail() {
+  const { canWrite } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -165,6 +168,32 @@ export default function MigrationDetail() {
   const [portingForm, setPortingForm] = useState({
     foc_date: '',
     scheduled_port_date: '',
+  })
+
+  const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
+  const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
+  const { data: dialPlanOptions } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
+
+  // Helper: format carrier name using dynamic data
+  const formatCarrierName = (carrier: string): string => {
+    const found = carriers?.find(c => c.slug === carrier)
+    return found?.display_name || formatCarrierNameFallback(carrier)
+  }
+
+  const { data: mySubscriptions } = useQuery({
+    queryKey: ['my-subscriptions'],
+    queryFn: notificationsApi.getMySubscriptions,
+  })
+  const isSubscribed = mySubscriptions?.includes(id!) || false
+
+  const subscribeMutation = useMutation({
+    mutationFn: () => notificationsApi.subscribe(id!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-subscriptions'] }),
+  })
+
+  const unsubscribeMutation = useMutation({
+    mutationFn: () => notificationsApi.unsubscribe(id!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-subscriptions'] }),
   })
 
   const { data: migration, isLoading } = useQuery({
@@ -317,13 +346,15 @@ export default function MigrationDetail() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-zinc-100 truncate">{migration.name}</h1>
-            <button
-              onClick={openEditDetails}
-              className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-surface-700 rounded-lg transition-colors"
-              title="Edit project details"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
+            {canWrite && (
+              <button
+                onClick={openEditDetails}
+                className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-surface-700 rounded-lg transition-colors"
+                title="Edit project details"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <p className="text-zinc-500 text-sm">
             {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; <span className="capitalize">{migration.routing_type.replace('_', ' ')}</span>
@@ -331,6 +362,14 @@ export default function MigrationDetail() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => isSubscribed ? unsubscribeMutation.mutate() : subscribeMutation.mutate()}
+            className={`btn btn-secondary flex items-center gap-2 ${isSubscribed ? 'text-primary-400 border-primary-500/30' : ''}`}
+            title={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
+            disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
+          >
+            {isSubscribed ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          </button>
           <Link to={`/migrations/${id}/users`} className="btn btn-secondary flex items-center gap-2">
             <Users className="h-4 w-4" />
             Users ({migration.total_users})
@@ -339,14 +378,16 @@ export default function MigrationDetail() {
             <FileCode className="h-4 w-4" />
             Scripts
           </Link>
-          <button
-            onClick={handleDelete}
-            className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
-            title="Delete migration"
-            disabled={deleteMigrationMutation.isPending}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canWrite && (
+            <button
+              onClick={handleDelete}
+              className="btn btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+              title="Delete migration"
+              disabled={deleteMigrationMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -456,23 +497,23 @@ export default function MigrationDetail() {
             {detailsForm.routing_type === 'direct_routing' && (
               <div>
                 <label className="label">Voice Routing Policy</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., International"
+                <ComboBox
+                  options={(vrps || []).map(v => ({ value: v.name, label: v.name }))}
                   value={detailsForm.voice_routing_policy}
-                  onChange={(e) => setDetailsForm({ ...detailsForm, voice_routing_policy: e.target.value })}
+                  onChange={(val) => setDetailsForm({ ...detailsForm, voice_routing_policy: val })}
+                  placeholder="Select or type a policy..."
+                  allowCustom
                 />
               </div>
             )}
             <div>
               <label className="label">Tenant Dial Plan</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="e.g., US-DialPlan"
+              <ComboBox
+                options={(dialPlanOptions || []).map(d => ({ value: d.name, label: d.name }))}
                 value={detailsForm.dial_plan}
-                onChange={(e) => setDetailsForm({ ...detailsForm, dial_plan: e.target.value })}
+                onChange={(val) => setDetailsForm({ ...detailsForm, dial_plan: val })}
+                placeholder="Select or type a dial plan..."
+                allowCustom
               />
             </div>
             <div>

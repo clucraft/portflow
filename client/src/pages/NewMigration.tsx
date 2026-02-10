@@ -1,12 +1,19 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useNavigate, Navigate } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { migrationsApi } from '../services/api'
+import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
+import ComboBox from '../components/ComboBox'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function NewMigration() {
   const navigate = useNavigate()
+  const { canWrite } = useAuth()
+
+  if (!canWrite) {
+    return <Navigate to="/" replace />
+  }
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     // Site info
@@ -34,6 +41,10 @@ export default function NewMigration() {
     dial_plan: '',
     country_code: '+1',
   })
+
+  const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
+  const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
+  const { data: dialPlans } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
 
   const createMutation = useMutation({
     mutationFn: migrationsApi.create,
@@ -292,9 +303,16 @@ export default function NewMigration() {
                 value={formData.target_carrier}
                 onChange={(e) => updateField('target_carrier', e.target.value)}
               >
-                <option value="verizon">Verizon</option>
-                <option value="fusionconnect">FusionConnect</option>
-                <option value="gtt">GTT</option>
+                {carriers?.map((c) => (
+                  <option key={c.slug} value={c.slug}>{c.display_name}</option>
+                ))}
+                {(!carriers || carriers.length === 0) && (
+                  <>
+                    <option value="verizon">Verizon</option>
+                    <option value="fusionconnect">FusionConnect</option>
+                    <option value="gtt">GTT</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -321,12 +339,12 @@ export default function NewMigration() {
             {formData.routing_type === 'direct_routing' && (
               <div>
                 <label className="label">Voice Routing Policy</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., International"
+                <ComboBox
+                  options={(vrps || []).map(v => ({ value: v.name, label: v.name }))}
                   value={formData.voice_routing_policy}
-                  onChange={(e) => updateField('voice_routing_policy', e.target.value)}
+                  onChange={(val) => updateField('voice_routing_policy', val)}
+                  placeholder="Select or type a policy..."
+                  allowCustom
                 />
                 <p className="text-xs text-zinc-500 mt-1">
                   The Teams voice routing policy to assign to each user
@@ -336,12 +354,12 @@ export default function NewMigration() {
 
             <div>
               <label className="label">Tenant Dial Plan</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="e.g., US-DialPlan"
+              <ComboBox
+                options={(dialPlans || []).map(d => ({ value: d.name, label: d.name }))}
                 value={formData.dial_plan}
-                onChange={(e) => updateField('dial_plan', e.target.value)}
+                onChange={(val) => updateField('dial_plan', val)}
+                placeholder="Select or type a dial plan..."
+                allowCustom
               />
               <p className="text-xs text-zinc-500 mt-1">
                 The Teams tenant dial plan to assign to each user

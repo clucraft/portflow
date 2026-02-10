@@ -3,6 +3,8 @@ import { randomBytes } from 'crypto';
 import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, WorkflowStage, WORKFLOW_STAGES } from '../types/index.js';
+import { notifySubscribers } from '../utils/notifications.js';
+import { logActivity } from '../utils/audit.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -107,6 +109,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       ]
     );
 
+    logActivity(req.user?.id || null, 'migration.create', `Created migration: ${migrations[0].name}`, migrations[0].id).catch(() => {});
+
     res.status(201).json(migrations[0]);
   } catch (err) {
     next(err);
@@ -206,6 +210,8 @@ export const acceptEstimate = async (req: Request, res: Response, next: NextFunc
       throw ApiError.notFound('Migration not found');
     }
 
+    notifySubscribers(id, migrations[0].name, 'Estimate Accepted', 'The cost estimate has been accepted.').catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -274,6 +280,8 @@ export const submitVerizonRequest = async (req: Request, res: Response, next: Ne
       throw ApiError.notFound('Migration not found');
     }
 
+    notifySubscribers(id, migrations[0].name, 'Carrier Request Submitted', `Request submitted to ${email_sent_to}`).catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -299,6 +307,8 @@ export const completeVerizonSetup = async (req: Request, res: Response, next: Ne
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
+
+    notifySubscribers(id, migrations[0].name, 'Carrier Setup Complete', 'Carrier site setup has been completed.').catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -416,6 +426,8 @@ export const completePorting = async (req: Request, res: Response, next: NextFun
       [id]
     );
 
+    notifySubscribers(id, migrations[0].name, 'Porting Complete', 'Number porting has been completed.').catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -525,6 +537,9 @@ export const updateStage = async (req: Request, res: Response, next: NextFunctio
       throw ApiError.notFound('Migration not found');
     }
 
+    notifySubscribers(id, migrations[0].name, `Stage changed to ${stage}`).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.stage_change', `Stage changed to ${stage}`, id).catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -578,11 +593,16 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+
+    // Get name before deleting
+    const existing = await query<Migration>('SELECT name FROM migrations WHERE id = $1', [id]);
     const result = await query('DELETE FROM migrations WHERE id = $1 RETURNING id', [id]);
 
     if (result.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
+
+    logActivity(req.user?.id || null, 'migration.delete', `Deleted migration: ${existing[0]?.name || id}`).catch(() => {});
 
     res.status(204).send();
   } catch (err) {
