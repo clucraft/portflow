@@ -525,6 +525,11 @@ export default function MigrationDetail() {
             </div>
           </div>
           <div className="flex gap-2 mt-4 pt-4 border-t border-surface-600">
+            {updateDetailsMutation.isError && (
+              <div className="text-red-400 text-sm mb-2">
+                Failed to save: {(updateDetailsMutation.error as Error)?.message || 'Unknown error'}
+              </div>
+            )}
             <button
               onClick={() => updateDetailsMutation.mutate(detailsForm)}
               disabled={!detailsForm.name || !detailsForm.site_name || updateDetailsMutation.isPending}

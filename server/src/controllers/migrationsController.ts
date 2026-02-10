@@ -557,7 +557,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       'name', 'site_name', 'site_address', 'site_city', 'site_state', 'site_country',
       'site_timezone', 'current_pbx_type', 'current_carrier', 'telephone_users',
       'physical_phones_needed', 'monthly_calling_minutes', 'is_porting_numbers',
-      'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'notes', 'phase_tasks',
+      'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'country_code', 'notes', 'phase_tasks',
     ];
 
     const updates: string[] = [];
