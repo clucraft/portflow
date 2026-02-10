@@ -10,7 +10,7 @@ export const logActivity = async (
     await query(
       `INSERT INTO activity_log (team_member_id, action, details, migration_id)
        VALUES ($1, $2, $3, $4)`,
-      [teamMemberId || null, action, details || null, migrationId || null]
+      [teamMemberId || null, action, details ? JSON.stringify(details) : null, migrationId || null]
     );
   } catch (err) {
     console.error('Failed to log activity:', err);
