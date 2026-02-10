@@ -6,7 +6,7 @@ import {
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
   CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, type WorkflowStage, type PhaseTask } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, type Migration, type WorkflowStage, type PhaseTask } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
 import { useAuth } from '../contexts/AuthContext'
@@ -116,7 +116,7 @@ function getOverallProgress(stage: WorkflowStage): number {
 }
 
 export default function MigrationDetail() {
-  const { canWrite } = useAuth()
+  const { canWrite, isAdmin } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -139,6 +139,22 @@ export default function MigrationDetail() {
     country_code: '+1',
   })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
+  const [editingPhase, setEditingPhase] = useState<number | null>(null)
+  const [editEstimateForm, setEditEstimateForm] = useState({
+    estimate_user_service_charge: 0,
+    estimate_equipment_charge: 0,
+    estimate_usage_charge: 0,
+    estimate_notes: '',
+  })
+  const [editCarrierForm, setEditCarrierForm] = useState({
+    verizon_request_email_sent_to: '',
+    verizon_site_id: '',
+  })
+  const [editPortingForm, setEditPortingForm] = useState({
+    foc_date: '',
+    scheduled_port_date: '',
+    actual_port_date: '',
+  })
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -316,6 +332,53 @@ export default function MigrationDetail() {
       await navigator.clipboard.writeText(`${window.location.origin}/estimate/${migration.estimate_link_token}`)
       setCopiedEstimate(true)
       setTimeout(() => setCopiedEstimate(false), 2000)
+    }
+  }
+
+  const openPhaseEdit = (phaseId: number) => {
+    if (!migration) return
+    if (editingPhase === phaseId) {
+      setEditingPhase(null)
+      return
+    }
+    if (phaseId === 1) {
+      setEditEstimateForm({
+        estimate_user_service_charge: Number(migration.estimate_user_service_charge) || 0,
+        estimate_equipment_charge: Number(migration.estimate_equipment_charge) || 0,
+        estimate_usage_charge: Number(migration.estimate_usage_charge) || 0,
+        estimate_notes: migration.estimate_notes || '',
+      })
+    } else if (phaseId === 2) {
+      setEditCarrierForm({
+        verizon_request_email_sent_to: migration.verizon_request_email_sent_to || '',
+        verizon_site_id: migration.verizon_site_id || '',
+      })
+    } else if (phaseId === 3) {
+      setEditPortingForm({
+        foc_date: migration.foc_date ? migration.foc_date.split('T')[0] : '',
+        scheduled_port_date: migration.scheduled_port_date ? migration.scheduled_port_date.split('T')[0] : '',
+        actual_port_date: migration.actual_port_date ? migration.actual_port_date.split('T')[0] : '',
+      })
+    }
+    setEditingPhase(phaseId)
+  }
+
+  const getRevertStage = (phaseId: number): WorkflowStage | null => {
+    switch (phaseId) {
+      case 1: return 'estimate'
+      case 2: return 'estimate_accepted'
+      case 3: return 'verizon_complete'
+      case 4: return 'user_config'
+      default: return null
+    }
+  }
+
+  const handleRevertPhase = (phaseId: number) => {
+    const stage = getRevertStage(phaseId)
+    if (!stage) return
+    if (confirm(`Are you sure you want to revert Phase ${phaseId} back to active? This will move the workflow backward.`)) {
+      updateStageMutation.mutate(stage)
+      setEditingPhase(null)
     }
   }
 
@@ -628,7 +691,18 @@ export default function MigrationDetail() {
                         PHASE {phase.id}: {phase.name.toUpperCase()}
                       </span>
                       {isDone && (
-                        <span className="text-xs text-green-400 font-mono">DONE</span>
+                        <>
+                          <span className="text-xs text-green-400 font-mono">DONE</span>
+                          {isAdmin && (
+                            <button
+                              onClick={() => openPhaseEdit(phase.id)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-surface-700 rounded transition-colors"
+                              title={`Edit Phase ${phase.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </>
                       )}
                       {isActive && (
                         <span className="text-xs text-primary-400 font-mono">ACTIVE</span>
@@ -1057,6 +1131,253 @@ export default function MigrationDetail() {
                       )}
                       {migration.verizon_site_id && (
                         <span> &bull; Site ID: {migration.verizon_site_id}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Inline edit form for completed phases (admin only) */}
+                  {isDone && editingPhase === phase.id && isAdmin && (
+                    <div className="mt-3 p-4 bg-surface-800/50 border border-amber-500/30 rounded-lg">
+                      {/* Phase 1 Edit: Estimate */}
+                      {phase.id === 1 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-zinc-300">Edit Estimate</h4>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <label className="label">User Service (Monthly)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_user_service_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_user_service_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Equipment (One-time)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_equipment_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_equipment_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Usage (Monthly)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_usage_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_usage_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="label">Notes</label>
+                            <textarea
+                              className="input min-h-[60px]"
+                              value={editEstimateForm.estimate_notes}
+                              onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_notes: e.target.value })}
+                              placeholder="Additional notes..."
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-surface-600">
+                            <button
+                              onClick={() => {
+                                updateEstimateMutation.mutate(editEstimateForm, { onSuccess: () => setEditingPhase(null) })
+                              }}
+                              className="btn btn-primary"
+                              disabled={updateEstimateMutation.isPending}
+                            >
+                              {updateEstimateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                            </button>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="btn btn-secondary"
+                            >
+                              Cancel
+                            </button>
+                            <div className="flex-1" />
+                            <button
+                              onClick={() => handleRevertPhase(phase.id)}
+                              className="btn btn-secondary text-red-400 hover:text-red-300 hover:border-red-500/50"
+                              disabled={updateStageMutation.isPending}
+                            >
+                              {updateStageMutation.isPending ? 'Reverting...' : 'Revert Phase'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Phase 2 Edit: Carrier Setup */}
+                      {phase.id === 2 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-zinc-300">Edit Carrier Setup</h4>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="label">Request Email Sent To</label>
+                              <input
+                                type="email"
+                                className="input"
+                                value={editCarrierForm.verizon_request_email_sent_to}
+                                onChange={(e) => setEditCarrierForm({ ...editCarrierForm, verizon_request_email_sent_to: e.target.value })}
+                                placeholder="carrier-rep@example.com"
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Site ID</label>
+                              <input
+                                type="text"
+                                className="input"
+                                value={editCarrierForm.verizon_site_id}
+                                onChange={(e) => setEditCarrierForm({ ...editCarrierForm, verizon_site_id: e.target.value })}
+                                placeholder="Site ID"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-surface-600">
+                            <button
+                              onClick={() => {
+                                migrationsApi.update(id!, editCarrierForm as unknown as Partial<Migration>).then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ['migration', id] })
+                                  setEditingPhase(null)
+                                })
+                              }}
+                              className="btn btn-primary"
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="btn btn-secondary"
+                            >
+                              Cancel
+                            </button>
+                            <div className="flex-1" />
+                            <button
+                              onClick={() => handleRevertPhase(phase.id)}
+                              className="btn btn-secondary text-red-400 hover:text-red-300 hover:border-red-500/50"
+                              disabled={updateStageMutation.isPending}
+                            >
+                              {updateStageMutation.isPending ? 'Reverting...' : 'Revert Phase'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Phase 3 Edit: Porting */}
+                      {phase.id === 3 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-zinc-300">Edit Porting Dates</h4>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <label className="label">FOC Date</label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={editPortingForm.foc_date}
+                                onChange={(e) => setEditPortingForm({ ...editPortingForm, foc_date: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Scheduled Port Date</label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={editPortingForm.scheduled_port_date}
+                                onChange={(e) => setEditPortingForm({ ...editPortingForm, scheduled_port_date: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Actual Port Date</label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={editPortingForm.actual_port_date}
+                                onChange={(e) => setEditPortingForm({ ...editPortingForm, actual_port_date: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-surface-600">
+                            <button
+                              onClick={() => {
+                                migrationsApi.update(id!, editPortingForm as unknown as Partial<Migration>).then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ['migration', id] })
+                                  setEditingPhase(null)
+                                })
+                              }}
+                              className="btn btn-primary"
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="btn btn-secondary"
+                            >
+                              Cancel
+                            </button>
+                            <div className="flex-1" />
+                            <button
+                              onClick={() => handleRevertPhase(phase.id)}
+                              className="btn btn-secondary text-red-400 hover:text-red-300 hover:border-red-500/50"
+                              disabled={updateStageMutation.isPending}
+                            >
+                              {updateStageMutation.isPending ? 'Reverting...' : 'Revert Phase'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Phase 4 Edit: Just revert button */}
+                      {phase.id === 4 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-zinc-300">Phase 4 Options</h4>
+                            <button
+                              onClick={() => setEditingPhase(null)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-zinc-500">Subtask checklist can be toggled directly when the phase is active.</p>
+                          <div className="flex items-center gap-2 pt-2 border-t border-surface-600">
+                            <div className="flex-1" />
+                            <button
+                              onClick={() => handleRevertPhase(phase.id)}
+                              className="btn btn-secondary text-red-400 hover:text-red-300 hover:border-red-500/50"
+                              disabled={updateStageMutation.isPending}
+                            >
+                              {updateStageMutation.isPending ? 'Reverting...' : 'Revert Phase'}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
