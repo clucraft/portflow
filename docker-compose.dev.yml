@@ -36,6 +36,8 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://portflow:portflow@db:5432/portflow
       CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: portflow-dev-secret-change-in-production
+      JWT_EXPIRES_IN: 24h
     ports:
       - "3001:3001"
     depends_on:

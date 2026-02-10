@@ -34,6 +34,8 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER:-portflow}:${POSTGRES_PASSWORD:-portflow}@db:5432/${POSTGRES_DB:-portflow}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
