@@ -189,6 +189,8 @@ export default function Dashboard() {
           <div className="space-y-4">
             {activeMigrations.map((migration) => {
               const stageInfo = getStageInfo(migration.workflow_stage)
+              const carrierName = formatCarrierName(migration.target_carrier)
+              const stageLabel = stageInfo.label.replace('Carrier', carrierName)
               const stageNum = getStageNumber(migration.workflow_stage)
               const progressPct = (stageNum / WORKFLOW_STAGES.length) * 100
 
@@ -209,7 +211,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stageBadgeStyles[migration.workflow_stage]}`}>
-                        {stageInfo.label}
+                        {stageLabel}
                       </span>
                       <p className="text-xs text-zinc-500 mt-1">
                         {migration.telephone_users} users • {migration.target_carrier}

@@ -50,9 +50,9 @@ export type WorkflowStage =
 export const WORKFLOW_STAGES: { stage: WorkflowStage; label: string; description: string }[] = [
   { stage: 'estimate', label: 'Cost Estimate', description: 'Preparing cost estimate for customer' },
   { stage: 'estimate_accepted', label: 'Estimate Accepted', description: 'Customer accepted the estimate' },
-  { stage: 'verizon_submitted', label: 'Verizon Requested', description: 'Site request submitted to Verizon' },
-  { stage: 'verizon_in_progress', label: 'Verizon Setup', description: 'Verizon creating site (1-2 weeks)' },
-  { stage: 'verizon_complete', label: 'Verizon Complete', description: 'Verizon site setup complete' },
+  { stage: 'verizon_submitted', label: 'Carrier Requested', description: 'Site request submitted to carrier' },
+  { stage: 'verizon_in_progress', label: 'Carrier Setup', description: 'Carrier creating site (1-2 weeks)' },
+  { stage: 'verizon_complete', label: 'Carrier Complete', description: 'Carrier site setup complete' },
   { stage: 'porting_submitted', label: 'Porting Submitted', description: 'LOA submitted for number porting' },
   { stage: 'porting_scheduled', label: 'Porting Scheduled', description: 'FOC received, port date confirmed' },
   { stage: 'porting_complete', label: 'Porting Complete', description: 'Numbers successfully ported' },
