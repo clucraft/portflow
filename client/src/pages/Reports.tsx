@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp } from 'lucide-react'
+import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList } from 'lucide-react'
 import { migrationsApi } from '../services/api'
+import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
 function formatCarrierName(carrier: string): string {
@@ -26,6 +27,11 @@ export default function Reports() {
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
     queryFn: migrationsApi.dashboard,
+  })
+
+  const { data: questionnaires } = useQuery({
+    queryKey: ['migrations', 'questionnaires'],
+    queryFn: migrationsApi.listQuestionnaires,
   })
 
   if (isLoading) {
@@ -116,13 +122,21 @@ export default function Reports() {
     downloadCSV(headers, rows, 'all-migrations.csv')
   }
 
+  const escapeCSV = (value: string): string => {
+    const str = String(value)
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"'
+    }
+    return str
+  }
+
   const downloadCSV = (headers: string[], rows: (string | number)[][], filename: string) => {
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      headers.map(h => escapeCSV(h)).join(','),
+      ...rows.map(row => row.map(cell => escapeCSV(String(cell))).join(','))
     ].join('\n')
 
-    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -131,6 +145,25 @@ export default function Reports() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  const exportQuestionnaires = () => {
+    if (!questionnaires || questionnaires.length === 0) return
+    const allFields = QUESTIONNAIRE_SECTIONS.flatMap(s => s.fields)
+    const headers = ['Site Name', ...allFields.map(f => f.label)]
+    const rows = questionnaires.map(m => {
+      const qData = (m.site_questionnaire || {}) as QuestionnaireData
+      return [
+        m.site_name,
+        ...allFields.map(f => {
+          const raw = qData[f.key]
+          if (raw == null || raw === '') return ''
+          if (typeof raw === 'boolean') return raw ? 'Yes' : 'No'
+          return String(raw)
+        }),
+      ]
+    })
+    downloadCSV(headers, rows, 'questionnaires.csv')
   }
 
   return (
@@ -165,6 +198,14 @@ export default function Reports() {
           >
             <Download className="h-4 w-4" />
             Completed ({completedMigrations.length})
+          </button>
+          <button
+            onClick={exportQuestionnaires}
+            className="btn btn-secondary flex items-center gap-2"
+            disabled={!questionnaires || questionnaires.length === 0}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Questionnaires ({questionnaires?.length || 0})
           </button>
         </div>
       </div>

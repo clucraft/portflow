@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Questionnaire CSV export** now produces standard flat CSV format (one header row with all field labels as columns, one data row with values) instead of section-header/field-value layout
+
 ### Added
+- **Bulk Export Questionnaires** button on Reports page — exports all migrations' questionnaire data in one CSV (one row per migration, all questionnaire fields as columns)
+
 - **Authentication system** with email + password login (bcrypt + JWT)
 - First-run setup page to create initial admin account
 - Role-based access control: admin (full), member (read+write), viewer (read-only)

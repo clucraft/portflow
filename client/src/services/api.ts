@@ -394,6 +394,10 @@ export const migrationsApi = {
     api.post<Migration & { questionnaire_link_url: string }>(`/migrations/${id}/questionnaire-link`, { expires_in_days }).then((r) => r.data),
 
   delete: (id: string) => api.delete(`/migrations/${id}`),
+
+  // Questionnaire bulk export
+  listQuestionnaires: () =>
+    api.get<Pick<Migration, 'id' | 'name' | 'site_name' | 'site_questionnaire'>[]>('/migrations/questionnaires').then(r => r.data),
 }
 
 export const usersApi = {

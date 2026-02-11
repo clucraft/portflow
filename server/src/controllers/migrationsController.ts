@@ -41,6 +41,19 @@ export const dashboard = async (_req: Request, res: Response, next: NextFunction
   }
 };
 
+export const listQuestionnaires = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await query<Pick<Migration, 'id' | 'name' | 'site_name' | 'site_questionnaire'>>(
+      `SELECT id, name, site_name, site_questionnaire FROM migrations
+       WHERE site_questionnaire IS NOT NULL AND site_questionnaire != '{}'
+       ORDER BY site_name ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

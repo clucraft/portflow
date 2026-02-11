@@ -13,6 +13,9 @@ router.get('/dashboard', migrationsController.dashboard);
 // GET /api/migrations/stages - Get workflow stage metadata
 router.get('/stages', migrationsController.getWorkflowStages);
 
+// GET /api/migrations/questionnaires - List all migrations with questionnaire data
+router.get('/questionnaires', migrationsController.listQuestionnaires);
+
 // GET /api/migrations/:id - Get single migration
 router.get('/:id', migrationsController.getById);
 

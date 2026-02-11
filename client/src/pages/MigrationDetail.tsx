@@ -45,36 +45,26 @@ const formatCurrency = (value: unknown): string => {
   return isNaN(num) ? '0.00' : num.toFixed(2)
 }
 
-// Export questionnaire data as CSV
+// Escape a single CSV cell value
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return '"' + value.replace(/"/g, '""') + '"'
+  }
+  return value
+}
+
+// Export questionnaire data as standard flat CSV (one header row, one data row)
 function exportQuestionnaireCSV(qData: QuestionnaireData, siteName: string) {
-  const escapeCSV = (value: string): string => {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-      return '"' + value.replace(/"/g, '""') + '"'
-    }
-    return value
-  }
+  const allFields = QUESTIONNAIRE_SECTIONS.flatMap(s => s.fields)
+  const headers = allFields.map(f => escapeCSV(f.label))
+  const values = allFields.map(f => {
+    const raw = qData[f.key]
+    if (raw == null || raw === '') return ''
+    if (typeof raw === 'boolean') return raw ? 'Yes' : 'No'
+    return escapeCSV(String(raw))
+  })
 
-  const rows: string[] = []
-  rows.push('Field,Value')
-
-  for (const section of QUESTIONNAIRE_SECTIONS) {
-    rows.push('')
-    rows.push(escapeCSV(`--- ${section.title} ---`) + ',')
-    for (const field of section.fields) {
-      const raw = qData[field.key]
-      let value = ''
-      if (raw != null && raw !== '') {
-        if (typeof raw === 'boolean') {
-          value = raw ? 'Yes' : 'No'
-        } else {
-          value = String(raw)
-        }
-      }
-      rows.push(escapeCSV(field.label) + ',' + escapeCSV(value))
-    }
-  }
-
-  const csv = rows.join('\n')
+  const csv = headers.join(',') + '\n' + values.join(',')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
