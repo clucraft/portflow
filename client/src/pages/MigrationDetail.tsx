@@ -1016,13 +1016,16 @@ export default function MigrationDetail() {
                           const deskPhones = Number(qData.personal_desk_phones) || 0
                           const headsets = Number(qData.headset_count) || 0
                           const carrierObj = carriers?.find(c => c.slug === migration.target_carrier)
+                          const userRate = Number(rates?.user_service_rate ?? 3.45) || 0
+                          const phoneRate = Number(rates?.phone_unit_cost ?? 0) || 0
+                          const headsetRate = Number(rates?.headset_unit_cost ?? 0) || 0
 
                           setEstimateForm({
                             ...estimateForm,
-                            estimate_user_service_charge: parseFloat((endUsers * (rates?.user_service_rate ?? 3.45)).toFixed(2)),
-                            estimate_carrier_charge: carrierObj?.monthly_charge || 0,
-                            estimate_phone_equipment_charge: parseFloat((deskPhones * (rates?.phone_unit_cost ?? 0)).toFixed(2)),
-                            estimate_headset_equipment_charge: parseFloat((headsets * (rates?.headset_unit_cost ?? 0)).toFixed(2)),
+                            estimate_user_service_charge: parseFloat((endUsers * userRate).toFixed(2)),
+                            estimate_carrier_charge: Number(carrierObj?.monthly_charge) || 0,
+                            estimate_phone_equipment_charge: parseFloat((deskPhones * phoneRate).toFixed(2)),
+                            estimate_headset_equipment_charge: parseFloat((headsets * headsetRate).toFixed(2)),
                           })
                         }
 
