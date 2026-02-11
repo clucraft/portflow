@@ -210,7 +210,7 @@ export default function Dashboard() {
                       <h3 className="font-medium text-zinc-100 flex items-center gap-1.5">
                         {migration.name}
                         {mySubscriptions?.includes(migration.id) && (
-                          <Bell className="h-3.5 w-3.5 text-primary-400" title="Subscribed to notifications" />
+                          <span title="Subscribed to notifications"><Bell className="h-3.5 w-3.5 text-primary-400" /></span>
                         )}
                       </h3>
                       <p className="text-sm text-zinc-500">
@@ -296,7 +296,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium text-zinc-200">{m.name}</span>
                     {mySubscriptions?.includes(m.id) && (
-                      <Bell className="h-3.5 w-3.5 text-primary-400" title="Subscribed to notifications" />
+                      <span title="Subscribed to notifications"><Bell className="h-3.5 w-3.5 text-primary-400" /></span>
                     )}
                     <span className="text-zinc-500 text-sm ml-2">{m.site_name}</span>
                   </div>
