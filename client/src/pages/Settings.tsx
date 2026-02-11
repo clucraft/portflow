@@ -397,7 +397,6 @@ function CarriersTab() {
     mutationFn: ({ id, data }: { id: string; data: Partial<Carrier> }) => carriersApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['carriers'] })
-      setEditingId(null)
     },
   })
 
