@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Users, FileCode, Copy, Check,
+  ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
   CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList
 } from 'lucide-react'
@@ -43,6 +43,47 @@ const getPhases = (carrierName: string) => BASE_PHASES.map(phase =>
 const formatCurrency = (value: unknown): string => {
   const num = Number(value)
   return isNaN(num) ? '0.00' : num.toFixed(2)
+}
+
+// Export questionnaire data as CSV
+function exportQuestionnaireCSV(qData: QuestionnaireData, siteName: string) {
+  const escapeCSV = (value: string): string => {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return '"' + value.replace(/"/g, '""') + '"'
+    }
+    return value
+  }
+
+  const rows: string[] = []
+  rows.push('Field,Value')
+
+  for (const section of QUESTIONNAIRE_SECTIONS) {
+    rows.push('')
+    rows.push(escapeCSV(`--- ${section.title} ---`) + ',')
+    for (const field of section.fields) {
+      const raw = qData[field.key]
+      let value = ''
+      if (raw != null && raw !== '') {
+        if (typeof raw === 'boolean') {
+          value = raw ? 'Yes' : 'No'
+        } else {
+          value = String(raw)
+        }
+      }
+      rows.push(escapeCSV(field.label) + ',' + escapeCSV(value))
+    }
+  }
+
+  const csv = rows.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${siteName}-questionnaire.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 // Default subtasks for Phase 4
@@ -723,6 +764,15 @@ export default function MigrationDetail() {
                 </span>
               </div>
               <div className="flex gap-2">
+                {hasAnyValues && (
+                  <button
+                    onClick={() => exportQuestionnaireCSV(qData, migration.site_name || migration.name)}
+                    className="btn btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </button>
+                )}
                 {canWrite && !migration.questionnaire_link_token && (
                   <button
                     onClick={() => generateQuestionnaireLinkMutation.mutate()}

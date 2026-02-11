@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Editable completed phases** (admin only) — pencil icon on completed phase headers expands inline edit forms
 - Inline edit form for Phase 1 (estimate charges and notes), Phase 2 (email sent to, site ID), Phase 3 (FOC date, scheduled/actual port dates)
 - **Revert Phase** button (admin only) — moves workflow stage backward with confirmation dialog
+- **Export CSV** button on Site Questionnaire — downloads questionnaire responses as a CSV file with section headers, field/value pairs, and proper escaping
 
 ### Database Migration Required
 ```sql
