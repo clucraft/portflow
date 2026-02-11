@@ -479,7 +479,7 @@ function CarriersTab() {
                       onBlur={(e) => updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat(e.target.value) || 0 } as Partial<Carrier> })}
                       onKeyDown={(e) => { if (e.key === 'Enter') { updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat((e.target as HTMLInputElement).value) || 0 } as Partial<Carrier> }); } }} />
                   ) : (
-                    <span className="text-zinc-400 font-mono text-sm">${(carrier.monthly_charge || 0).toFixed(2)}</span>
+                    <span className="text-zinc-400 font-mono text-sm">${(Number(carrier.monthly_charge) || 0).toFixed(2)}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
