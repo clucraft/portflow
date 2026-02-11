@@ -303,6 +303,8 @@ export const voiceRoutingPoliciesApi = {
   update: (id: string, data: Partial<VoiceRoutingPolicy>) =>
     api.put<VoiceRoutingPolicy>(`/settings/voice-routing-policies/${id}`, data).then((r) => r.data),
   remove: (id: string) => api.delete(`/settings/voice-routing-policies/${id}`),
+  import: (policies: { name: string; description?: string }[]) =>
+    api.post<{ success: number; failed: number; errors: { row: number; error: string }[] }>('/settings/voice-routing-policies/import', { policies }).then((r) => r.data),
 }
 
 export const dialPlansApi = {
@@ -312,6 +314,8 @@ export const dialPlansApi = {
   update: (id: string, data: Partial<DialPlan>) =>
     api.put<DialPlan>(`/settings/dial-plans/${id}`, data).then((r) => r.data),
   remove: (id: string) => api.delete(`/settings/dial-plans/${id}`),
+  import: (policies: { name: string; description?: string }[]) =>
+    api.post<{ success: number; failed: number; errors: { row: number; error: string }[] }>('/settings/dial-plans/import', { policies }).then((r) => r.data),
 }
 
 export const notificationsApi = {

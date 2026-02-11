@@ -18,12 +18,14 @@ router.delete('/carriers/:id', requireAdmin, carriersController.remove);
 
 // === Voice Routing Policies CRUD ===
 router.get('/voice-routing-policies', policiesController.listVoiceRoutingPolicies);
+router.post('/voice-routing-policies/import', requireAdmin, policiesController.importVoiceRoutingPolicies);
 router.post('/voice-routing-policies', requireAdmin, policiesController.createVoiceRoutingPolicy);
 router.put('/voice-routing-policies/:id', requireAdmin, policiesController.updateVoiceRoutingPolicy);
 router.delete('/voice-routing-policies/:id', requireAdmin, policiesController.removeVoiceRoutingPolicy);
 
 // === Dial Plans CRUD ===
 router.get('/dial-plans', policiesController.listDialPlans);
+router.post('/dial-plans/import', requireAdmin, policiesController.importDialPlans);
 router.post('/dial-plans', requireAdmin, policiesController.createDialPlan);
 router.put('/dial-plans/:id', requireAdmin, policiesController.updateDialPlan);
 router.delete('/dial-plans/:id', requireAdmin, policiesController.removeDialPlan);

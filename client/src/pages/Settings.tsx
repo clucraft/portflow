@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key } from 'lucide-react'
+import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
@@ -507,6 +507,10 @@ function PoliciesTab() {
   const [showAddDp, setShowAddDp] = useState(false)
   const [vrpForm, setVrpForm] = useState({ name: '', description: '' })
   const [dpForm, setDpForm] = useState({ name: '', description: '' })
+  const [importResults, setImportResults] = useState<{ type: string; success: number; failed: number; errors: { row: number; error: string }[] } | null>(null)
+  const [csvError, setCsvError] = useState<string | null>(null)
+  const fileInputVrpRef = useRef<HTMLInputElement>(null)
+  const fileInputDpRef = useRef<HTMLInputElement>(null)
 
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
   const { data: dps } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
@@ -528,16 +532,177 @@ function PoliciesTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dial-plans'] }),
   })
 
+  const importVrpMutation = useMutation({
+    mutationFn: voiceRoutingPoliciesApi.import,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['voice-routing-policies'] })
+      setImportResults({ type: 'Voice Routing Policies', ...data })
+    },
+  })
+  const importDpMutation = useMutation({
+    mutationFn: dialPlansApi.import,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['dial-plans'] })
+      setImportResults({ type: 'Dial Plans', ...data })
+    },
+  })
+
+  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'vrp' | 'dp') => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    // Reset input so the same file can be re-selected
+    event.target.value = ''
+
+    setCsvError(null)
+    setImportResults(null)
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        const lines = text.split(/\r?\n/).filter((l) => l.trim())
+        if (lines.length < 2) {
+          setCsvError('CSV file must have a header row and at least one data row.')
+          return
+        }
+
+        // Parse header — quote-aware split
+        const parseCsvLine = (line: string): string[] => {
+          const fields: string[] = []
+          let current = ''
+          let inQuotes = false
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i]
+            if (ch === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"'
+                i++
+              } else {
+                inQuotes = !inQuotes
+              }
+            } else if (ch === ',' && !inQuotes) {
+              fields.push(current.trim())
+              current = ''
+            } else {
+              current += ch
+            }
+          }
+          fields.push(current.trim())
+          return fields
+        }
+
+        const headers = parseCsvLine(lines[0]).map((h) => h.replace(/^["']|["']$/g, '').toLowerCase().trim())
+        const nameIdx = headers.findIndex((h) => h === 'name' || h === 'identity')
+        const descIdx = headers.findIndex((h) => h === 'description')
+
+        if (nameIdx === -1) {
+          setCsvError('CSV must have a "name" or "identity" column in the header row.')
+          return
+        }
+
+        const policies: { name: string; description?: string }[] = []
+        for (let i = 1; i < lines.length; i++) {
+          const fields = parseCsvLine(lines[i])
+          const name = (fields[nameIdx] || '').replace(/^["']|["']$/g, '').trim()
+          if (!name) continue
+          const description = descIdx >= 0 ? (fields[descIdx] || '').replace(/^["']|["']$/g, '').trim() : undefined
+          policies.push({ name, description: description || undefined })
+        }
+
+        if (policies.length === 0) {
+          setCsvError('No valid rows found in CSV file.')
+          return
+        }
+
+        if (type === 'vrp') {
+          importVrpMutation.mutate(policies)
+        } else {
+          importDpMutation.mutate(policies)
+        }
+      } catch {
+        setCsvError('Failed to parse CSV file.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <div className="space-y-8">
+      {/* Import from Teams card */}
+      {isAdmin && (
+        <div className="card border-primary-500/30 bg-primary-500/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-zinc-100">Import from Microsoft Teams</h3>
+              <p className="text-sm text-zinc-400 mt-1">
+                Download the PowerShell script, run it in a Teams-connected session, then upload the resulting CSV files below.
+              </p>
+            </div>
+            <a
+              href="/Export-TeamsPolicies.ps1"
+              download
+              className="btn btn-secondary flex items-center gap-2 flex-shrink-0"
+            >
+              <Download className="h-4 w-4" />
+              Download Script
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* CSV parse error banner */}
+      {csvError && (
+        <div className="p-3 rounded-lg border bg-red-500/10 border-red-500/30 text-sm text-red-400 flex items-center justify-between">
+          <span>{csvError}</span>
+          <button onClick={() => setCsvError(null)} className="text-red-400 hover:text-red-300 ml-4">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Import results banner */}
+      {importResults && (
+        <div className={`p-3 rounded-lg border text-sm flex items-center justify-between ${
+          importResults.failed > 0
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+            : 'bg-green-500/10 border-green-500/30 text-green-400'
+        }`}>
+          <span>
+            {importResults.type}: {importResults.success} imported successfully
+            {importResults.failed > 0 && `, ${importResults.failed} failed`}
+            {importResults.errors.length > 0 && ` (${importResults.errors.map(e => `row ${e.row}: ${e.error}`).join('; ')})`}
+          </span>
+          <button onClick={() => setImportResults(null)} className="hover:opacity-70 ml-4">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Voice Routing Policies */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-100">Voice Routing Policies</h2>
           {isAdmin && (
-            <button onClick={() => setShowAddVrp(true)} className="btn btn-primary flex items-center gap-2">
-              <Plus className="h-4 w-4" />Add Policy
-            </button>
+            <div className="flex gap-2">
+              <input
+                ref={fileInputVrpRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleCsvUpload(e, 'vrp')}
+              />
+              <button
+                onClick={() => fileInputVrpRef.current?.click()}
+                className="btn btn-secondary flex items-center gap-2"
+                disabled={importVrpMutation.isPending}
+              >
+                <Upload className="h-4 w-4" />
+                {importVrpMutation.isPending ? 'Importing...' : 'Import CSV'}
+              </button>
+              <button onClick={() => setShowAddVrp(true)} className="btn btn-primary flex items-center gap-2">
+                <Plus className="h-4 w-4" />Add Policy
+              </button>
+            </div>
           )}
         </div>
         {showAddVrp && isAdmin && (
@@ -574,9 +739,26 @@ function PoliciesTab() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-100">Dial Plans</h2>
           {isAdmin && (
-            <button onClick={() => setShowAddDp(true)} className="btn btn-primary flex items-center gap-2">
-              <Plus className="h-4 w-4" />Add Dial Plan
-            </button>
+            <div className="flex gap-2">
+              <input
+                ref={fileInputDpRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleCsvUpload(e, 'dp')}
+              />
+              <button
+                onClick={() => fileInputDpRef.current?.click()}
+                className="btn btn-secondary flex items-center gap-2"
+                disabled={importDpMutation.isPending}
+              >
+                <Upload className="h-4 w-4" />
+                {importDpMutation.isPending ? 'Importing...' : 'Import CSV'}
+              </button>
+              <button onClick={() => setShowAddDp(true)} className="btn btn-primary flex items-center gap-2">
+                <Plus className="h-4 w-4" />Add Dial Plan
+              </button>
+            </div>
           )}
         </div>
         {showAddDp && isAdmin && (

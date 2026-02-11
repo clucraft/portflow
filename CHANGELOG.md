@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Questionnaire CSV export** now produces standard flat CSV format (one header row with all field labels as columns, one data row with values) instead of section-header/field-value layout
 
 ### Added
+- **Import from Microsoft Teams** — PowerShell export script + CSV bulk import for dial plans and voice routing policies (Settings > Policies)
 - **Bulk Export Questionnaires** button on Reports page — exports all migrations' questionnaire data in one CSV (one row per migration, all questionnaire fields as columns)
 
 - **Authentication system** with email + password login (bcrypt + JWT)
