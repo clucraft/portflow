@@ -223,7 +223,7 @@ export const acceptEstimate = async (req: Request, res: Response, next: NextFunc
       throw ApiError.notFound('Migration not found');
     }
 
-    notifySubscribers(id, migrations[0].name, 'Estimate Accepted', 'The cost estimate has been accepted.').catch(() => {});
+    notifySubscribers(id, migrations[0].name, 'Estimate Accepted', 'The cost estimate has been accepted.', req.user?.display_name).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -293,7 +293,7 @@ export const submitVerizonRequest = async (req: Request, res: Response, next: Ne
       throw ApiError.notFound('Migration not found');
     }
 
-    notifySubscribers(id, migrations[0].name, 'Carrier Request Submitted', `Request submitted to ${email_sent_to}`).catch(() => {});
+    notifySubscribers(id, migrations[0].name, 'Carrier Request Submitted', `Request submitted to ${email_sent_to}`, req.user?.display_name).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -321,7 +321,7 @@ export const completeVerizonSetup = async (req: Request, res: Response, next: Ne
       throw ApiError.notFound('Migration not found');
     }
 
-    notifySubscribers(id, migrations[0].name, 'Carrier Setup Complete', 'Carrier site setup has been completed.').catch(() => {});
+    notifySubscribers(id, migrations[0].name, 'Carrier Setup Complete', 'Carrier site setup has been completed.', req.user?.display_name).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -439,7 +439,7 @@ export const completePorting = async (req: Request, res: Response, next: NextFun
       [id]
     );
 
-    notifySubscribers(id, migrations[0].name, 'Porting Complete', 'Number porting has been completed.').catch(() => {});
+    notifySubscribers(id, migrations[0].name, 'Porting Complete', 'Number porting has been completed.', req.user?.display_name).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -583,7 +583,7 @@ export const updateStage = async (req: Request, res: Response, next: NextFunctio
       throw ApiError.notFound('Migration not found');
     }
 
-    notifySubscribers(id, migrations[0].name, `Stage changed to ${stage}`).catch(() => {});
+    notifySubscribers(id, migrations[0].name, `Stage changed to ${stage}`, undefined, req.user?.display_name).catch(() => {});
     logActivity(req.user?.id || null, 'migration.stage_change', `Stage changed to ${stage}`, id).catch(() => {});
 
     res.json(migrations[0]);

@@ -10,7 +10,8 @@ export const notifySubscribers = async (
   migrationId: string,
   migrationName: string,
   event: string,
-  details?: string
+  details?: string,
+  actor?: string
 ): Promise<void> => {
   try {
     const subscribers = await query<Subscriber>(
@@ -29,6 +30,7 @@ export const notifySubscribers = async (
         <h2 style="color: #06b6d4;">PortFlow Notification</h2>
         <p><strong>Migration:</strong> ${migrationName}</p>
         <p><strong>Event:</strong> ${event}</p>
+        ${actor ? `<p><strong>Completed by:</strong> ${actor}</p>` : ''}
         ${details ? `<p><strong>Details:</strong> ${details}</p>` : ''}
         <hr style="border-color: #333;" />
         <p style="color: #666; font-size: 12px;">You are receiving this because you subscribed to notifications for this migration.</p>
