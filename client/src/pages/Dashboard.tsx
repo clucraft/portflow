@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search } from 'lucide-react'
-import { migrationsApi, carriersApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell } from 'lucide-react'
+import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
 const stageColors: Record<string, string> = {
@@ -62,6 +62,11 @@ export default function Dashboard() {
   })
 
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
+
+  const { data: mySubscriptions } = useQuery({
+    queryKey: ['my-subscriptions'],
+    queryFn: notificationsApi.getMySubscriptions,
+  })
 
   const formatCarrierName = (carrier: string): string => {
     const found = carriers?.find(c => c.slug === carrier)
@@ -202,7 +207,12 @@ export default function Dashboard() {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-medium text-zinc-100">{migration.name}</h3>
+                      <h3 className="font-medium text-zinc-100 flex items-center gap-1.5">
+                        {migration.name}
+                        {mySubscriptions?.includes(migration.id) && (
+                          <Bell className="h-3.5 w-3.5 text-primary-400" title="Subscribed to notifications" />
+                        )}
+                      </h3>
                       <p className="text-sm text-zinc-500">
                         {migration.site_name}
                         {migration.site_city && `, ${migration.site_city}`}
@@ -283,8 +293,11 @@ export default function Dashboard() {
                   to={`/migrations/${m.id}`}
                   className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
                 >
-                  <div>
+                  <div className="flex items-center gap-1.5">
                     <span className="font-medium text-zinc-200">{m.name}</span>
+                    {mySubscriptions?.includes(m.id) && (
+                      <Bell className="h-3.5 w-3.5 text-primary-400" title="Subscribed to notifications" />
+                    )}
                     <span className="text-zinc-500 text-sm ml-2">{m.site_name}</span>
                   </div>
                   <div className="flex items-center gap-3">
