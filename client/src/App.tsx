@@ -13,6 +13,7 @@ import Login from './pages/Login'
 import Setup from './pages/Setup'
 import CustomerCollect from './pages/CustomerCollect'
 import EstimateAccept from './pages/EstimateAccept'
+import CustomerQuestionnaire from './pages/CustomerQuestionnaire'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/setup" element={<Setup />} />
         <Route path="/collect/:token" element={<CustomerCollect />} />
         <Route path="/estimate/:token" element={<EstimateAccept />} />
+        <Route path="/questionnaire/:token" element={<CustomerQuestionnaire />} />
 
         {/* App routes (protected) */}
         <Route

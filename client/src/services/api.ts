@@ -143,6 +143,12 @@ export interface Migration {
   estimate_link_expires_at: string | null
   estimate_accepted_by: string | null
 
+  // Site questionnaire
+  site_questionnaire: Record<string, unknown>
+  questionnaire_link_token: string | null
+  questionnaire_link_expires_at: string | null
+  questionnaire_submitted_at: string | null
+
   // Phase subtask checklists
   phase_tasks: Record<string, PhaseTask[]> | null
 
@@ -383,6 +389,10 @@ export const migrationsApi = {
   generateEstimateLink: (id: string, expires_in_days?: number) =>
     api.post<Migration & { estimate_link_url: string }>(`/migrations/${id}/estimate-link`, { expires_in_days }).then((r) => r.data),
 
+  // Questionnaire link for customer
+  generateQuestionnaireLink: (id: string, expires_in_days?: number) =>
+    api.post<Migration & { questionnaire_link_url: string }>(`/migrations/${id}/questionnaire-link`, { expires_in_days }).then((r) => r.data),
+
   delete: (id: string) => api.delete(`/migrations/${id}`),
 }
 
@@ -434,6 +444,11 @@ export const publicApi = {
     api.get<{ migration: Partial<Migration> }>(`/public/estimate/${token}`).then((r) => r.data),
   acceptEstimate: (token: string, accepted_by?: string) =>
     api.post<{ success: boolean; message: string }>(`/public/estimate/${token}/accept`, { accepted_by }).then((r) => r.data),
+  // Questionnaire
+  getQuestionnaire: (token: string) =>
+    api.get<{ migration: { name: string; site_name: string; site_questionnaire: Record<string, unknown>; questionnaire_submitted_at: string | null } }>(`/public/questionnaire/${token}`).then((r) => r.data),
+  submitQuestionnaire: (token: string, data: Record<string, unknown>, submit: boolean) =>
+    api.post<{ success: boolean; message: string }>(`/public/questionnaire/${token}/submit`, { data, submit }).then((r) => r.data),
 }
 
 export default api

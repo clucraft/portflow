@@ -262,4 +262,82 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
   }
 });
 
+// GET /api/public/questionnaire/:token - Get questionnaire data for customer
+router.get('/questionnaire/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+
+    const migrations = await query<Migration>(
+      `SELECT id, name, site_name, site_questionnaire, questionnaire_link_expires_at, questionnaire_submitted_at
+       FROM migrations
+       WHERE questionnaire_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    if (migration.questionnaire_link_expires_at && new Date(migration.questionnaire_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired. Please contact your administrator for a new link.');
+    }
+
+    res.json({
+      migration: {
+        name: migration.name,
+        site_name: migration.site_name,
+        site_questionnaire: migration.site_questionnaire,
+        questionnaire_submitted_at: migration.questionnaire_submitted_at,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/public/questionnaire/:token/submit - Save or submit questionnaire
+router.post('/questionnaire/:token/submit', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const { data, submit } = req.body;
+
+    if (!data || typeof data !== 'object') {
+      throw ApiError.badRequest('data object is required');
+    }
+
+    const migrations = await query<Migration>(
+      `SELECT id, questionnaire_link_expires_at FROM migrations WHERE questionnaire_link_token = $1`,
+      [token]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Invalid or expired link');
+    }
+
+    const migration = migrations[0];
+
+    if (migration.questionnaire_link_expires_at && new Date(migration.questionnaire_link_expires_at) < new Date()) {
+      throw ApiError.badRequest('This link has expired');
+    }
+
+    if (submit) {
+      await query(
+        `UPDATE migrations SET site_questionnaire = $1, questionnaire_submitted_at = NOW() WHERE id = $2`,
+        [JSON.stringify(data), migration.id]
+      );
+    } else {
+      await query(
+        `UPDATE migrations SET site_questionnaire = $1 WHERE id = $2`,
+        [JSON.stringify(data), migration.id]
+      );
+    }
+
+    res.json({ success: true, message: submit ? 'Questionnaire submitted' : 'Draft saved' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

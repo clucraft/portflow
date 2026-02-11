@@ -467,6 +467,39 @@ export const generateMagicLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+// Generate questionnaire link for customer
+export const generateQuestionnaireLink = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { expires_in_days } = req.body;
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (expires_in_days || 30));
+
+    const migrations = await query<Migration>(
+      `UPDATE migrations SET
+        questionnaire_link_token = $1,
+        questionnaire_link_created_at = NOW(),
+        questionnaire_link_expires_at = $2
+      WHERE id = $3
+      RETURNING *`,
+      [token, expiresAt, id]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Migration not found');
+    }
+
+    res.json({
+      ...migrations[0],
+      questionnaire_link_url: `/questionnaire/${token}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Get migration by magic link token (public endpoint)
 export const getByMagicLink = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -559,6 +592,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       'physical_phones_needed', 'monthly_calling_minutes', 'is_porting_numbers',
       'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'country_code', 'notes', 'phase_tasks',
       'verizon_request_email_sent_to', 'verizon_site_id', 'foc_date', 'scheduled_port_date', 'actual_port_date',
+      'site_questionnaire',
     ];
 
     const updates: string[] = [];

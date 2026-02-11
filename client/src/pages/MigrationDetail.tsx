@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, type Migration, type WorkflowStage, type PhaseTask } from '../services/api'
+import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
 import { useAuth } from '../contexts/AuthContext'
@@ -156,6 +157,12 @@ export default function MigrationDetail() {
     actual_port_date: '',
   })
 
+  // Questionnaire state
+  const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [editingQField, setEditingQField] = useState<string | null>(null)
+  const [editingQValue, setEditingQValue] = useState<string>('')
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -294,6 +301,20 @@ export default function MigrationDetail() {
     },
   })
 
+  const generateQuestionnaireLinkMutation = useMutation({
+    mutationFn: () => migrationsApi.generateQuestionnaireLink(id!, 30),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration', id] }),
+  })
+
+  const updateQuestionnaireMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      migrationsApi.update(id!, { site_questionnaire: data } as Partial<Migration>),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['migration', id] })
+      setEditingQField(null)
+    },
+  })
+
   const updatePhaseTasksMutation = useMutation({
     mutationFn: (phase_tasks: Record<string, PhaseTask[]>) =>
       migrationsApi.update(id!, { phase_tasks } as Partial<import('../services/api').Migration>),
@@ -325,6 +346,32 @@ export default function MigrationDetail() {
     if (confirm(`Are you sure you want to delete "${migration?.name}"? This action cannot be undone.`)) {
       deleteMigrationMutation.mutate()
     }
+  }
+
+  const copyQuestionnaireLink = async () => {
+    if (migration?.questionnaire_link_token) {
+      await navigator.clipboard.writeText(`${window.location.origin}/questionnaire/${migration.questionnaire_link_token}`)
+      setCopiedQuestionnaire(true)
+      setTimeout(() => setCopiedQuestionnaire(false), 2000)
+    }
+  }
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => ({ ...prev, [title]: !prev[title] }))
+  }
+
+  const startEditQField = (key: string, currentValue: unknown) => {
+    setEditingQField(key)
+    setEditingQValue(currentValue != null ? String(currentValue) : '')
+  }
+
+  const saveQField = (key: string, type: string) => {
+    if (!migration) return
+    const existing = (migration.site_questionnaire || {}) as QuestionnaireData
+    let value: string | number | boolean | null = editingQValue
+    if (type === 'number') value = editingQValue ? Number(editingQValue) : null
+    else if (type === 'boolean') value = editingQValue === 'true'
+    updateQuestionnaireMutation.mutate({ ...existing, [key]: value })
   }
 
   const copyEstimateLink = async () => {
@@ -647,6 +694,168 @@ export default function MigrationDetail() {
           />
         </div>
       </div>
+
+      {/* Site Questionnaire Section */}
+      {(() => {
+        const qData = (migration.site_questionnaire || {}) as QuestionnaireData
+        const hasAnyValues = Object.values(qData).some((v) => v != null && v !== '')
+        const isSubmitted = !!migration.questionnaire_submitted_at
+
+        let statusLabel = 'NOT STARTED'
+        let statusColor = 'text-zinc-500 bg-zinc-500/10 border-zinc-500/30'
+        if (isSubmitted) {
+          statusLabel = 'COMPLETE'
+          statusColor = 'text-green-400 bg-green-500/10 border-green-500/30'
+        } else if (hasAnyValues) {
+          statusLabel = 'IN PROGRESS'
+          statusColor = 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+        }
+
+        return (
+          <div className="card">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <ClipboardList className="h-5 w-5 text-primary-400" />
+                <h3 className="font-medium text-zinc-100">Site Questionnaire</h3>
+                <span className={`text-xs font-mono px-2 py-0.5 rounded border ${statusColor}`}>
+                  {statusLabel}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {canWrite && !migration.questionnaire_link_token && (
+                  <button
+                    onClick={() => generateQuestionnaireLinkMutation.mutate()}
+                    disabled={generateQuestionnaireLinkMutation.isPending}
+                    className="btn btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    {generateQuestionnaireLinkMutation.isPending ? 'Generating...' : 'Generate Link'}
+                  </button>
+                )}
+                {migration.questionnaire_link_token && (
+                  <button
+                    onClick={copyQuestionnaireLink}
+                    className="btn btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    {copiedQuestionnaire ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                    {copiedQuestionnaire ? 'Copied!' : 'Copy Link'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Link info */}
+            {migration.questionnaire_link_token && (
+              <div className="mb-4 p-3 bg-primary-500/10 rounded-lg border border-primary-500/30">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-primary-400 mb-1">Customer Questionnaire Link</p>
+                    <code className="text-xs text-zinc-400 truncate block">
+                      {window.location.origin}/questionnaire/{migration.questionnaire_link_token}
+                    </code>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={copyQuestionnaireLink} className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-surface-700 rounded">
+                      {copiedQuestionnaire ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                    <a href={`/questionnaire/${migration.questionnaire_link_token}`} target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-surface-700 rounded">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Collapsible sections */}
+            {QUESTIONNAIRE_SECTIONS.map((section) => (
+              <div key={section.title} className="border border-surface-600 rounded-lg mb-2 last:mb-0">
+                <button
+                  onClick={() => toggleSection(section.title)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-700/50 transition-colors rounded-lg"
+                >
+                  <span className="text-sm font-medium text-zinc-300">{section.title}</span>
+                  <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${expandedSections[section.title] ? 'rotate-180' : ''}`} />
+                </button>
+                {expandedSections[section.title] && (
+                  <div className="px-4 pb-4 grid grid-cols-2 gap-x-6 gap-y-2">
+                    {section.fields.map((field) => {
+                      const value = qData[field.key]
+                      const isEditing = editingQField === field.key
+                      const displayValue = value != null && value !== ''
+                        ? field.type === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
+                        : null
+
+                      return (
+                        <div key={field.key} className="flex items-start gap-2 py-1.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-zinc-500">{field.label}</p>
+                            {isEditing ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                {field.type === 'boolean' ? (
+                                  <select
+                                    className="input text-sm py-1"
+                                    value={editingQValue}
+                                    onChange={(e) => setEditingQValue(e.target.value)}
+                                  >
+                                    <option value="">-- Select --</option>
+                                    <option value="true">Yes</option>
+                                    <option value="false">No</option>
+                                  </select>
+                                ) : field.type === 'textarea' ? (
+                                  <textarea
+                                    className="input text-sm py-1 min-h-[60px]"
+                                    value={editingQValue}
+                                    onChange={(e) => setEditingQValue(e.target.value)}
+                                  />
+                                ) : (
+                                  <input
+                                    type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                    className="input text-sm py-1"
+                                    value={editingQValue}
+                                    onChange={(e) => setEditingQValue(e.target.value)}
+                                    autoFocus
+                                  />
+                                )}
+                                <button
+                                  onClick={() => saveQField(field.key, field.type)}
+                                  className="p-1 text-green-400 hover:text-green-300"
+                                  disabled={updateQuestionnaireMutation.isPending}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingQField(null)}
+                                  className="p-1 text-zinc-500 hover:text-zinc-300"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <p className={displayValue ? 'text-sm text-zinc-200' : 'text-sm text-zinc-700 italic'}>
+                                {displayValue || 'Not answered'}
+                              </p>
+                            )}
+                          </div>
+                          {canWrite && !isEditing && (
+                            <button
+                              onClick={() => startEditQField(field.key, value)}
+                              className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors mt-3"
+                              title={`Edit ${field.label}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Timeline List */}
       <div className="space-y-0">

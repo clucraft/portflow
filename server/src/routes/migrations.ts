@@ -71,6 +71,9 @@ router.post('/:id/complete-porting', migrationsController.completePorting);
 // POST /api/migrations/:id/magic-link - Generate magic link for customer data entry
 router.post('/:id/magic-link', migrationsController.generateMagicLink);
 
+// POST /api/migrations/:id/questionnaire-link - Generate questionnaire link for customer
+router.post('/:id/questionnaire-link', migrationsController.generateQuestionnaireLink);
+
 // === Notifications ===
 
 // POST /api/migrations/:id/subscribe - Subscribe to notifications

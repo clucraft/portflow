@@ -157,6 +157,13 @@ export interface Migration {
   estimate_link_expires_at: Date | null;
   estimate_accepted_by: string | null;
 
+  // Site questionnaire
+  site_questionnaire: Record<string, unknown>;
+  questionnaire_link_token: string | null;
+  questionnaire_link_created_at: Date | null;
+  questionnaire_link_expires_at: Date | null;
+  questionnaire_submitted_at: Date | null;
+
   // Completion
   completed_at: Date | null;
 
