@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download } from 'lucide-react'
+import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download, DollarSign } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
   type TeamMember, type Carrier
 } from '../services/api'
 
-type SettingsTab = 'users' | 'carriers' | 'policies' | 'email' | 'audit'
+type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'email' | 'audit'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
@@ -17,6 +17,7 @@ export default function Settings() {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'carriers', label: 'Carriers', icon: Truck },
     { id: 'policies', label: 'Policies', icon: FileText },
+    { id: 'pricing', label: 'Pricing', icon: DollarSign },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'audit', label: 'Audit Log', icon: Shield, adminOnly: true },
   ]
@@ -56,6 +57,7 @@ export default function Settings() {
       {activeTab === 'users' && <UsersTab />}
       {activeTab === 'carriers' && <CarriersTab />}
       {activeTab === 'policies' && <PoliciesTab />}
+      {activeTab === 'pricing' && <PricingTab />}
       {activeTab === 'email' && <EmailTab />}
       {activeTab === 'audit' && isAdmin && <AuditLogTab />}
     </div>
@@ -375,7 +377,7 @@ function CarriersTab() {
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ slug: '', display_name: '' })
+  const [form, setForm] = useState({ slug: '', display_name: '', monthly_charge: '' })
 
   const { data: carriers, isLoading } = useQuery({
     queryKey: ['carriers'],
@@ -387,7 +389,7 @@ function CarriersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['carriers'] })
       setShowAdd(false)
-      setForm({ slug: '', display_name: '' })
+      setForm({ slug: '', display_name: '', monthly_charge: '' })
     },
   })
 
@@ -419,7 +421,7 @@ function CarriersTab() {
             <h3 className="font-medium text-zinc-100">Add Carrier</h3>
             <button onClick={() => setShowAdd(false)} className="text-zinc-500 hover:text-zinc-300"><X className="h-5 w-5" /></button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">Slug (lowercase, no spaces)</label>
               <input type="text" className="input" value={form.slug}
@@ -430,9 +432,14 @@ function CarriersTab() {
               <input type="text" className="input" value={form.display_name}
                 onChange={(e) => setForm({ ...form, display_name: e.target.value })} placeholder="e.g., Verizon" />
             </div>
+            <div>
+              <label className="label">Monthly Charge ($)</label>
+              <input type="number" className="input" value={form.monthly_charge}
+                onChange={(e) => setForm({ ...form, monthly_charge: e.target.value })} placeholder="0.00" step="0.01" />
+            </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={() => createMutation.mutate(form)} className="btn btn-primary"
+            <button onClick={() => createMutation.mutate({ ...form, monthly_charge: parseFloat(form.monthly_charge) || 0 } as unknown as Partial<Carrier>)} className="btn btn-primary"
               disabled={!form.slug || !form.display_name || createMutation.isPending}>
               {createMutation.isPending ? 'Creating...' : 'Create Carrier'}
             </button>
@@ -447,6 +454,7 @@ function CarriersTab() {
             <tr className="border-b border-surface-600">
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Slug</th>
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Display Name</th>
+              <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Monthly Charge</th>
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Status</th>
               {isAdmin && <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3">Actions</th>}
             </tr>
@@ -463,6 +471,15 @@ function CarriersTab() {
                       autoFocus />
                   ) : (
                     <span className="text-zinc-200">{carrier.display_name}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {editingId === carrier.id ? (
+                    <input type="number" className="input py-1 text-sm w-28" defaultValue={carrier.monthly_charge || 0} step="0.01"
+                      onBlur={(e) => updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat(e.target.value) || 0 } as Partial<Carrier> })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat((e.target as HTMLInputElement).value) || 0 } as Partial<Carrier> }); } }} />
+                  ) : (
+                    <span className="text-zinc-400 font-mono text-sm">${(carrier.monthly_charge || 0).toFixed(2)}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -490,7 +507,7 @@ function CarriersTab() {
               </tr>
             ))}
             {(!carriers || carriers.length === 0) && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">No carriers configured</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">No carriers configured</td></tr>
             )}
           </tbody>
         </table>
@@ -788,6 +805,73 @@ function PoliciesTab() {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ============ PRICING TAB ============
+function PricingTab() {
+  const { isAdmin } = useAuth()
+  const queryClient = useQueryClient()
+  const [config, setConfig] = useState({ user_service_rate: 3.45, phone_unit_cost: 0, headset_unit_cost: 0 })
+  const [loaded, setLoaded] = useState(false)
+
+  const { data: setting } = useQuery({
+    queryKey: ['settings', 'pricing_rates'],
+    queryFn: () => settingsApi.get('pricing_rates').catch(() => null),
+  })
+
+  if (setting && !loaded) {
+    const val = setting.value as { user_service_rate?: number; phone_unit_cost?: number; headset_unit_cost?: number }
+    setConfig({
+      user_service_rate: val.user_service_rate ?? 3.45,
+      phone_unit_cost: val.phone_unit_cost ?? 0,
+      headset_unit_cost: val.headset_unit_cost ?? 0,
+    })
+    setLoaded(true)
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => settingsApi.update('pricing_rates', config),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'pricing_rates'] }),
+  })
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-zinc-100">Pricing Rates</h2>
+      <p className="text-sm text-zinc-500">Configure default rates for auto-calculating cost estimates from questionnaire data.</p>
+
+      <div className="card space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="label">User Service Rate ($/user/month)</label>
+            <input type="number" className="input" value={config.user_service_rate}
+              onChange={(e) => setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 })}
+              step="0.01" placeholder="3.45" disabled={!isAdmin} />
+          </div>
+          <div>
+            <label className="label">Phone Unit Cost ($, one-time)</label>
+            <input type="number" className="input" value={config.phone_unit_cost}
+              onChange={(e) => setConfig({ ...config, phone_unit_cost: parseFloat(e.target.value) || 0 })}
+              step="0.01" placeholder="0.00" disabled={!isAdmin} />
+          </div>
+          <div>
+            <label className="label">Headset Unit Cost ($, one-time)</label>
+            <input type="number" className="input" value={config.headset_unit_cost}
+              onChange={(e) => setConfig({ ...config, headset_unit_cost: parseFloat(e.target.value) || 0 })}
+              step="0.01" placeholder="0.00" disabled={!isAdmin} />
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="flex gap-2 pt-4 border-t border-surface-600">
+            <button onClick={() => saveMutation.mutate()} className="btn btn-primary"
+              disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save Rates'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

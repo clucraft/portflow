@@ -15,8 +15,9 @@ router.get('/estimate/:token', async (req: Request, res: Response, next: NextFun
     const migrations = await query<Migration>(
       `SELECT id, name, site_name, site_city, site_state, telephone_users, physical_phones_needed,
               target_carrier, routing_type, estimate_user_service_charge, estimate_equipment_charge,
-              estimate_usage_charge, estimate_total_monthly, estimate_total_onetime, estimate_notes,
-              estimate_link_expires_at, estimate_accepted_at
+              estimate_usage_charge, estimate_carrier_charge, estimate_phone_equipment_charge,
+              estimate_headset_equipment_charge, estimate_total_monthly, estimate_total_onetime,
+              estimate_notes, estimate_link_expires_at, estimate_accepted_at
        FROM migrations
        WHERE estimate_link_token = $1`,
       [token]
@@ -47,6 +48,9 @@ router.get('/estimate/:token', async (req: Request, res: Response, next: NextFun
         estimate_user_service_charge: migration.estimate_user_service_charge,
         estimate_equipment_charge: migration.estimate_equipment_charge,
         estimate_usage_charge: migration.estimate_usage_charge,
+        estimate_carrier_charge: migration.estimate_carrier_charge,
+        estimate_phone_equipment_charge: migration.estimate_phone_equipment_charge,
+        estimate_headset_equipment_charge: migration.estimate_headset_equipment_charge,
         estimate_total_monthly: migration.estimate_total_monthly,
         estimate_total_onetime: migration.estimate_total_onetime,
         estimate_notes: migration.estimate_notes,

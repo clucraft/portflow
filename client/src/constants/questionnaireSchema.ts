@@ -50,6 +50,7 @@ export const QUESTIONNAIRE_SECTIONS: QuestionnaireSection[] = [
     fields: [
       { key: 'personal_desk_phones', label: 'Personal Desk Phones', type: 'number', placeholder: 'Count of desk phones' },
       { key: 'headset_percentage', label: 'Headset Usage (%)', type: 'number', placeholder: 'Percentage of users with headsets' },
+      { key: 'headset_count', label: 'Headset Count', type: 'number', placeholder: 'Number of headsets needed' },
       { key: 'default_headset', label: 'Default Headset Model', type: 'text', placeholder: 'e.g. Jabra Evolve2 75' },
       { key: 'conference_room_devices', label: 'Conference Room Devices', type: 'number', placeholder: 'Count of conference devices' },
       { key: 'cordless_dect_in_use', label: 'Cordless / DECT in Use', type: 'boolean' },

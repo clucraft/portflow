@@ -158,7 +158,15 @@ export default function EstimateAccept() {
           </div>
 
           <div className="space-y-3">
-            {/* Line items */}
+            {/* Monthly line items */}
+            {Number(migration.estimate_carrier_charge) > 0 && (
+              <div className="flex justify-between py-2 border-b border-surface-600">
+                <span className="text-zinc-400">Carrier Charge (Monthly)</span>
+                <span className="text-zinc-200 font-mono">
+                  ${formatCurrency(migration.estimate_carrier_charge)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">User Service Charge (Monthly)</span>
               <span className="text-zinc-200 font-mono">
@@ -171,12 +179,45 @@ export default function EstimateAccept() {
                 ${formatCurrency(migration.estimate_usage_charge)}
               </span>
             </div>
-            <div className="flex justify-between py-2 border-b border-surface-600">
-              <span className="text-zinc-400">Equipment Charge (One-time)</span>
-              <span className="text-zinc-200 font-mono">
-                ${formatCurrency(migration.estimate_equipment_charge)}
-              </span>
-            </div>
+
+            {/* Equipment line items - split if phone/headset available, fallback to single line */}
+            {(migration.estimate_phone_equipment_charge != null || migration.estimate_headset_equipment_charge != null) ? (
+              <>
+                {Number(migration.estimate_phone_equipment_charge) > 0 && (
+                  <div className="flex justify-between py-2 border-b border-surface-600">
+                    <span className="text-zinc-400">Phone Equipment (One-time)</span>
+                    <span className="text-zinc-200 font-mono">
+                      ${formatCurrency(migration.estimate_phone_equipment_charge)}
+                    </span>
+                  </div>
+                )}
+                {Number(migration.estimate_headset_equipment_charge) > 0 && (
+                  <div className="flex justify-between py-2 border-b border-surface-600">
+                    <span className="text-zinc-400">Headset Equipment (One-time)</span>
+                    <span className="text-zinc-200 font-mono">
+                      ${formatCurrency(migration.estimate_headset_equipment_charge)}
+                    </span>
+                  </div>
+                )}
+                {Number(migration.estimate_phone_equipment_charge) === 0 && Number(migration.estimate_headset_equipment_charge) === 0 && Number(migration.estimate_equipment_charge) > 0 && (
+                  <div className="flex justify-between py-2 border-b border-surface-600">
+                    <span className="text-zinc-400">Equipment Charge (One-time)</span>
+                    <span className="text-zinc-200 font-mono">
+                      ${formatCurrency(migration.estimate_equipment_charge)}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              Number(migration.estimate_equipment_charge) > 0 && (
+                <div className="flex justify-between py-2 border-b border-surface-600">
+                  <span className="text-zinc-400">Equipment Charge (One-time)</span>
+                  <span className="text-zinc-200 font-mono">
+                    ${formatCurrency(migration.estimate_equipment_charge)}
+                  </span>
+                </div>
+              )
+            )}
 
             {/* Totals */}
             <div className="pt-4 space-y-2">
@@ -184,6 +225,12 @@ export default function EstimateAccept() {
                 <span className="text-zinc-300 font-medium">Monthly Total</span>
                 <span className="text-primary-400 font-bold font-mono">
                   ${formatCurrency(migration.estimate_total_monthly)}
+                </span>
+              </div>
+              <div className="flex justify-between text-lg">
+                <span className="text-zinc-300 font-medium">Annual Total</span>
+                <span className="text-primary-400 font-bold font-mono">
+                  ${formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)}
                 </span>
               </div>
               <div className="flex justify-between text-lg">
@@ -214,6 +261,7 @@ export default function EstimateAccept() {
             {(migration.physical_phones_needed ?? 0) > 0 && (
               <> with <strong>{migration.physical_phones_needed} physical phones</strong></>
             )}
+            {Number(migration.estimate_headset_equipment_charge) > 0 && ' and headsets'}
             {' '}using <strong className="capitalize">{migration.routing_type?.replace('_', ' ')}</strong> via{' '}
             <strong className="capitalize">{migration.target_carrier}</strong>.
           </p>

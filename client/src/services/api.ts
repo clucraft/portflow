@@ -97,6 +97,9 @@ export interface Migration {
   estimate_user_service_charge: number | null
   estimate_equipment_charge: number | null
   estimate_usage_charge: number | null
+  estimate_carrier_charge: number | null
+  estimate_phone_equipment_charge: number | null
+  estimate_headset_equipment_charge: number | null
   estimate_total_monthly: number | null
   estimate_total_onetime: number | null
   estimate_created_at: string | null
@@ -214,6 +217,7 @@ export interface Carrier {
   id: string
   slug: string
   display_name: string
+  monthly_charge: number
   is_active: boolean
   sort_order: number
   created_at: string
@@ -350,6 +354,9 @@ export const migrationsApi = {
     estimate_user_service_charge?: number
     estimate_equipment_charge?: number
     estimate_usage_charge?: number
+    estimate_carrier_charge?: number
+    estimate_phone_equipment_charge?: number
+    estimate_headset_equipment_charge?: number
     estimate_notes?: string
   }) => api.patch<Migration>(`/migrations/${id}/estimate`, data).then((r) => r.data),
   acceptEstimate: (id: string) =>

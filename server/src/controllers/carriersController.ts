@@ -7,6 +7,7 @@ interface Carrier {
   id: string;
   slug: string;
   display_name: string;
+  monthly_charge: number;
   is_active: boolean;
   sort_order: number;
   created_at: Date;
@@ -40,17 +41,17 @@ export const listAll = async (_req: Request, res: Response, next: NextFunction) 
 // POST - create carrier
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { slug, display_name, sort_order } = req.body;
+    const { slug, display_name, sort_order, monthly_charge } = req.body;
 
     if (!slug || !display_name) {
       throw ApiError.badRequest('slug and display_name are required');
     }
 
     const carriers = await query<Carrier>(
-      `INSERT INTO carriers (slug, display_name, sort_order)
-       VALUES ($1, $2, $3)
+      `INSERT INTO carriers (slug, display_name, sort_order, monthly_charge)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [slug, display_name, sort_order || 0]
+      [slug, display_name, sort_order || 0, monthly_charge || 0]
     );
 
     logActivity(req.user?.id || null, 'carrier.create', `Created carrier: ${carriers[0].display_name} (${carriers[0].slug})`).catch(() => {});
@@ -65,17 +66,18 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { display_name, is_active, sort_order } = req.body;
+    const { display_name, is_active, sort_order, monthly_charge } = req.body;
 
     const carriers = await query<Carrier>(
       `UPDATE carriers SET
         display_name = COALESCE($1, display_name),
         is_active = COALESCE($2, is_active),
         sort_order = COALESCE($3, sort_order),
+        monthly_charge = COALESCE($4, monthly_charge),
         updated_at = NOW()
-      WHERE id = $4
+      WHERE id = $5
       RETURNING *`,
-      [display_name, is_active, sort_order, id]
+      [display_name, is_active, sort_order, monthly_charge, id]
     );
 
     if (carriers.length === 0) {

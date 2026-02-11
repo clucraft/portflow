@@ -105,6 +105,9 @@ export interface Migration {
   estimate_user_service_charge: number | null;
   estimate_equipment_charge: number | null;
   estimate_usage_charge: number | null;
+  estimate_carrier_charge: number | null;
+  estimate_phone_equipment_charge: number | null;
+  estimate_headset_equipment_charge: number | null;
   estimate_total_monthly: number | null;
   estimate_total_onetime: number | null;
   estimate_created_at: Date | null;

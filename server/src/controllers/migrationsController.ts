@@ -138,26 +138,42 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
       estimate_user_service_charge,
       estimate_equipment_charge,
       estimate_usage_charge,
+      estimate_carrier_charge,
+      estimate_phone_equipment_charge,
+      estimate_headset_equipment_charge,
       estimate_notes,
     } = req.body;
 
-    // Calculate totals
-    const total_monthly = (estimate_user_service_charge || 0) + (estimate_usage_charge || 0);
-    const total_onetime = estimate_equipment_charge || 0;
+    // Compute equipment total (phone + headset) for backward compat
+    const phone = estimate_phone_equipment_charge || 0;
+    const headset = estimate_headset_equipment_charge || 0;
+    const equipment_total = phone + headset;
+    // Use computed equipment total if sub-items provided, otherwise fall back to direct value
+    const final_equipment = (estimate_phone_equipment_charge != null || estimate_headset_equipment_charge != null)
+      ? equipment_total
+      : (estimate_equipment_charge || 0);
+
+    // Calculate totals: monthly = user_service + usage + carrier_charge
+    const total_monthly = (estimate_user_service_charge || 0) + (estimate_usage_charge || 0) + (estimate_carrier_charge || 0);
+    const total_onetime = final_equipment;
 
     const migrations = await query<Migration>(
       `UPDATE migrations SET
         estimate_user_service_charge = $1,
         estimate_equipment_charge = $2,
         estimate_usage_charge = $3,
-        estimate_total_monthly = $4,
-        estimate_total_onetime = $5,
-        estimate_notes = $6,
+        estimate_carrier_charge = $4,
+        estimate_phone_equipment_charge = $5,
+        estimate_headset_equipment_charge = $6,
+        estimate_total_monthly = $7,
+        estimate_total_onetime = $8,
+        estimate_notes = $9,
         estimate_created_at = COALESCE(estimate_created_at, NOW())
-      WHERE id = $7
+      WHERE id = $10
       RETURNING *`,
       [
-        estimate_user_service_charge, estimate_equipment_charge, estimate_usage_charge,
+        estimate_user_service_charge, final_equipment, estimate_usage_charge,
+        estimate_carrier_charge, estimate_phone_equipment_charge, estimate_headset_equipment_charge,
         total_monthly, total_onetime, estimate_notes, id,
       ]
     );

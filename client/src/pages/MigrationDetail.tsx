@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, type Migration, type WorkflowStage, type PhaseTask } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, type Migration, type WorkflowStage, type PhaseTask } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
@@ -174,8 +174,10 @@ export default function MigrationDetail() {
   const [editingPhase, setEditingPhase] = useState<number | null>(null)
   const [editEstimateForm, setEditEstimateForm] = useState({
     estimate_user_service_charge: 0,
-    estimate_equipment_charge: 0,
+    estimate_carrier_charge: 0,
     estimate_usage_charge: 0,
+    estimate_phone_equipment_charge: 0,
+    estimate_headset_equipment_charge: 0,
     estimate_notes: '',
   })
   const [editCarrierForm, setEditCarrierForm] = useState({
@@ -208,8 +210,10 @@ export default function MigrationDetail() {
   // Form states for each phase
   const [estimateForm, setEstimateForm] = useState({
     estimate_user_service_charge: 0,
-    estimate_equipment_charge: 0,
+    estimate_carrier_charge: 0,
     estimate_usage_charge: 0,
+    estimate_phone_equipment_charge: 0,
+    estimate_headset_equipment_charge: 0,
     estimate_notes: '',
   })
 
@@ -227,6 +231,10 @@ export default function MigrationDetail() {
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
   const { data: dialPlanOptions } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
+  const { data: pricingRates } = useQuery({
+    queryKey: ['settings', 'pricing_rates'],
+    queryFn: () => settingsApi.get('pricing_rates').catch(() => null),
+  })
 
   // Helper: format carrier name using dynamic data
   const formatCarrierName = (carrier: string): string => {
@@ -422,8 +430,10 @@ export default function MigrationDetail() {
     if (phaseId === 1) {
       setEditEstimateForm({
         estimate_user_service_charge: Number(migration.estimate_user_service_charge) || 0,
-        estimate_equipment_charge: Number(migration.estimate_equipment_charge) || 0,
+        estimate_carrier_charge: Number(migration.estimate_carrier_charge) || 0,
         estimate_usage_charge: Number(migration.estimate_usage_charge) || 0,
+        estimate_phone_equipment_charge: Number(migration.estimate_phone_equipment_charge) || 0,
+        estimate_headset_equipment_charge: Number(migration.estimate_headset_equipment_charge) || 0,
         estimate_notes: migration.estimate_notes || '',
       })
     } else if (phaseId === 2) {
@@ -993,9 +1003,55 @@ export default function MigrationDetail() {
                   {isActive && (
                     <div className="mt-3 p-4 bg-surface-800/50 border border-surface-600 rounded-lg">
                       {/* Phase 1: Estimate */}
-                      {phase.id === 1 && migration.workflow_stage === 'estimate' && (
+                      {phase.id === 1 && migration.workflow_stage === 'estimate' && (() => {
+                        const monthlyTotal = (estimateForm.estimate_user_service_charge || 0) + (estimateForm.estimate_usage_charge || 0) + (estimateForm.estimate_carrier_charge || 0)
+                        const onetimeTotal = (estimateForm.estimate_phone_equipment_charge || 0) + (estimateForm.estimate_headset_equipment_charge || 0)
+                        const annualTotal = monthlyTotal * 12
+                        const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
+                        const hasQuestionnaireData = !!(qData.total_end_user_count || qData.personal_desk_phones || qData.headset_count)
+
+                        const handlePreCalculate = () => {
+                          const rates = pricingRates?.value as { user_service_rate?: number; phone_unit_cost?: number; headset_unit_cost?: number } | null
+                          const endUsers = Number(qData.total_end_user_count) || 0
+                          const deskPhones = Number(qData.personal_desk_phones) || 0
+                          const headsets = Number(qData.headset_count) || 0
+                          const carrierObj = carriers?.find(c => c.slug === migration.target_carrier)
+
+                          setEstimateForm({
+                            ...estimateForm,
+                            estimate_user_service_charge: parseFloat((endUsers * (rates?.user_service_rate ?? 3.45)).toFixed(2)),
+                            estimate_carrier_charge: carrierObj?.monthly_charge || 0,
+                            estimate_phone_equipment_charge: parseFloat((deskPhones * (rates?.phone_unit_cost ?? 0)).toFixed(2)),
+                            estimate_headset_equipment_charge: parseFloat((headsets * (rates?.headset_unit_cost ?? 0)).toFixed(2)),
+                          })
+                        }
+
+                        return (
                         <div className="space-y-4">
+                          {/* Pre-Calculate button */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-zinc-400">Monthly Charges</span>
+                            <button
+                              onClick={handlePreCalculate}
+                              disabled={!hasQuestionnaireData}
+                              className="btn btn-secondary flex items-center gap-2 text-sm"
+                              title={hasQuestionnaireData ? 'Auto-fill from questionnaire data and pricing rates' : 'Complete the questionnaire first (end user count, desk phones, headset count)'}
+                            >
+                              <Calculator className="h-4 w-4" />
+                              Pre-Calculate
+                            </button>
+                          </div>
                           <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <label className="label">Carrier Charge (Monthly)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={estimateForm.estimate_carrier_charge || ''}
+                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_carrier_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
                             <div>
                               <label className="label">User Service (Monthly)</label>
                               <input
@@ -1003,16 +1059,6 @@ export default function MigrationDetail() {
                                 className="input"
                                 value={estimateForm.estimate_user_service_charge || ''}
                                 onChange={(e) => setEstimateForm({ ...estimateForm, estimate_user_service_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div>
-                              <label className="label">Equipment (One-time)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_equipment_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_equipment_charge: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
                               />
                             </div>
@@ -1025,6 +1071,44 @@ export default function MigrationDetail() {
                                 onChange={(e) => setEstimateForm({ ...estimateForm, estimate_usage_charge: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
                               />
+                            </div>
+                          </div>
+                          <div className="text-sm text-zinc-500 mt-1">One-time Charges</div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="label">Phone Equipment (One-time)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={estimateForm.estimate_phone_equipment_charge || ''}
+                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_phone_equipment_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Headset Equipment (One-time)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={estimateForm.estimate_headset_equipment_charge || ''}
+                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_headset_equipment_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                          {/* Totals */}
+                          <div className="p-3 bg-surface-700/50 rounded-lg border border-surface-600 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">Monthly Total</span>
+                              <span className="text-zinc-200 font-mono">${monthlyTotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">Annual Total (x12)</span>
+                              <span className="text-zinc-200 font-mono">${annualTotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">One-time Total</span>
+                              <span className="text-zinc-200 font-mono">${onetimeTotal.toFixed(2)}</span>
                             </div>
                           </div>
                           <div>
@@ -1082,7 +1166,8 @@ export default function MigrationDetail() {
                             </div>
                           )}
                         </div>
-                      )}
+                        )
+                      })()}
 
                       {/* Phase 2: Carrier Setup */}
                       {phase.id === 2 && migration.workflow_stage === 'estimate_accepted' && (
@@ -1363,7 +1448,7 @@ export default function MigrationDetail() {
                   {/* Completed phase summary */}
                   {isDone && phase.id === 1 && (
                     <div className="mt-1 ml-3 text-sm text-zinc-500">
-                      Monthly: ${formatCurrency(migration.estimate_total_monthly)} &bull; One-time: ${formatCurrency(migration.estimate_total_onetime)}
+                      Monthly: ${formatCurrency(migration.estimate_total_monthly)} &bull; Annual: ${formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)} &bull; One-time: ${formatCurrency(migration.estimate_total_onetime)}
                       {migration.estimate_accepted_by && <span> &bull; Accepted by: {migration.estimate_accepted_by}</span>}
                     </div>
                   )}
@@ -1389,7 +1474,11 @@ export default function MigrationDetail() {
                   {isDone && editingPhase === phase.id && isAdmin && (
                     <div className="mt-3 p-4 bg-surface-800/50 border border-amber-500/30 rounded-lg">
                       {/* Phase 1 Edit: Estimate */}
-                      {phase.id === 1 && (
+                      {phase.id === 1 && (() => {
+                        const editMonthly = (editEstimateForm.estimate_user_service_charge || 0) + (editEstimateForm.estimate_usage_charge || 0) + (editEstimateForm.estimate_carrier_charge || 0)
+                        const editOnetime = (editEstimateForm.estimate_phone_equipment_charge || 0) + (editEstimateForm.estimate_headset_equipment_charge || 0)
+                        const editAnnual = editMonthly * 12
+                        return (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-sm font-medium text-zinc-300">Edit Estimate</h4>
@@ -1400,7 +1489,18 @@ export default function MigrationDetail() {
                               <X className="h-4 w-4" />
                             </button>
                           </div>
+                          <div className="text-sm text-zinc-500">Monthly Charges</div>
                           <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <label className="label">Carrier Charge (Monthly)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_carrier_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_carrier_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
                             <div>
                               <label className="label">User Service (Monthly)</label>
                               <input
@@ -1408,16 +1508,6 @@ export default function MigrationDetail() {
                                 className="input"
                                 value={editEstimateForm.estimate_user_service_charge || ''}
                                 onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_user_service_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div>
-                              <label className="label">Equipment (One-time)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={editEstimateForm.estimate_equipment_charge || ''}
-                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_equipment_charge: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
                               />
                             </div>
@@ -1430,6 +1520,44 @@ export default function MigrationDetail() {
                                 onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_usage_charge: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
                               />
+                            </div>
+                          </div>
+                          <div className="text-sm text-zinc-500 mt-1">One-time Charges</div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="label">Phone Equipment (One-time)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_phone_equipment_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_phone_equipment_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="label">Headset Equipment (One-time)</label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={editEstimateForm.estimate_headset_equipment_charge || ''}
+                                onChange={(e) => setEditEstimateForm({ ...editEstimateForm, estimate_headset_equipment_charge: parseFloat(e.target.value) || 0 })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                          {/* Totals */}
+                          <div className="p-3 bg-surface-700/50 rounded-lg border border-surface-600 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">Monthly Total</span>
+                              <span className="text-zinc-200 font-mono">${editMonthly.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">Annual Total (x12)</span>
+                              <span className="text-zinc-200 font-mono">${editAnnual.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-zinc-400">One-time Total</span>
+                              <span className="text-zinc-200 font-mono">${editOnetime.toFixed(2)}</span>
                             </div>
                           </div>
                           <div>
@@ -1467,7 +1595,8 @@ export default function MigrationDetail() {
                             </button>
                           </div>
                         </div>
-                      )}
+                        )
+                      })()}
 
                       {/* Phase 2 Edit: Carrier Setup */}
                       {phase.id === 2 && (
