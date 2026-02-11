@@ -509,7 +509,8 @@ export default function MigrationDetail() {
             title={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
             disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
           >
-            {isSubscribed ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+            {isSubscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+            <span className="text-xs">{isSubscribed ? 'Subscribed' : 'Notify me'}</span>
           </button>
           <Link to={`/migrations/${id}/users`} className="btn btn-secondary flex items-center gap-2">
             <Users className="h-4 w-4" />
