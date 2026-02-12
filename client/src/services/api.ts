@@ -165,6 +165,10 @@ export interface Migration {
   // Dashboard
   stage_number?: number
 
+  // Creator
+  created_by: string | null
+  created_by_name: string | null
+
   notes: string | null
   created_at: string
   updated_at: string

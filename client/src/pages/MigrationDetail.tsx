@@ -24,6 +24,22 @@ const BASE_PHASES = [
 // Stages where porting is complete (Phase 3 done)
 const PORTING_COMPLETE_STAGES: WorkflowStage[] = ['porting_complete', 'user_config', 'completed']
 
+// Relative time helper
+function timeAgo(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
+}
+
 // Format carrier name for display (fallback for when carriers haven't loaded)
 const formatCarrierNameFallback = (carrier: string): string => {
   const names: Record<string, string> = {
@@ -515,6 +531,11 @@ export default function MigrationDetail() {
           <p className="text-zinc-500 text-sm">
             {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; {formatRoutingType(migration.routing_type)}
             {migration.country_code && <span> &bull; <span className="font-mono">{migration.country_code}</span></span>}
+          </p>
+          <p className="text-zinc-600 text-xs mt-0.5">
+            Created {new Date(migration.created_at).toLocaleDateString()}
+            {migration.created_by_name && <span> by {migration.created_by_name}</span>}
+            {' '}&bull; Updated {timeAgo(migration.updated_at)}
           </p>
         </div>
         <div className="flex gap-2">

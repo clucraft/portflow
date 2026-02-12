@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell } from 'lucide-react'
-import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage } from '../services/api'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X } from 'lucide-react'
+import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
 const stageColors: Record<string, string> = {
@@ -52,9 +52,31 @@ function formatCarrierNameFallback(carrier: string): string {
   return names[carrier?.toLowerCase()] || carrier || 'Carrier'
 }
 
+// Relative time helper
+function timeAgo(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
+}
+
+type SortBy = 'updated' | 'created' | 'name'
+
 export default function Dashboard() {
   const { canWrite } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortBy>('updated')
+  const [filterCreator, setFilterCreator] = useState('')
+  const [filterCarrier, setFilterCarrier] = useState('')
+  const [filterCountry, setFilterCountry] = useState('')
 
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
@@ -73,16 +95,49 @@ export default function Dashboard() {
     return found?.display_name || formatCarrierNameFallback(carrier)
   }
 
-  // Filter by search query (site name or project name)
-  const filterBySearch = (m: { name: string; site_name: string }) => {
-    if (!searchQuery.trim()) return true
-    const query = searchQuery.toLowerCase()
-    return m.name.toLowerCase().includes(query) || m.site_name.toLowerCase().includes(query)
+  // Derive unique filter options from loaded data
+  const filterOptions = useMemo(() => {
+    if (!migrations) return { creators: [] as string[], countries: [] as string[] }
+    const creators = [...new Set(migrations.map(m => m.created_by_name).filter(Boolean) as string[])].sort()
+    const countries = [...new Set(migrations.map(m => m.site_country).filter(Boolean))].sort()
+    return { creators, countries }
+  }, [migrations])
+
+  const hasActiveFilters = filterCreator || filterCarrier || filterCountry
+
+  // Combined filter: search + dropdowns
+  const filterMigration = (m: Migration) => {
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      if (!m.name.toLowerCase().includes(query) && !m.site_name.toLowerCase().includes(query)) return false
+    }
+    if (filterCreator && m.created_by_name !== filterCreator) return false
+    if (filterCarrier && m.target_carrier !== filterCarrier) return false
+    if (filterCountry && m.site_country !== filterCountry) return false
+    return true
   }
 
-  const activeMigrations = migrations?.filter((m) =>
-    !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage) && filterBySearch(m)
-  ) || []
+  // Sort comparator
+  const sortMigrations = (a: Migration, b: Migration) => {
+    switch (sortBy) {
+      case 'updated':
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      case 'created':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      case 'name':
+        return a.name.localeCompare(b.name)
+      default:
+        return 0
+    }
+  }
+
+  const activeMigrations = useMemo(() =>
+    (migrations?.filter((m) =>
+      !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage) && filterMigration(m)
+    ) || []).sort(sortMigrations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [migrations, searchQuery, sortBy, filterCreator, filterCarrier, filterCountry]
+  )
 
   const completedCount = migrations?.filter((m) => m.workflow_stage === 'completed').length || 0
   const totalUsers = migrations?.reduce((sum, m) => sum + m.telephone_users, 0) || 0
@@ -178,6 +233,65 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Filter & Sort Bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={filterCreator}
+          onChange={(e) => setFilterCreator(e.target.value)}
+          className="input py-1.5 px-2.5 text-sm w-auto min-w-[140px]"
+        >
+          <option value="">All Creators</option>
+          {filterOptions.creators.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        <select
+          value={filterCarrier}
+          onChange={(e) => setFilterCarrier(e.target.value)}
+          className="input py-1.5 px-2.5 text-sm w-auto min-w-[140px]"
+        >
+          <option value="">All Carriers</option>
+          {carriers?.filter(c => c.is_active).map(c => (
+            <option key={c.slug} value={c.slug}>{c.display_name}</option>
+          ))}
+        </select>
+
+        <select
+          value={filterCountry}
+          onChange={(e) => setFilterCountry(e.target.value)}
+          className="input py-1.5 px-2.5 text-sm w-auto min-w-[140px]"
+        >
+          <option value="">All Countries</option>
+          {filterOptions.countries.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setFilterCreator(''); setFilterCarrier(''); setFilterCountry('') }}
+            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear filters
+          </button>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <ArrowUpDown className="h-3.5 w-3.5 text-zinc-500" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="input py-1.5 px-2.5 text-sm w-auto"
+          >
+            <option value="updated">Last Updated</option>
+            <option value="created">Created Date</option>
+            <option value="name">Project Name (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Active Migrations with Progress */}
       <div className="card">
         <h2 className="text-lg font-semibold text-zinc-100 mb-4">Active Migrations</h2>
@@ -217,6 +331,11 @@ export default function Dashboard() {
                         {migration.site_name}
                         {migration.site_city && `, ${migration.site_city}`}
                         {migration.site_state && `, ${migration.site_state}`}
+                      </p>
+                      <p className="text-xs text-zinc-600 mt-0.5">
+                        Created {new Date(migration.created_at).toLocaleDateString()}
+                        {migration.created_by_name && <span> by {migration.created_by_name}</span>}
+                        {' '}&bull; Updated {timeAgo(migration.updated_at)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -285,7 +404,8 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-zinc-100 mb-4">Recently Completed</h2>
           <div className="space-y-2">
             {migrations
-              ?.filter(m => m.workflow_stage === 'completed' && filterBySearch(m))
+              ?.filter(m => m.workflow_stage === 'completed' && filterMigration(m))
+              .sort(sortMigrations)
               .slice(0, 5)
               .map(m => (
                 <Link

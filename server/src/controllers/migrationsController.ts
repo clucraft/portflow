@@ -108,8 +108,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         name, site_name, site_address, site_city, site_state, site_country, site_timezone,
         current_pbx_type, current_carrier, telephone_users, physical_phones_needed,
         monthly_calling_minutes, is_porting_numbers, new_numbers_requested,
-        target_carrier, routing_type, voice_routing_policy, dial_plan, currency, workflow_stage
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'estimate')
+        target_carrier, routing_type, voice_routing_policy, dial_plan, currency, workflow_stage, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'estimate', $20)
       RETURNING *`,
       [
         name, site_name, site_address, site_city, site_state,
@@ -121,6 +121,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         (routing_type || 'direct_routing') === 'direct_routing' ? (voice_routing_policy || null) : null,
         dial_plan || null,
         currency || 'USD',
+        req.user?.id || null,
       ]
     );
 

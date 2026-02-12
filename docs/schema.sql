@@ -438,6 +438,7 @@ SELECT
     m.name,
     m.site_name,
     m.site_city,
+    m.site_state,
     m.site_country,
     m.workflow_stage,
     m.target_carrier,
@@ -480,7 +481,12 @@ SELECT
         ELSE 0
     END as stage_number,
 
+    -- Creator info
+    m.created_by,
+    tm.display_name as created_by_name,
+
     m.created_at,
     m.updated_at
 FROM migrations m
+LEFT JOIN team_members tm ON tm.id = m.created_by
 WHERE m.workflow_stage NOT IN ('cancelled');
