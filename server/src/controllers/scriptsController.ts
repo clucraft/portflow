@@ -119,7 +119,8 @@ $errors = @()
 
 `;
 
-    const phoneNumberType = migration.routing_type === 'direct_routing' ? 'DirectRouting' : 'OperatorConnect';
+    const phoneNumberType = migration.routing_type === 'direct_routing' ? 'DirectRouting'
+      : migration.routing_type === 'calling_plan' ? 'CallingPlan' : 'OperatorConnect';
     const voiceRoutingPolicyParam = migration.routing_type === 'direct_routing' && migration.voice_routing_policy
       ? `\n    Grant-CsOnlineVoiceRoutingPolicy -Identity "${'{upn}'}" -PolicyName "${migration.voice_routing_policy}"`
       : '';

@@ -4,7 +4,7 @@ import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
-  type TeamMember, type Carrier
+  type TeamMember, type Carrier, formatCarrierType
 } from '../services/api'
 
 type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'email' | 'audit'
@@ -377,7 +377,7 @@ function CarriersTab() {
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ slug: '', display_name: '', monthly_charge: '' })
+  const [form, setForm] = useState({ slug: '', display_name: '', monthly_charge: '', carrier_type: 'direct_routing' })
 
   const { data: carriers, isLoading } = useQuery({
     queryKey: ['carriers'],
@@ -389,7 +389,7 @@ function CarriersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['carriers'] })
       setShowAdd(false)
-      setForm({ slug: '', display_name: '', monthly_charge: '' })
+      setForm({ slug: '', display_name: '', monthly_charge: '', carrier_type: 'direct_routing' })
     },
   })
 
@@ -420,7 +420,7 @@ function CarriersTab() {
             <h3 className="font-medium text-zinc-100">Add Carrier</h3>
             <button onClick={() => setShowAdd(false)} className="text-zinc-500 hover:text-zinc-300"><X className="h-5 w-5" /></button>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Slug (lowercase, no spaces)</label>
               <input type="text" className="input" value={form.slug}
@@ -432,7 +432,16 @@ function CarriersTab() {
                 onChange={(e) => setForm({ ...form, display_name: e.target.value })} placeholder="e.g., Verizon" />
             </div>
             <div>
-              <label className="label">Monthly Charge ($)</label>
+              <label className="label">Carrier Type</label>
+              <select className="input" value={form.carrier_type}
+                onChange={(e) => setForm({ ...form, carrier_type: e.target.value })}>
+                <option value="direct_routing">Direct Routing</option>
+                <option value="operator_connect">Operator Connect</option>
+                <option value="calling_plan">MS Calling Plans</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">{form.carrier_type === 'direct_routing' ? 'Monthly Rate (flat)' : form.carrier_type === 'operator_connect' ? 'Per DID Rate (monthly)' : 'Per User Rate (monthly)'}</label>
               <input type="number" className="input" value={form.monthly_charge}
                 onChange={(e) => setForm({ ...form, monthly_charge: e.target.value })} placeholder="0.00" step="0.01" />
             </div>
@@ -453,7 +462,8 @@ function CarriersTab() {
             <tr className="border-b border-surface-600">
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Slug</th>
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Display Name</th>
-              <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Monthly Charge</th>
+              <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Type</th>
+              <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Rate</th>
               <th className="text-left text-xs text-zinc-500 font-medium px-4 py-3">Status</th>
               {isAdmin && <th className="text-right text-xs text-zinc-500 font-medium px-4 py-3">Actions</th>}
             </tr>
@@ -474,11 +484,31 @@ function CarriersTab() {
                 </td>
                 <td className="px-4 py-3">
                   {editingId === carrier.id ? (
+                    <select className="input py-1 text-sm w-40" defaultValue={carrier.carrier_type || 'direct_routing'}
+                      onChange={(e) => updateMutation.mutate({ id: carrier.id, data: { carrier_type: e.target.value } as Partial<Carrier> })}>
+                      <option value="direct_routing">Direct Routing</option>
+                      <option value="operator_connect">Operator Connect</option>
+                      <option value="calling_plan">MS Calling Plans</option>
+                    </select>
+                  ) : (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                      carrier.carrier_type === 'operator_connect' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                      carrier.carrier_type === 'calling_plan' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                      'bg-green-500/20 text-green-400 border-green-500/30'
+                    }`}>
+                      {formatCarrierType(carrier.carrier_type)}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {editingId === carrier.id ? (
                     <input type="number" className="input py-1 text-sm w-28" defaultValue={carrier.monthly_charge || 0} step="0.01"
                       onBlur={(e) => updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat(e.target.value) || 0 } as Partial<Carrier> })}
                       onKeyDown={(e) => { if (e.key === 'Enter') { updateMutation.mutate({ id: carrier.id, data: { monthly_charge: parseFloat((e.target as HTMLInputElement).value) || 0 } as Partial<Carrier> }); } }} />
                   ) : (
-                    <span className="text-zinc-400 font-mono text-sm">${(Number(carrier.monthly_charge) || 0).toFixed(2)}</span>
+                    <span className="text-zinc-400 font-mono text-sm">
+                      {(Number(carrier.monthly_charge) || 0).toFixed(2)}{carrier.carrier_type === 'operator_connect' ? '/DID' : carrier.carrier_type === 'calling_plan' ? '/user' : '/mo'}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -506,7 +536,7 @@ function CarriersTab() {
               </tr>
             ))}
             {(!carriers || carriers.length === 0) && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">No carriers configured</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">No carriers configured</td></tr>
             )}
           </tbody>
         </table>
@@ -844,19 +874,19 @@ function PricingTab() {
       <div className="card space-y-4">
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="label">User Service Rate ($/user/month)</label>
+            <label className="label">User Service Rate (per user/month)</label>
             <input type="number" className="input" value={config.user_service_rate}
               onChange={(e) => setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 })}
               step="0.01" placeholder="3.45" disabled={!isAdmin} />
           </div>
           <div>
-            <label className="label">Phone Unit Cost ($, one-time)</label>
+            <label className="label">Phone Unit Cost (per unit, one-time)</label>
             <input type="number" className="input" value={config.phone_unit_cost}
               onChange={(e) => setConfig({ ...config, phone_unit_cost: parseFloat(e.target.value) || 0 })}
               step="0.01" placeholder="0.00" disabled={!isAdmin} />
           </div>
           <div>
-            <label className="label">Headset Unit Cost ($, one-time)</label>
+            <label className="label">Headset Unit Cost (per unit, one-time)</label>
             <input type="number" className="input" value={config.headset_unit_cost}
               onChange={(e) => setConfig({ ...config, headset_unit_cost: parseFloat(e.target.value) || 0 })}
               step="0.01" placeholder="0.00" disabled={!isAdmin} />

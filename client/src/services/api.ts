@@ -75,6 +75,7 @@ export interface Migration {
   voice_routing_policy: string | null  // Only for direct_routing
   dial_plan: string | null
   country_code: string  // E.164 country code for phone number validation (e.g., '+1')
+  currency: string  // Currency code for estimate amounts (USD or EUR)
 
   // Site info
   site_name: string
@@ -217,11 +218,30 @@ export interface Carrier {
   id: string
   slug: string
   display_name: string
+  carrier_type: string
   monthly_charge: number
   is_active: boolean
   sort_order: number
   created_at: string
   updated_at: string
+}
+
+export function formatRoutingType(routingType: string | undefined | null): string {
+  switch (routingType) {
+    case 'direct_routing': return 'Direct Routing'
+    case 'operator_connect': return 'Operator Connect'
+    case 'calling_plan': return 'MS Calling Plans'
+    default: return routingType || ''
+  }
+}
+
+export function formatCarrierType(carrierType: string | undefined | null): string {
+  switch (carrierType) {
+    case 'direct_routing': return 'Direct Routing'
+    case 'operator_connect': return 'Operator Connect'
+    case 'calling_plan': return 'MS Calling Plans'
+    default: return carrierType || ''
+  }
 }
 
 export interface VoiceRoutingPolicy {

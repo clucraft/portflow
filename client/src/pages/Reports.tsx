@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList } from 'lucide-react'
-import { migrationsApi } from '../services/api'
+import { migrationsApi, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
@@ -74,7 +74,7 @@ export default function Reports() {
       m.name,
       m.site_name,
       formatCarrierName(m.target_carrier),
-      m.routing_type.replace('_', ' '),
+      formatRoutingType(m.routing_type),
       getPhaseFromStage(m.workflow_stage),
       m.workflow_stage.replace('_', ' '),
       m.telephone_users,
@@ -92,7 +92,7 @@ export default function Reports() {
       m.name,
       m.site_name,
       formatCarrierName(m.target_carrier),
-      m.routing_type.replace('_', ' '),
+      formatRoutingType(m.routing_type),
       m.telephone_users,
       new Date(m.created_at).toLocaleDateString(),
       m.completed_at ? new Date(m.completed_at).toLocaleDateString() : '',
@@ -108,7 +108,7 @@ export default function Reports() {
       m.name,
       m.site_name,
       formatCarrierName(m.target_carrier),
-      m.routing_type.replace('_', ' '),
+      formatRoutingType(m.routing_type),
       getPhaseFromStage(m.workflow_stage),
       m.workflow_stage.replace('_', ' '),
       m.telephone_users,

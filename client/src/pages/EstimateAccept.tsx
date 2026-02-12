@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Phone, Zap, DollarSign, Users, Check, AlertCircle } from 'lucide-react'
-import { publicApi } from '../services/api'
+import { Phone, Zap, DollarSign, Users, Check, AlertCircle, RefreshCw } from 'lucide-react'
+import { publicApi, formatRoutingType } from '../services/api'
 
 // Helper to safely format currency (handles string/number/null)
 const formatCurrency = (value: unknown): string => {
@@ -14,6 +14,9 @@ export default function EstimateAccept() {
   const { token } = useParams<{ token: string }>()
   const [acceptedBy, setAcceptedBy] = useState('')
   const [accepted, setAccepted] = useState(false)
+  const [showConverted, setShowConverted] = useState(false)
+  const [exchangeRate, setExchangeRate] = useState<{ rate: number; date: string } | null>(null)
+  const [exchangeLoading, setExchangeLoading] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['estimate', token],
@@ -28,6 +31,24 @@ export default function EstimateAccept() {
       setAccepted(true)
     },
   })
+
+  const migration = data?.migration
+  const currency = migration?.currency || 'USD'
+  const currencySymbol = currency === 'EUR' ? '€' : '$'
+  const otherCurrency = currency === 'EUR' ? 'USD' : 'EUR'
+  const otherSymbol = currency === 'EUR' ? '$' : '€'
+
+  useEffect(() => {
+    if (!showConverted || exchangeRate) return
+    setExchangeLoading(true)
+    fetch(`https://api.frankfurter.dev/v1/latest?base=${currency}&symbols=${otherCurrency}`)
+      .then(res => res.json())
+      .then(data => {
+        setExchangeRate({ rate: data.rates[otherCurrency], date: data.date })
+      })
+      .catch(() => {})
+      .finally(() => setExchangeLoading(false))
+  }, [showConverted, exchangeRate, currency, otherCurrency])
 
   if (isLoading) {
     return (
@@ -60,8 +81,6 @@ export default function EstimateAccept() {
       </div>
     )
   }
-
-  const migration = data?.migration
 
   if (!migration) {
     return (
@@ -145,7 +164,7 @@ export default function EstimateAccept() {
             </div>
             <div>
               <p className="text-sm text-zinc-500">Routing Type</p>
-              <p className="text-zinc-200 capitalize">{migration.routing_type?.replace('_', ' ')}</p>
+              <p className="text-zinc-200">{formatRoutingType(migration.routing_type)}</p>
             </div>
           </div>
         </div>
@@ -154,7 +173,7 @@ export default function EstimateAccept() {
         <div className="card mb-6">
           <div className="flex items-center gap-2 mb-4">
             <DollarSign className="h-5 w-5 text-green-400" />
-            <h2 className="text-lg font-semibold text-zinc-100">Cost Estimate</h2>
+            <h2 className="text-lg font-semibold text-zinc-100">Cost Estimate ({currency})</h2>
           </div>
 
           <div className="space-y-3">
@@ -163,20 +182,20 @@ export default function EstimateAccept() {
               <div className="flex justify-between py-2 border-b border-surface-600">
                 <span className="text-zinc-400">Carrier Charge (Monthly)</span>
                 <span className="text-zinc-200 font-mono">
-                  ${formatCurrency(migration.estimate_carrier_charge)}
+                  {currencySymbol}{formatCurrency(migration.estimate_carrier_charge)}
                 </span>
               </div>
             )}
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">User Service Charge (Monthly)</span>
               <span className="text-zinc-200 font-mono">
-                ${formatCurrency(migration.estimate_user_service_charge)}
+                {currencySymbol}{formatCurrency(migration.estimate_user_service_charge)}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-surface-600">
               <span className="text-zinc-400">Usage Charge (Monthly)</span>
               <span className="text-zinc-200 font-mono">
-                ${formatCurrency(migration.estimate_usage_charge)}
+                {currencySymbol}{formatCurrency(migration.estimate_usage_charge)}
               </span>
             </div>
 
@@ -187,7 +206,7 @@ export default function EstimateAccept() {
                   <div className="flex justify-between py-2 border-b border-surface-600">
                     <span className="text-zinc-400">Phone Equipment (One-time)</span>
                     <span className="text-zinc-200 font-mono">
-                      ${formatCurrency(migration.estimate_phone_equipment_charge)}
+                      {currencySymbol}{formatCurrency(migration.estimate_phone_equipment_charge)}
                     </span>
                   </div>
                 )}
@@ -195,7 +214,7 @@ export default function EstimateAccept() {
                   <div className="flex justify-between py-2 border-b border-surface-600">
                     <span className="text-zinc-400">Headset Equipment (One-time)</span>
                     <span className="text-zinc-200 font-mono">
-                      ${formatCurrency(migration.estimate_headset_equipment_charge)}
+                      {currencySymbol}{formatCurrency(migration.estimate_headset_equipment_charge)}
                     </span>
                   </div>
                 )}
@@ -203,7 +222,7 @@ export default function EstimateAccept() {
                   <div className="flex justify-between py-2 border-b border-surface-600">
                     <span className="text-zinc-400">Equipment Charge (One-time)</span>
                     <span className="text-zinc-200 font-mono">
-                      ${formatCurrency(migration.estimate_equipment_charge)}
+                      {currencySymbol}{formatCurrency(migration.estimate_equipment_charge)}
                     </span>
                   </div>
                 )}
@@ -213,7 +232,7 @@ export default function EstimateAccept() {
                 <div className="flex justify-between py-2 border-b border-surface-600">
                   <span className="text-zinc-400">Equipment Charge (One-time)</span>
                   <span className="text-zinc-200 font-mono">
-                    ${formatCurrency(migration.estimate_equipment_charge)}
+                    {currencySymbol}{formatCurrency(migration.estimate_equipment_charge)}
                   </span>
                 </div>
               )
@@ -224,21 +243,60 @@ export default function EstimateAccept() {
               <div className="flex justify-between text-lg">
                 <span className="text-zinc-300 font-medium">Monthly Total</span>
                 <span className="text-primary-400 font-bold font-mono">
-                  ${formatCurrency(migration.estimate_total_monthly)}
+                  {currencySymbol}{formatCurrency(migration.estimate_total_monthly)}
                 </span>
               </div>
               <div className="flex justify-between text-lg">
                 <span className="text-zinc-300 font-medium">Annual Total</span>
                 <span className="text-primary-400 font-bold font-mono">
-                  ${formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)}
+                  {currencySymbol}{formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)}
                 </span>
               </div>
               <div className="flex justify-between text-lg">
                 <span className="text-zinc-300 font-medium">One-time Total</span>
                 <span className="text-primary-400 font-bold font-mono">
-                  ${formatCurrency(migration.estimate_total_onetime)}
+                  {currencySymbol}{formatCurrency(migration.estimate_total_onetime)}
                 </span>
               </div>
+            </div>
+
+            {/* Show in other currency toggle */}
+            <div className="pt-3 border-t border-surface-600">
+              <button
+                onClick={() => setShowConverted(!showConverted)}
+                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1.5 transition-colors"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${exchangeLoading ? 'animate-spin' : ''}`} />
+                {showConverted ? `Hide ${otherCurrency} conversion` : `Show in ${otherCurrency}`}
+              </button>
+              {showConverted && exchangeRate && (
+                <div className="mt-3 p-3 bg-surface-700/50 rounded-lg border border-surface-600 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Monthly Total</span>
+                    <span className="text-zinc-300 font-mono">
+                      {otherSymbol}{formatCurrency(Number(migration.estimate_total_monthly || 0) * exchangeRate.rate)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Annual Total</span>
+                    <span className="text-zinc-300 font-mono">
+                      {otherSymbol}{formatCurrency(Number(migration.estimate_total_monthly || 0) * 12 * exchangeRate.rate)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">One-time Total</span>
+                    <span className="text-zinc-300 font-mono">
+                      {otherSymbol}{formatCurrency(Number(migration.estimate_total_onetime || 0) * exchangeRate.rate)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Exchange rate: {exchangeRate.rate.toFixed(4)} as of {exchangeRate.date} (ECB reference rate)
+                  </p>
+                </div>
+              )}
+              {showConverted && exchangeLoading && (
+                <p className="mt-2 text-xs text-zinc-500">Loading exchange rate...</p>
+              )}
             </div>
           </div>
 
@@ -262,7 +320,7 @@ export default function EstimateAccept() {
               <> with <strong>{migration.physical_phones_needed} physical phones</strong></>
             )}
             {Number(migration.estimate_headset_equipment_charge) > 0 && ' and headsets'}
-            {' '}using <strong className="capitalize">{migration.routing_type?.replace('_', ' ')}</strong> via{' '}
+            {' '}using <strong>{formatRoutingType(migration.routing_type)}</strong> via{' '}
             <strong className="capitalize">{migration.target_carrier}</strong>.
           </p>
         </div>

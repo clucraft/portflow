@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi } from '../services/api'
+import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, type Carrier } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
 import { useAuth } from '../contexts/AuthContext'
@@ -40,6 +40,7 @@ export default function NewMigration() {
     voice_routing_policy: '',
     dial_plan: '',
     country_code: '+1',
+    currency: 'USD',
   })
 
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
@@ -301,7 +302,12 @@ export default function NewMigration() {
               <select
                 className="input"
                 value={formData.target_carrier}
-                onChange={(e) => updateField('target_carrier', e.target.value)}
+                onChange={(e) => {
+                  const slug = e.target.value
+                  const carrierObj = carriers?.find((c: Carrier) => c.slug === slug)
+                  const newRoutingType = carrierObj?.carrier_type || 'direct_routing'
+                  setFormData({ ...formData, target_carrier: slug, routing_type: newRoutingType, voice_routing_policy: newRoutingType !== 'direct_routing' ? '' : formData.voice_routing_policy })
+                }}
               >
                 {carriers?.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.display_name}</option>
@@ -316,27 +322,7 @@ export default function NewMigration() {
               </select>
             </div>
 
-            <div>
-              <label className="label">Routing Type</label>
-              <select
-                className="input"
-                value={formData.routing_type}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setFormData({ ...formData, routing_type: val, voice_routing_policy: val === 'operator_connect' ? '' : formData.voice_routing_policy })
-                }}
-              >
-                <option value="direct_routing">Direct Routing</option>
-                <option value="operator_connect">Operator Connect</option>
-              </select>
-              <p className="text-xs text-zinc-500 mt-1">
-                {formData.routing_type === 'direct_routing'
-                  ? 'Use your own SBC for PSTN connectivity'
-                  : 'Carrier-managed connection to Teams'}
-              </p>
-            </div>
-
-            {formData.routing_type === 'direct_routing' && (
+            {(() => { const selectedCarrier = carriers?.find((c: Carrier) => c.slug === formData.target_carrier); return selectedCarrier?.carrier_type === 'direct_routing'; })() && (
               <div>
                 <label className="label">Voice Routing Policy</label>
                 <ComboBox
@@ -374,6 +360,20 @@ export default function NewMigration() {
               />
               <p className="text-xs text-zinc-500 mt-1">
                 All phone numbers in this migration must use this country code (E.164 format)
+              </p>
+            </div>
+            <div>
+              <label className="label">Estimate Currency</label>
+              <select
+                className="input"
+                value={formData.currency}
+                onChange={(e) => updateField('currency', e.target.value)}
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">
+                All estimate amounts will be displayed in this currency
               </p>
             </div>
 
@@ -416,6 +416,10 @@ export default function NewMigration() {
                 <div className="flex justify-between">
                   <dt className="text-zinc-500">Country Code:</dt>
                   <dd className="text-zinc-200 font-mono">{formData.country_code}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Currency:</dt>
+                  <dd className="text-zinc-200">{formData.currency === 'EUR' ? '€ EUR' : '$ USD'}</dd>
                 </div>
               </dl>
             </div>

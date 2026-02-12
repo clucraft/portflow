@@ -16,7 +16,7 @@ export type WorkflowStage =
 
 export type TargetCarrier = string;
 
-export type RoutingType = 'direct_routing' | 'operator_connect';
+export type RoutingType = 'direct_routing' | 'operator_connect' | 'calling_plan';
 
 export type PhoneNumberType =
   | 'user'
@@ -83,6 +83,7 @@ export interface Migration {
   voice_routing_policy: string | null;  // Only for direct_routing
   dial_plan: string | null;
   country_code: string;  // E.164 country code for phone number validation (e.g., '+1')
+  currency: string;  // Currency code for estimate amounts (USD or EUR)
 
   // Site info
   site_name: string;

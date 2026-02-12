@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2, FileCode, Check, X, Link2, Copy, ExternalLink, ChevronDown, AlertCircle } from 'lucide-react'
-import { usersApi, migrationsApi, scriptsApi } from '../services/api'
+import { usersApi, migrationsApi, scriptsApi, formatRoutingType } from '../services/api'
 import { validatePhoneNumber } from '../utils/phoneValidation'
 
 export default function Users() {
@@ -327,9 +327,10 @@ export default function Users() {
 
       {/* Routing Type Info */}
       <div className="text-sm text-zinc-400 bg-surface-700/50 px-4 py-2 rounded-lg border border-surface-600">
-        Routing Type: <strong className="text-zinc-200 capitalize">{migration?.routing_type?.replace('_', ' ')}</strong>
+        Routing Type: <strong className="text-zinc-200">{formatRoutingType(migration?.routing_type)}</strong>
         {migration?.routing_type === 'direct_routing' && ' - Numbers will be assigned via Direct Routing'}
         {migration?.routing_type === 'operator_connect' && ' - Numbers will be assigned via Operator Connect'}
+        {migration?.routing_type === 'calling_plan' && ' - Numbers will be assigned via MS Calling Plans'}
       </div>
 
       {/* Users Table */}

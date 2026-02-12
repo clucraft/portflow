@@ -7,6 +7,7 @@ interface Carrier {
   id: string;
   slug: string;
   display_name: string;
+  carrier_type: string;
   monthly_charge: number;
   is_active: boolean;
   sort_order: number;
@@ -41,17 +42,17 @@ export const listAll = async (_req: Request, res: Response, next: NextFunction) 
 // POST - create carrier
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { slug, display_name, sort_order, monthly_charge } = req.body;
+    const { slug, display_name, sort_order, monthly_charge, carrier_type } = req.body;
 
     if (!slug || !display_name) {
       throw ApiError.badRequest('slug and display_name are required');
     }
 
     const carriers = await query<Carrier>(
-      `INSERT INTO carriers (slug, display_name, sort_order, monthly_charge)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO carriers (slug, display_name, sort_order, monthly_charge, carrier_type)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [slug, display_name, sort_order || 0, monthly_charge || 0]
+      [slug, display_name, sort_order || 0, monthly_charge || 0, carrier_type || 'direct_routing']
     );
 
     logActivity(req.user?.id || null, 'carrier.create', `Created carrier: ${carriers[0].display_name} (${carriers[0].slug})`).catch(() => {});
@@ -66,7 +67,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { display_name, is_active, sort_order, monthly_charge } = req.body;
+    const { display_name, is_active, sort_order, monthly_charge, carrier_type } = req.body;
 
     const carriers = await query<Carrier>(
       `UPDATE carriers SET
@@ -74,10 +75,11 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
         is_active = COALESCE($2, is_active),
         sort_order = COALESCE($3, sort_order),
         monthly_charge = COALESCE($4, monthly_charge),
+        carrier_type = COALESCE($5, carrier_type),
         updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $6
       RETURNING *`,
-      [display_name, is_active, sort_order, monthly_charge, id]
+      [display_name, is_active, sort_order, monthly_charge, carrier_type, id]
     );
 
     if (carriers.length === 0) {

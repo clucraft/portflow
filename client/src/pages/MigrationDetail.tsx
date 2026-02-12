@@ -6,7 +6,7 @@ import {
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
   CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, type Migration, type WorkflowStage, type PhaseTask } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
@@ -165,10 +165,12 @@ export default function MigrationDetail() {
     site_timezone: '',
     current_pbx_type: '',
     current_carrier: '',
+    target_carrier: '',
     routing_type: 'direct_routing',
     voice_routing_policy: '',
     dial_plan: '',
     country_code: '+1',
+    currency: 'USD',
   })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
   const [editingPhase, setEditingPhase] = useState<number | null>(null)
@@ -372,10 +374,12 @@ export default function MigrationDetail() {
         site_timezone: migration.site_timezone || '',
         current_pbx_type: migration.current_pbx_type || '',
         current_carrier: migration.current_carrier || '',
+        target_carrier: migration.target_carrier || '',
         routing_type: migration.routing_type || 'direct_routing',
         voice_routing_policy: migration.voice_routing_policy || '',
         dial_plan: migration.dial_plan || '',
         country_code: migration.country_code || '+1',
+        currency: migration.currency || 'USD',
       })
       setEditingDetails(true)
     }
@@ -485,6 +489,7 @@ export default function MigrationDetail() {
     return <div className="text-center py-12 text-zinc-500">Migration not found</div>
   }
 
+  const currencySymbol = migration.currency === 'EUR' ? '€' : '$'
   const progress = getOverallProgress(migration.workflow_stage)
 
   return (
@@ -508,7 +513,7 @@ export default function MigrationDetail() {
             )}
           </div>
           <p className="text-zinc-500 text-sm">
-            {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; <span className="capitalize">{migration.routing_type.replace('_', ' ')}</span>
+            {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; {formatRoutingType(migration.routing_type)}
             {migration.country_code && <span> &bull; <span className="font-mono">{migration.country_code}</span></span>}
           </p>
         </div>
@@ -646,6 +651,23 @@ export default function MigrationDetail() {
                 placeholder="e.g., AT&T, CenturyLink"
               />
             </div>
+            <div>
+              <label className="label">Target Carrier</label>
+              <select
+                className="input"
+                value={detailsForm.target_carrier}
+                onChange={(e) => {
+                  const slug = e.target.value
+                  const carrierObj = carriers?.find((c: Carrier) => c.slug === slug)
+                  const newRoutingType = carrierObj?.carrier_type || 'direct_routing'
+                  setDetailsForm({ ...detailsForm, target_carrier: slug, routing_type: newRoutingType, voice_routing_policy: newRoutingType !== 'direct_routing' ? '' : detailsForm.voice_routing_policy })
+                }}
+              >
+                {carriers?.map((c: Carrier) => (
+                  <option key={c.slug} value={c.slug}>{c.display_name}</option>
+                ))}
+              </select>
+            </div>
             {detailsForm.routing_type === 'direct_routing' && (
               <div>
                 <label className="label">Voice Routing Policy</label>
@@ -674,6 +696,17 @@ export default function MigrationDetail() {
                 value={detailsForm.country_code}
                 onChange={(val) => setDetailsForm({ ...detailsForm, country_code: val })}
               />
+            </div>
+            <div>
+              <label className="label">Estimate Currency</label>
+              <select
+                className="input"
+                value={detailsForm.currency}
+                onChange={(e) => setDetailsForm({ ...detailsForm, currency: e.target.value })}
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
             </div>
           </div>
           <div className="flex gap-2 mt-4 pt-4 border-t border-surface-600">
@@ -974,7 +1007,7 @@ export default function MigrationDetail() {
                         <span>Accepted {new Date(migration.estimate_accepted_at).toLocaleDateString()}</span>
                       )}
                       {phase.id === 1 && isDone && (
-                        <span className="ml-3 font-mono">${formatCurrency(migration.estimate_total_monthly).split('.')[0]}/mo</span>
+                        <span className="ml-3 font-mono">{currencySymbol}{formatCurrency(migration.estimate_total_monthly).split('.')[0]}/mo</span>
                       )}
                       {phase.id === 2 && isDone && migration.verizon_setup_complete_at && (
                         <span>Complete {new Date(migration.verizon_setup_complete_at).toLocaleDateString()}</span>
@@ -1015,15 +1048,21 @@ export default function MigrationDetail() {
                           const endUsers = Number(qData.total_end_user_count) || 0
                           const deskPhones = Number(qData.personal_desk_phones) || 0
                           const headsets = Number(qData.headset_count) || 0
-                          const carrierObj = carriers?.find(c => c.slug === migration.target_carrier)
+                          const carrierObj = carriers?.find((c: Carrier) => c.slug === migration.target_carrier)
                           const userRate = Number(rates?.user_service_rate ?? 3.45) || 0
                           const phoneRate = Number(rates?.phone_unit_cost ?? 0) || 0
                           const headsetRate = Number(rates?.headset_unit_cost ?? 0) || 0
 
+                          // Carrier charge depends on carrier type
+                          let carrierCharge = Number(carrierObj?.monthly_charge) || 0
+                          if (carrierObj?.carrier_type === 'operator_connect' || carrierObj?.carrier_type === 'calling_plan') {
+                            carrierCharge = parseFloat((carrierCharge * (migration.telephone_users || 0)).toFixed(2))
+                          }
+
                           setEstimateForm({
                             ...estimateForm,
                             estimate_user_service_charge: parseFloat((endUsers * userRate).toFixed(2)),
-                            estimate_carrier_charge: Number(carrierObj?.monthly_charge) || 0,
+                            estimate_carrier_charge: carrierCharge,
                             estimate_phone_equipment_charge: parseFloat((deskPhones * phoneRate).toFixed(2)),
                             estimate_headset_equipment_charge: parseFloat((headsets * headsetRate).toFixed(2)),
                           })
@@ -1046,7 +1085,7 @@ export default function MigrationDetail() {
                           </div>
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <label className="label">Carrier Charge (Monthly)</label>
+                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); return co?.carrier_type === 'operator_connect' ? ` (${migration.telephone_users} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${migration.telephone_users} users)` : ' (flat)'; })()}</label>
                               <input
                                 type="number"
                                 className="input"
@@ -1103,15 +1142,15 @@ export default function MigrationDetail() {
                           <div className="p-3 bg-surface-700/50 rounded-lg border border-surface-600 space-y-1">
                             <div className="flex justify-between text-sm">
                               <span className="text-zinc-400">Monthly Total</span>
-                              <span className="text-zinc-200 font-mono">${monthlyTotal.toFixed(2)}</span>
+                              <span className="text-zinc-200 font-mono">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-zinc-400">Annual Total (x12)</span>
-                              <span className="text-zinc-200 font-mono">${annualTotal.toFixed(2)}</span>
+                              <span className="text-zinc-200 font-mono">{currencySymbol}{annualTotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-zinc-400">One-time Total</span>
-                              <span className="text-zinc-200 font-mono">${onetimeTotal.toFixed(2)}</span>
+                              <span className="text-zinc-200 font-mono">{currencySymbol}{onetimeTotal.toFixed(2)}</span>
                             </div>
                           </div>
                           <div>
@@ -1451,7 +1490,7 @@ export default function MigrationDetail() {
                   {/* Completed phase summary */}
                   {isDone && phase.id === 1 && (
                     <div className="mt-1 ml-3 text-sm text-zinc-500">
-                      Monthly: ${formatCurrency(migration.estimate_total_monthly)} &bull; Annual: ${formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)} &bull; One-time: ${formatCurrency(migration.estimate_total_onetime)}
+                      Monthly: {currencySymbol}{formatCurrency(migration.estimate_total_monthly)} &bull; Annual: {currencySymbol}{formatCurrency(Number(migration.estimate_total_monthly || 0) * 12)} &bull; One-time: {currencySymbol}{formatCurrency(migration.estimate_total_onetime)}
                       {migration.estimate_accepted_by && <span> &bull; Accepted by: {migration.estimate_accepted_by}</span>}
                     </div>
                   )}
@@ -1495,7 +1534,7 @@ export default function MigrationDetail() {
                           <div className="text-sm text-zinc-500">Monthly Charges</div>
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <label className="label">Carrier Charge (Monthly)</label>
+                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); return co?.carrier_type === 'operator_connect' ? ` (${migration.telephone_users} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${migration.telephone_users} users)` : ' (flat)'; })()}</label>
                               <input
                                 type="number"
                                 className="input"
