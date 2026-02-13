@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Phone, Zap, Check, AlertCircle, Save, Send } from 'lucide-react'
 import { publicApi } from '../services/api'
+import ParticleBackground from '../components/ParticleBackground'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 export default function CustomerQuestionnaire() {
@@ -43,8 +44,9 @@ export default function CustomerQuestionnaire() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-900 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center relative">
+        <ParticleBackground />
+        <div className="text-center relative z-10">
           <Zap className="h-8 w-8 text-primary-500 mx-auto animate-pulse" />
           <p className="mt-2 text-zinc-500">Loading questionnaire...</p>
         </div>
@@ -58,8 +60,9 @@ export default function CustomerQuestionnaire() {
       || 'Unknown error'
 
     return (
-      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
-        <div className="card max-w-md text-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4 relative">
+        <ParticleBackground />
+        <div className="card max-w-md text-center relative z-10">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-zinc-100 mb-2">Link Invalid or Expired</h1>
           <p className="text-zinc-400 mb-4">
@@ -78,8 +81,9 @@ export default function CustomerQuestionnaire() {
 
   if (submitted || alreadySubmitted) {
     return (
-      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
-        <div className="card max-w-md text-center">
+      <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4 relative">
+        <ParticleBackground />
+        <div className="card max-w-md text-center relative z-10">
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
             <Check className="h-8 w-8 text-green-400" />
           </div>
@@ -98,8 +102,9 @@ export default function CustomerQuestionnaire() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-900 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-surface-900 p-4 md:p-8 relative">
+      <ParticleBackground />
+      <div className="max-w-3xl mx-auto relative z-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="relative">
