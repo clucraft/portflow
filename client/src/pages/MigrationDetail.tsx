@@ -179,8 +179,6 @@ export default function MigrationDetail() {
     site_state: '',
     site_country: '',
     site_timezone: '',
-    current_pbx_type: '',
-    current_carrier: '',
     target_carrier: '',
     routing_type: 'direct_routing',
     voice_routing_policy: '',
@@ -388,8 +386,6 @@ export default function MigrationDetail() {
         site_state: migration.site_state || '',
         site_country: migration.site_country || '',
         site_timezone: migration.site_timezone || '',
-        current_pbx_type: migration.current_pbx_type || '',
-        current_carrier: migration.current_carrier || '',
         target_carrier: migration.target_carrier || '',
         routing_type: migration.routing_type || 'direct_routing',
         voice_routing_policy: migration.voice_routing_policy || '',
@@ -651,26 +647,6 @@ export default function MigrationDetail() {
                   <option key={tz} value={tz}>{tz}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label">Current PBX Type</label>
-              <input
-                type="text"
-                className="input"
-                value={detailsForm.current_pbx_type}
-                onChange={(e) => setDetailsForm({ ...detailsForm, current_pbx_type: e.target.value })}
-                placeholder="e.g., Avaya, Cisco, Mitel"
-              />
-            </div>
-            <div>
-              <label className="label">Current Carrier</label>
-              <input
-                type="text"
-                className="input"
-                value={detailsForm.current_carrier}
-                onChange={(e) => setDetailsForm({ ...detailsForm, current_carrier: e.target.value })}
-                placeholder="e.g., AT&T, CenturyLink"
-              />
             </div>
             <div>
               <label className="label">Target Carrier</label>
@@ -1077,7 +1053,7 @@ export default function MigrationDetail() {
                           // Carrier charge depends on carrier type
                           let carrierCharge = Number(carrierObj?.monthly_charge) || 0
                           if (carrierObj?.carrier_type === 'operator_connect' || carrierObj?.carrier_type === 'calling_plan') {
-                            carrierCharge = parseFloat((carrierCharge * (migration.telephone_users || 0)).toFixed(2))
+                            carrierCharge = parseFloat((carrierCharge * endUsers).toFixed(2))
                           }
 
                           setEstimateForm({
@@ -1106,7 +1082,7 @@ export default function MigrationDetail() {
                           </div>
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); return co?.carrier_type === 'operator_connect' ? ` (${migration.telephone_users} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${migration.telephone_users} users)` : ' (flat)'; })()}</label>
+                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); const qd = (migration.site_questionnaire || {}) as Record<string, unknown>; const euCount = Number(qd.total_end_user_count) || 0; return co?.carrier_type === 'operator_connect' ? ` (${euCount} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${euCount} users)` : ' (flat)'; })()}</label>
                               <input
                                 type="number"
                                 className="input"
@@ -1555,7 +1531,7 @@ export default function MigrationDetail() {
                           <div className="text-sm text-zinc-500">Monthly Charges</div>
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); return co?.carrier_type === 'operator_connect' ? ` (${migration.telephone_users} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${migration.telephone_users} users)` : ' (flat)'; })()}</label>
+                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); const qd = (migration.site_questionnaire || {}) as Record<string, unknown>; const euCount = Number(qd.total_end_user_count) || 0; return co?.carrier_type === 'operator_connect' ? ` (${euCount} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${euCount} users)` : ' (flat)'; })()}</label>
                               <input
                                 type="number"
                                 className="input"

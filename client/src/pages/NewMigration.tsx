@@ -24,15 +24,6 @@ export default function NewMigration() {
     site_state: '',
     site_country: 'United States',
     site_timezone: 'America/New_York',
-    current_pbx_type: '',
-    current_carrier: '',
-
-    // Estimate inputs
-    telephone_users: 0,
-    physical_phones_needed: 0,
-    monthly_calling_minutes: 0,
-    is_porting_numbers: true,
-    new_numbers_requested: 0,
 
     // Config
     target_carrier: 'verizon',
@@ -93,7 +84,7 @@ export default function NewMigration() {
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
+          {[1, 2].map((s) => (
             <div key={s} className="flex items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border transition-all ${
@@ -106,15 +97,14 @@ export default function NewMigration() {
               >
                 {s < step ? <Check className="h-4 w-4" /> : s}
               </div>
-              {s < 3 && (
+              {s < 2 && (
                 <div className={`w-12 h-0.5 ${s < step ? 'bg-green-500' : 'bg-surface-600'}`} />
               )}
             </div>
           ))}
           <div className="ml-4 text-sm text-zinc-400">
             {step === 1 && 'Site Information'}
-            {step === 2 && 'Estimate Details'}
-            {step === 3 && 'Configuration'}
+            {step === 2 && 'Configuration'}
           </div>
         </div>
 
@@ -200,102 +190,11 @@ export default function NewMigration() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">Current PBX Type</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., Avaya, Cisco, Mitel"
-                  value={formData.current_pbx_type}
-                  onChange={(e) => updateField('current_pbx_type', e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="label">Current Carrier</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., AT&T, CenturyLink"
-                  value={formData.current_carrier}
-                  onChange={(e) => updateField('current_carrier', e.target.value)}
-                />
-              </div>
-            </div>
           </div>
         )}
 
-        {/* Step 2: Estimate Details */}
+        {/* Step 2: Configuration */}
         {step === 2 && (
-          <div className="space-y-4">
-            <div>
-              <label className="label">Number of Telephone Users *</label>
-              <input
-                type="number"
-                className="input"
-                min="1"
-                value={formData.telephone_users || ''}
-                onChange={(e) => updateField('telephone_users', parseInt(e.target.value) || 0)}
-              />
-              <p className="text-xs text-zinc-500 mt-1">Users who need phone service in Teams</p>
-            </div>
-
-            <div>
-              <label className="label">Physical Phones Needed</label>
-              <input
-                type="number"
-                className="input"
-                min="0"
-                value={formData.physical_phones_needed || ''}
-                onChange={(e) => updateField('physical_phones_needed', parseInt(e.target.value) || 0)}
-              />
-              <p className="text-xs text-zinc-500 mt-1">Desk phones, conference phones, etc.</p>
-            </div>
-
-            <div>
-              <label className="label">Monthly Calling Minutes</label>
-              <input
-                type="number"
-                className="input"
-                min="0"
-                value={formData.monthly_calling_minutes || ''}
-                onChange={(e) => updateField('monthly_calling_minutes', parseInt(e.target.value) || 0)}
-              />
-              <p className="text-xs text-zinc-500 mt-1">From existing carrier invoice (optional)</p>
-            </div>
-
-            <div className="p-4 bg-surface-700/50 rounded-lg border border-surface-600">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded bg-surface-800 border-surface-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-surface-900"
-                  checked={formData.is_porting_numbers}
-                  onChange={(e) => updateField('is_porting_numbers', e.target.checked)}
-                />
-                <span className="font-medium text-zinc-200">Porting existing phone numbers</span>
-              </label>
-              <p className="text-xs text-zinc-500 mt-2 ml-7">
-                Uncheck if requesting new numbers from carrier
-              </p>
-            </div>
-
-            {!formData.is_porting_numbers && (
-              <div>
-                <label className="label">New Numbers Requested</label>
-                <input
-                  type="number"
-                  className="input"
-                  min="0"
-                  value={formData.new_numbers_requested || ''}
-                  onChange={(e) => updateField('new_numbers_requested', parseInt(e.target.value) || 0)}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Configuration */}
-        {step === 3 && (
           <div className="space-y-4">
             <div>
               <label className="label">Target Carrier</label>
@@ -386,20 +285,8 @@ export default function NewMigration() {
                   <dd className="text-zinc-200">{formData.site_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-zinc-500">Users:</dt>
-                  <dd className="text-zinc-200">{formData.telephone_users}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Phones:</dt>
-                  <dd className="text-zinc-200">{formData.physical_phones_needed}</dd>
-                </div>
-                <div className="flex justify-between">
                   <dt className="text-zinc-500">Carrier:</dt>
                   <dd className="text-zinc-200 capitalize">{formData.target_carrier}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Porting Numbers:</dt>
-                  <dd className="text-zinc-200">{formData.is_porting_numbers ? 'Yes' : 'No'}</dd>
                 </div>
                 {formData.routing_type === 'direct_routing' && formData.voice_routing_policy && (
                   <div className="flex justify-between">
@@ -440,7 +327,7 @@ export default function NewMigration() {
             <div />
           )}
 
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={() => setStep(step + 1)}
               disabled={step === 1 && !formData.site_name}
@@ -452,7 +339,7 @@ export default function NewMigration() {
           ) : (
             <button
               onClick={handleSubmit}
-              disabled={createMutation.isPending || !formData.telephone_users}
+              disabled={createMutation.isPending}
               className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Migration'}
