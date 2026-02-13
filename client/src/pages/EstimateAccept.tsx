@@ -96,6 +96,10 @@ export default function EstimateAccept() {
     )
   }
 
+  const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
+  const endUsers = Number(qData.total_end_user_count) || 0
+  const deskPhones = Number(qData.personal_desk_phones) || 0
+  const headsets = Number(qData.headset_count) || 0
   const alreadyAccepted = !!migration.estimate_accepted_at
 
   if (accepted || alreadyAccepted) {
@@ -151,12 +155,16 @@ export default function EstimateAccept() {
               </p>
             </div>
             <div>
-              <p className="text-sm text-zinc-500">Telephone Users</p>
-              <p className="text-zinc-200">{migration.telephone_users}</p>
+              <p className="text-sm text-zinc-500">End Users</p>
+              <p className="text-zinc-200">{endUsers}</p>
             </div>
             <div>
-              <p className="text-sm text-zinc-500">Physical Phones</p>
-              <p className="text-zinc-200">{migration.physical_phones_needed || 0}</p>
+              <p className="text-sm text-zinc-500">Desk Phones</p>
+              <p className="text-zinc-200">{deskPhones}</p>
+            </div>
+            <div>
+              <p className="text-sm text-zinc-500">Headsets</p>
+              <p className="text-zinc-200">{headsets}</p>
             </div>
             <div>
               <p className="text-sm text-zinc-500">Target Carrier</p>
@@ -315,11 +323,13 @@ export default function EstimateAccept() {
             <h3 className="font-medium text-primary-400">Summary</h3>
           </div>
           <p className="text-zinc-300 text-sm">
-            This estimate covers Teams Enterprise Voice migration for <strong>{migration.telephone_users} users</strong>
-            {(migration.physical_phones_needed ?? 0) > 0 && (
-              <> with <strong>{migration.physical_phones_needed} physical phones</strong></>
+            This estimate covers Teams Enterprise Voice migration for <strong>{endUsers} users</strong>
+            {deskPhones > 0 && (
+              <> with <strong>{deskPhones} desk phones</strong></>
             )}
-            {Number(migration.estimate_headset_equipment_charge) > 0 && ' and headsets'}
+            {headsets > 0 && (
+              <> and <strong>{headsets} headsets</strong></>
+            )}
             {' '}using <strong>{formatRoutingType(migration.routing_type)}</strong> via{' '}
             <strong className="capitalize">{migration.target_carrier}</strong>.
           </p>
@@ -333,7 +343,7 @@ export default function EstimateAccept() {
           </p>
 
           <div className="mb-4">
-            <label className="label">Your Name (Optional)</label>
+            <label className="label">Your Name *</label>
             <input
               type="text"
               className="input"
@@ -345,7 +355,7 @@ export default function EstimateAccept() {
 
           <button
             onClick={() => acceptMutation.mutate()}
-            disabled={acceptMutation.isPending}
+            disabled={acceptMutation.isPending || !acceptedBy.trim()}
             className="btn btn-primary w-full flex items-center justify-center gap-2"
           >
             {acceptMutation.isPending ? (
