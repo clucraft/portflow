@@ -650,6 +650,190 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// Survey import: preview (check which survey_ids already exist)
+export const importPreview = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = req.body;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw ApiError.badRequest('rows must be a non-empty array');
+    }
+
+    const surveyIds = rows.map((r: Record<string, unknown>) => String(r.survey_id)).filter(Boolean);
+
+    if (surveyIds.length === 0) {
+      res.json({ existing_ids: [] });
+      return;
+    }
+
+    // Build parameterised IN clause
+    const placeholders = surveyIds.map((_, i) => `$${i + 1}`).join(', ');
+    const existing = await query<{ survey_id: string }>(
+      `SELECT survey_id FROM migrations WHERE survey_id IN (${placeholders})`,
+      surveyIds
+    );
+
+    res.json({ existing_ids: existing.map(r => r.survey_id) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Survey import: create migrations from survey rows
+export const importSurvey = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = req.body;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw ApiError.badRequest('rows must be a non-empty array');
+    }
+
+    let created = 0;
+    let skipped = 0;
+    const errors: { row: number; error: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] as Record<string, unknown>;
+      const surveyId = String(row.survey_id || '');
+
+      try {
+        // Skip if survey_id already exists
+        if (surveyId) {
+          const existing = await query<{ id: string }>(
+            'SELECT id FROM migrations WHERE survey_id = $1',
+            [surveyId]
+          );
+          if (existing.length > 0) {
+            skipped++;
+            continue;
+          }
+        }
+
+        const companyName = String(row.company_name || '');
+        const siteAddress = String(row.site_address || '');
+
+        // Best-effort parse city from address "Street, ZIP City" or "Street, ZIP, City"
+        let city = '';
+        let state = '';
+        if (siteAddress) {
+          const parts = siteAddress.split(',').map((s: string) => s.trim());
+          if (parts.length >= 3) {
+            // Format: "Street, ZIP, City" — take last part as city
+            city = parts[parts.length - 1];
+          } else if (parts.length === 2) {
+            // Format: "Street, ZIP City" — extract city from "ZIP City"
+            const zipCity = parts[1].trim();
+            const match = zipCity.match(/^\d+\s+(.+)/);
+            if (match) {
+              city = match[1];
+            } else {
+              city = zipCity;
+            }
+          }
+        }
+
+        const migrationName = city ? `${companyName} - ${city}` : companyName;
+
+        // Build site_questionnaire from all survey fields
+        const questionnaire: Record<string, unknown> = {};
+        const qFields: [string, string][] = [
+          ['email', 'email'],
+          ['name', 'name'],
+          ['company_name', 'company_name'],
+          ['legal_entity_code', 'legal_entity_code'],
+          ['site_address', 'site_address'],
+          ['project_requestor', 'project_requestor'],
+          ['head_of_location', 'head_of_location'],
+          ['infrastructure_contact', 'infrastructure_contact'],
+          ['service_desk', 'service_desk'],
+          ['phone_system_manufacturer', 'phone_system_manufacturer'],
+          ['phone_system_model', 'phone_system_model'],
+          ['phone_system_age', 'phone_system_age'],
+          ['phone_system_maintenance', 'phone_system_maintenance'],
+          ['telephony_provider', 'telephony_provider'],
+          ['provider_contract_term', 'provider_contract_term'],
+          ['earliest_cancel_date', 'earliest_cancel_date'],
+          ['connection_details', 'connection_details'],
+          ['concurrent_channels', 'concurrent_channels'],
+          ['main_subscriber_range', 'main_subscriber_range'],
+          ['total_end_user_count', 'total_end_user_count'],
+          ['personal_desk_phones', 'personal_desk_phones'],
+          ['headset_percentage', 'headset_percentage'],
+          ['default_headset', 'default_headset'],
+          ['conference_room_devices', 'conference_room_devices'],
+          ['cordless_dect_in_use', 'cordless_dect_in_use'],
+          ['dect_details', 'dect_details'],
+          ['dect_count', 'dect_count'],
+          ['dect_smartphone_percentage', 'dect_smartphone_percentage'],
+          ['mobile_standard_device', 'mobile_standard_device'],
+          ['special_endpoints', 'special_endpoints'],
+          ['special_endpoint_config', 'special_endpoint_config'],
+          ['special_call_flow', 'special_call_flow'],
+          ['internal_emergency_number', 'internal_emergency_number'],
+          ['public_emergency_numbers', 'public_emergency_numbers'],
+          ['infrastructure_operator', 'infrastructure_operator'],
+          ['network_standard_planned', 'network_standard_planned'],
+          ['network_project_timeline', 'network_project_timeline'],
+          ['lan_subnets', 'lan_subnets'],
+          ['client_access_port_speed', 'client_access_port_speed'],
+          ['wlan_coverage', 'wlan_coverage'],
+          ['redundant_wan', 'redundant_wan'],
+          ['wan_bandwidth', 'wan_bandwidth'],
+        ];
+
+        for (const [rowKey, qKey] of qFields) {
+          if (row[rowKey] !== undefined && row[rowKey] !== null && row[rowKey] !== '') {
+            questionnaire[qKey] = row[rowKey];
+          }
+        }
+
+        const totalUsers = row.total_end_user_count ? parseInt(String(row.total_end_user_count), 10) || 0 : 0;
+
+        const migrations = await query<Migration>(
+          `INSERT INTO migrations (
+            name, survey_id, site_name, site_address, site_city, site_state, site_country,
+            site_timezone, target_carrier, routing_type, currency, workflow_stage,
+            telephone_users, site_questionnaire, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'estimate', $12, $13, $14)
+          RETURNING *`,
+          [
+            migrationName,
+            surveyId || null,
+            companyName,
+            siteAddress || null,
+            city || null,
+            state || null,
+            'Germany',
+            'Europe/Berlin',
+            'verizon',
+            'direct_routing',
+            'EUR',
+            totalUsers,
+            JSON.stringify(questionnaire),
+            req.user?.id || null,
+          ]
+        );
+
+        if (migrations.length > 0) {
+          created++;
+        }
+      } catch (rowErr) {
+        errors.push({ row: i, error: (rowErr as Error).message });
+      }
+    }
+
+    logActivity(
+      req.user?.id || null,
+      'migration.import',
+      `Imported ${created} migrations from survey (${skipped} skipped, ${errors.length} errors)`
+    ).catch(() => {});
+
+    res.json({ created, skipped, errors });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

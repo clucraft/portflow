@@ -69,6 +69,7 @@ export interface PhaseTask {
 export interface Migration {
   id: string
   name: string
+  survey_id: string | null
   workflow_stage: WorkflowStage
   target_carrier: string
   routing_type: string
@@ -433,6 +434,12 @@ export const migrationsApi = {
   // Questionnaire bulk export
   listQuestionnaires: () =>
     api.get<Pick<Migration, 'id' | 'name' | 'site_name' | 'site_questionnaire'>[]>('/migrations/questionnaires').then(r => r.data),
+
+  // Survey import
+  importPreview: (rows: Record<string, unknown>[]) =>
+    api.post<{ existing_ids: string[] }>('/migrations/import/preview', { rows }).then(r => r.data),
+  importSurvey: (rows: Record<string, unknown>[]) =>
+    api.post<{ created: number; skipped: number; errors: { row: number; error: string }[] }>('/migrations/import', { rows }).then(r => r.data),
 }
 
 export const usersApi = {

@@ -16,6 +16,12 @@ router.get('/stages', migrationsController.getWorkflowStages);
 // GET /api/migrations/questionnaires - List all migrations with questionnaire data
 router.get('/questionnaires', migrationsController.listQuestionnaires);
 
+// POST /api/migrations/import/preview - Preview survey import (check existing)
+router.post('/import/preview', migrationsController.importPreview);
+
+// POST /api/migrations/import - Import survey rows as migrations
+router.post('/import', migrationsController.importSurvey);
+
 // GET /api/migrations/:id - Get single migration
 router.get('/:id', migrationsController.getById);
 

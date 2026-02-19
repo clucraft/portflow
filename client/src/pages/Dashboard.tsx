@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X } from 'lucide-react'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload } from 'lucide-react'
 import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import ImportSurveyDialog from '../components/ImportSurveyDialog'
 
 const stageColors: Record<string, string> = {
   estimate: 'bg-zinc-500',
@@ -71,7 +72,9 @@ function timeAgo(dateStr: string): string {
 type SortBy = 'updated' | 'created' | 'name'
 
 export default function Dashboard() {
+  const queryClient = useQueryClient()
   const { canWrite } = useAuth()
+  const [showImport, setShowImport] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('updated')
   const [filterCreator, setFilterCreator] = useState('')
@@ -172,10 +175,16 @@ export default function Dashboard() {
             />
           </div>
           {canWrite && (
-            <Link to="/new" className="btn btn-primary flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              New Migration
-            </Link>
+            <>
+              <button onClick={() => setShowImport(true)} className="btn btn-secondary flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Import Survey
+              </button>
+              <Link to="/new" className="btn btn-primary flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                New Migration
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -433,6 +442,12 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <ImportSurveyDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onComplete={() => queryClient.invalidateQueries({ queryKey: ['migrations'] })}
+      />
     </div>
   )
 }

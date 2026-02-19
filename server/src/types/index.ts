@@ -77,6 +77,7 @@ export interface TeamMember {
 export interface Migration {
   id: string;
   name: string;
+  survey_id: string | null;
   workflow_stage: WorkflowStage;
   target_carrier: TargetCarrier;
   routing_type: RoutingType;
