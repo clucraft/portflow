@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Assign migrations to team members** — new `assigned_to` field tracks who is responsible for each migration project
+- Assignee dropdown in New Migration form (defaults to current user) and project detail edit form
+- Dashboard shows assignee on each migration card with "All Assignees" filter dropdown
+- Bulk survey import automatically assigns imported migrations to the importing user
+- Migration detail page shows both creator and assignee
+
 ### Changed
 - **Questionnaire CSV export** now produces standard flat CSV format (one header row with all field labels as columns, one data row with values) instead of section-header/field-value layout
+- Dashboard migration cards no longer show creator name (assignee shown instead)
 
 ### Added
 - **Import from Microsoft Teams** — PowerShell export script + CSV bulk import for dial plans and voice routing policies (Settings > Policies)
@@ -49,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Database Migration Required
 ```sql
+-- Run docs/migration_add_assigned_to.sql
+-- Adds assigned_to column and recreates migration_dashboard view with assignee join
+
 -- Round 1: Run docs/migration_settings_round1.sql
 -- Adds password_hash to team_members, creates app_settings table
 
