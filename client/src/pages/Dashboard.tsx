@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('updated')
   const [filterCreator, setFilterCreator] = useState('')
+  const [filterAssignee, setFilterAssignee] = useState('')
   const [filterCarrier, setFilterCarrier] = useState('')
   const [filterCountry, setFilterCountry] = useState('')
 
@@ -100,13 +101,14 @@ export default function Dashboard() {
 
   // Derive unique filter options from loaded data
   const filterOptions = useMemo(() => {
-    if (!migrations) return { creators: [] as string[], countries: [] as string[] }
+    if (!migrations) return { creators: [] as string[], assignees: [] as string[], countries: [] as string[] }
     const creators = [...new Set(migrations.map(m => m.created_by_name).filter(Boolean) as string[])].sort()
+    const assignees = [...new Set(migrations.map(m => m.assigned_to_name).filter(Boolean) as string[])].sort()
     const countries = [...new Set(migrations.map(m => m.site_country).filter(Boolean))].sort()
-    return { creators, countries }
+    return { creators, assignees, countries }
   }, [migrations])
 
-  const hasActiveFilters = filterCreator || filterCarrier || filterCountry
+  const hasActiveFilters = filterCreator || filterAssignee || filterCarrier || filterCountry
 
   // Combined filter: search + dropdowns
   const filterMigration = (m: Migration) => {
@@ -115,6 +117,7 @@ export default function Dashboard() {
       if (!m.name.toLowerCase().includes(query) && !m.site_name.toLowerCase().includes(query)) return false
     }
     if (filterCreator && m.created_by_name !== filterCreator) return false
+    if (filterAssignee && m.assigned_to_name !== filterAssignee) return false
     if (filterCarrier && m.target_carrier !== filterCarrier) return false
     if (filterCountry && m.site_country !== filterCountry) return false
     return true
@@ -139,7 +142,7 @@ export default function Dashboard() {
       !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage) && filterMigration(m)
     ) || []).sort(sortMigrations),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [migrations, searchQuery, sortBy, filterCreator, filterCarrier, filterCountry]
+    [migrations, searchQuery, sortBy, filterCreator, filterAssignee, filterCarrier, filterCountry]
   )
 
   const completedCount = migrations?.filter((m) => m.workflow_stage === 'completed').length || 0
@@ -256,6 +259,17 @@ export default function Dashboard() {
         </select>
 
         <select
+          value={filterAssignee}
+          onChange={(e) => setFilterAssignee(e.target.value)}
+          className="input py-1.5 px-2.5 text-sm w-auto min-w-[140px]"
+        >
+          <option value="">All Assignees</option>
+          {filterOptions.assignees.map(a => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+
+        <select
           value={filterCarrier}
           onChange={(e) => setFilterCarrier(e.target.value)}
           className="input py-1.5 px-2.5 text-sm w-auto min-w-[140px]"
@@ -279,7 +293,7 @@ export default function Dashboard() {
 
         {hasActiveFilters && (
           <button
-            onClick={() => { setFilterCreator(''); setFilterCarrier(''); setFilterCountry('') }}
+            onClick={() => { setFilterCreator(''); setFilterAssignee(''); setFilterCarrier(''); setFilterCountry('') }}
             className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
@@ -343,7 +357,7 @@ export default function Dashboard() {
                       </p>
                       <p className="text-xs text-zinc-600 mt-0.5">
                         Created {new Date(migration.created_at).toLocaleDateString()}
-                        {migration.created_by_name && <span> by {migration.created_by_name}</span>}
+                        {migration.assigned_to_name && <span> &bull; Assigned to {migration.assigned_to_name}</span>}
                         {' '}&bull; Updated {timeAgo(migration.updated_at)}
                       </p>
                     </div>

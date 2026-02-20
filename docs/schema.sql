@@ -187,6 +187,7 @@ CREATE TABLE migrations (
     notes TEXT,
 
     created_by UUID REFERENCES team_members(id),
+    assigned_to UUID REFERENCES team_members(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -485,8 +486,13 @@ SELECT
     m.created_by,
     tm.display_name as created_by_name,
 
+    -- Assignee info
+    m.assigned_to,
+    tm2.display_name as assigned_to_name,
+
     m.created_at,
     m.updated_at
 FROM migrations m
 LEFT JOIN team_members tm ON tm.id = m.created_by
+LEFT JOIN team_members tm2 ON tm2.id = m.assigned_to
 WHERE m.workflow_stage NOT IN ('cancelled');

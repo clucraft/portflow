@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, type Carrier } from '../services/api'
+import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, teamApi, type Carrier } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function NewMigration() {
   const navigate = useNavigate()
-  const { canWrite } = useAuth()
+  const { canWrite, user } = useAuth()
 
   if (!canWrite) {
     return <Navigate to="/" replace />
@@ -32,11 +32,13 @@ export default function NewMigration() {
     dial_plan: '',
     country_code: '+1',
     currency: 'USD',
+    assigned_to: user?.id || '',
   })
 
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
   const { data: dialPlans } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
+  const { data: teamMembers } = useQuery({ queryKey: ['team'], queryFn: teamApi.list })
 
   const createMutation = useMutation({
     mutationFn: migrationsApi.create,
@@ -273,6 +275,23 @@ export default function NewMigration() {
               </select>
               <p className="text-xs text-zinc-500 mt-1">
                 All estimate amounts will be displayed in this currency
+              </p>
+            </div>
+
+            <div>
+              <label className="label">Assigned To</label>
+              <select
+                className="input"
+                value={formData.assigned_to}
+                onChange={(e) => updateField('assigned_to', e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {teamMembers?.filter(tm => tm.is_active).map(tm => (
+                  <option key={tm.id} value={tm.id}>{tm.display_name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">
+                Team member responsible for this migration
               </p>
             </div>
 

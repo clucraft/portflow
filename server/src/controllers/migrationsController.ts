@@ -57,7 +57,14 @@ export const listQuestionnaires = async (_req: Request, res: Response, next: Nex
 export const getById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const migrations = await query<Migration>('SELECT * FROM migrations WHERE id = $1', [id]);
+    const migrations = await query<Migration>(
+      `SELECT m.*, tm.display_name as created_by_name, tm2.display_name as assigned_to_name
+       FROM migrations m
+       LEFT JOIN team_members tm ON tm.id = m.created_by
+       LEFT JOIN team_members tm2 ON tm2.id = m.assigned_to
+       WHERE m.id = $1`,
+      [id]
+    );
 
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
@@ -90,6 +97,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       voice_routing_policy,
       dial_plan,
       currency,
+      assigned_to,
     } = req.body;
 
     if (!name || !site_name) {
@@ -99,8 +107,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
     const migrations = await query<Migration>(
       `INSERT INTO migrations (
         name, site_name, site_address, site_city, site_state, site_country, site_timezone,
-        target_carrier, routing_type, voice_routing_policy, dial_plan, currency, workflow_stage, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'estimate', $13)
+        target_carrier, routing_type, voice_routing_policy, dial_plan, currency, workflow_stage, created_by, assigned_to
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'estimate', $13, $14)
       RETURNING *`,
       [
         name, site_name, site_address, site_city, site_state,
@@ -110,6 +118,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         dial_plan || null,
         currency || 'USD',
         req.user?.id || null,
+        assigned_to || null,
       ]
     );
 
@@ -618,6 +627,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'country_code', 'currency', 'notes', 'phase_tasks',
       'verizon_request_email_sent_to', 'verizon_site_id', 'foc_date', 'scheduled_port_date', 'actual_port_date',
       'site_questionnaire',
+      'assigned_to',
     ];
 
     const updates: string[] = [];
@@ -793,8 +803,8 @@ export const importSurvey = async (req: Request, res: Response, next: NextFuncti
           `INSERT INTO migrations (
             name, survey_id, site_name, site_address, site_city, site_state, site_country,
             site_timezone, target_carrier, routing_type, currency, workflow_stage,
-            telephone_users, site_questionnaire, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'estimate', $12, $13, $14)
+            telephone_users, site_questionnaire, created_by, assigned_to
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'estimate', $12, $13, $14, $15)
           RETURNING *`,
           [
             migrationName,
@@ -810,6 +820,7 @@ export const importSurvey = async (req: Request, res: Response, next: NextFuncti
             'EUR',
             totalUsers,
             JSON.stringify(questionnaire),
+            req.user?.id || null,
             req.user?.id || null,
           ]
         );

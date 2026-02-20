@@ -170,6 +170,10 @@ export interface Migration {
   created_by: string | null
   created_by_name: string | null
 
+  // Assignee
+  assigned_to: string | null
+  assigned_to_name: string | null
+
   notes: string | null
   created_at: string
   updated_at: string

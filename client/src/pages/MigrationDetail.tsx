@@ -6,7 +6,7 @@ import {
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
   CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
@@ -185,6 +185,7 @@ export default function MigrationDetail() {
     dial_plan: '',
     country_code: '+1',
     currency: 'USD',
+    assigned_to: '' as string | null,
   })
   const scriptDropdownRef = useRef<HTMLDivElement>(null)
   const [editingPhase, setEditingPhase] = useState<number | null>(null)
@@ -247,6 +248,7 @@ export default function MigrationDetail() {
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
   const { data: dialPlanOptions } = useQuery({ queryKey: ['dial-plans'], queryFn: dialPlansApi.list })
+  const { data: teamMembers } = useQuery({ queryKey: ['team'], queryFn: teamApi.list })
   const { data: pricingRates } = useQuery({
     queryKey: ['settings', 'pricing_rates'],
     queryFn: () => settingsApi.get('pricing_rates').catch(() => null),
@@ -392,6 +394,7 @@ export default function MigrationDetail() {
         dial_plan: migration.dial_plan || '',
         country_code: migration.country_code || '+1',
         currency: migration.currency || 'USD',
+        assigned_to: migration.assigned_to || '',
       })
       setEditingDetails(true)
     }
@@ -531,6 +534,7 @@ export default function MigrationDetail() {
           <p className="text-zinc-600 text-xs mt-0.5">
             Created {new Date(migration.created_at).toLocaleDateString()}
             {migration.created_by_name && <span> by {migration.created_by_name}</span>}
+            {migration.assigned_to_name && <span> &bull; Assigned to {migration.assigned_to_name}</span>}
             {' '}&bull; Updated {timeAgo(migration.updated_at)}
           </p>
         </div>
@@ -703,6 +707,19 @@ export default function MigrationDetail() {
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Assigned To</label>
+              <select
+                className="input"
+                value={detailsForm.assigned_to || ''}
+                onChange={(e) => setDetailsForm({ ...detailsForm, assigned_to: e.target.value || null })}
+              >
+                <option value="">Unassigned</option>
+                {teamMembers?.filter(tm => tm.is_active).map(tm => (
+                  <option key={tm.id} value={tm.id}>{tm.display_name}</option>
+                ))}
               </select>
             </div>
           </div>

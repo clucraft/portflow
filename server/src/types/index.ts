@@ -183,6 +183,7 @@ export interface Migration {
 
   notes: string | null;
   created_by: string | null;
+  assigned_to: string | null;
   created_at: Date;
   updated_at: Date;
 }
