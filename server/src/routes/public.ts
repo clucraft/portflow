@@ -4,6 +4,7 @@ import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, EndUser } from '../types/index.js';
 import { validatePhoneNumber } from '../utils/phoneValidation.js';
+import { notifySubscribers } from '../utils/notifications.js';
 
 const router = Router();
 
@@ -173,7 +174,7 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
 
     // Validate token and get migration (including country_code and collection status)
     const migrations = await query<Migration>(
-      `SELECT id, country_code, magic_link_expires_at, user_data_collection_complete FROM migrations WHERE magic_link_token = $1`,
+      `SELECT id, name, country_code, magic_link_expires_at, user_data_collection_complete FROM migrations WHERE magic_link_token = $1`,
       [token]
     );
 
@@ -258,6 +259,13 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
         `UPDATE migrations SET user_data_collection_complete = true WHERE id = $1`,
         [migration.id]
       );
+
+      notifySubscribers(
+        migration.id,
+        migration.name,
+        'User Data Submitted',
+        `${results.success} user${results.success === 1 ? '' : 's'} submitted via customer collection link.`
+      ).catch(() => {});
     }
 
     res.json(results);
