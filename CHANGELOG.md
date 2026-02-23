@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-23
+
 ### Added
 - **Region & Location Code fields** — new mandatory `region` (AMER/EMEA/APAC) and `location_code` fields on migrations for dial plan naming convention
 - **Dial Plan Setup script generation** — generates PowerShell to create a Teams tenant dial plan (`New-CsTenantDialPlan`) with country-appropriate normalization rules (emergency, national, international); supports US/CA (+1), Germany (+49), UK (+44), and generic fallback
@@ -15,15 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard shows assignee on each migration card with "All Assignees" filter dropdown
 - Bulk survey import automatically assigns imported migrations to the importing user
 - Migration detail page shows both creator and assignee
-
-### Changed
-- **Questionnaire CSV export** now produces standard flat CSV format (one header row with all field labels as columns, one data row with values) instead of section-header/field-value layout
-- Dashboard migration cards no longer show creator name (assignee shown instead)
-
-### Added
 - **Import from Microsoft Teams** — PowerShell export script + CSV bulk import for dial plans and voice routing policies (Settings > Policies)
 - **Bulk Export Questionnaires** button on Reports page — exports all migrations' questionnaire data in one CSV (one row per migration, all questionnaire fields as columns)
-
 - **Authentication system** with email + password login (bcrypt + JWT)
 - First-run setup page to create initial admin account
 - Role-based access control: admin (full), member (read+write), viewer (read-only)
@@ -56,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline edit form for Phase 1 (estimate charges and notes), Phase 2 (email sent to, site ID), Phase 3 (FOC date, scheduled/actual port dates)
 - **Revert Phase** button (admin only) — moves workflow stage backward with confirmation dialog
 - **Export CSV** button on Site Questionnaire — downloads questionnaire responses as a CSV file with section headers, field/value pairs, and proper escaping
+
+### Changed
+- **Questionnaire CSV export** now produces standard flat CSV format (one header row with all field labels as columns, one data row with values) instead of section-header/field-value layout
+- Dashboard migration cards no longer show creator name (assignee shown instead)
 
 ### Database Migration Required
 ```sql
@@ -249,7 +248,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/clucraft/portflow/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/clucraft/portflow/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/clucraft/portflow/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/clucraft/portflow/compare/v0.3.0...v0.4.0
