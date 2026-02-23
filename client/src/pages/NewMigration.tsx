@@ -31,6 +31,8 @@ export default function NewMigration() {
     voice_routing_policy: '',
     dial_plan: '',
     country_code: '+1',
+    region: 'AMER',
+    location_code: '',
     currency: 'USD',
     assigned_to: user?.id || '',
   })
@@ -263,6 +265,37 @@ export default function NewMigration() {
                 All phone numbers in this migration must use this country code (E.164 format)
               </p>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Region *</label>
+                <select
+                  className="input"
+                  value={formData.region}
+                  onChange={(e) => updateField('region', e.target.value)}
+                >
+                  <option value="AMER">AMER</option>
+                  <option value="EMEA">EMEA</option>
+                  <option value="APAC">APAC</option>
+                </select>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Region for dial plan naming convention
+                </p>
+              </div>
+              <div>
+                <label className="label">Location Code *</label>
+                <input
+                  type="text"
+                  className="input uppercase"
+                  placeholder="e.g., CTE, RAU"
+                  value={formData.location_code}
+                  onChange={(e) => updateField('location_code', e.target.value.toUpperCase())}
+                  maxLength={10}
+                />
+                <p className="text-xs text-zinc-500 mt-1">
+                  Site location code for dial plan naming
+                </p>
+              </div>
+            </div>
             <div>
               <label className="label">Estimate Currency</label>
               <select
@@ -324,6 +357,10 @@ export default function NewMigration() {
                   <dd className="text-zinc-200 font-mono">{formData.country_code}</dd>
                 </div>
                 <div className="flex justify-between">
+                  <dt className="text-zinc-500">Region / Location:</dt>
+                  <dd className="text-zinc-200 font-mono">{formData.region}-{formData.country_code.replace('+', '').padStart(3, '0')}-{formData.location_code || '???'}</dd>
+                </div>
+                <div className="flex justify-between">
                   <dt className="text-zinc-500">Currency:</dt>
                   <dd className="text-zinc-200">{formData.currency === 'EUR' ? '€ EUR' : '$ USD'}</dd>
                 </div>
@@ -358,7 +395,7 @@ export default function NewMigration() {
           ) : (
             <button
               onClick={handleSubmit}
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || !formData.location_code}
               className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Migration'}

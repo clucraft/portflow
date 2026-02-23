@@ -15,6 +15,9 @@ router.post('/generate/user-assignments', scriptsController.generateUserAssignme
 // POST /api/scripts/generate/ad-phone-numbers - Generate AD phone number update script
 router.post('/generate/ad-phone-numbers', scriptsController.generateAdPhoneNumbers);
 
+// POST /api/scripts/generate/dial-plan - Generate dial plan setup script
+router.post('/generate/dial-plan', scriptsController.generateDialPlan);
+
 // POST /api/scripts/generate/resource-accounts - Generate resource account creation script
 router.post('/generate/resource-accounts', scriptsController.generateResourceAccounts);
 

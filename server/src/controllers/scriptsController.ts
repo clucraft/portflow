@@ -670,6 +670,218 @@ if ($errors.Count -gt 0) {
   }
 };
 
+export const generateDialPlan = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { migration_id } = req.body;
+
+    if (!migration_id) {
+      throw ApiError.badRequest('migration_id is required');
+    }
+
+    const migrations = await query<Migration>(
+      'SELECT * FROM migrations WHERE id = $1',
+      [migration_id]
+    );
+
+    if (migrations.length === 0) {
+      throw ApiError.notFound('Migration not found');
+    }
+
+    const migration = migrations[0];
+
+    const region = migration.region || 'AMER';
+    const countryCode = (migration.country_code || '+1').replace('+', '');
+    const locationCode = migration.location_code || 'SITE';
+    const dialPlanIdentity = `${region}-${countryCode.padStart(3, '0')}-${locationCode}`;
+
+    // Build country-specific normalization rules
+    interface NormRule {
+      name: string;
+      description: string;
+      pattern: string;
+      translation: string;
+    }
+
+    let rules: NormRule[];
+
+    switch (migration.country_code) {
+      case '+1': // US / Canada
+        rules = [
+          {
+            name: `${dialPlanIdentity}-Emergency`,
+            description: 'Emergency services (911, 933)',
+            pattern: '^(911|933)$',
+            translation: '+$1',
+          },
+          {
+            name: `${dialPlanIdentity}-National`,
+            description: 'US/CA national dialing (10-digit or 1+10-digit)',
+            pattern: '^1?([2-9]\\d{2}[2-9]\\d{6})$',
+            translation: '+1$1',
+          },
+          {
+            name: `${dialPlanIdentity}-International`,
+            description: 'International dialing (011 + number)',
+            pattern: '^011(\\d+)$',
+            translation: '+$1',
+          },
+        ];
+        break;
+
+      case '+49': // Germany
+        rules = [
+          {
+            name: `${dialPlanIdentity}-Emergency`,
+            description: 'Emergency services (110 police, 112 fire/ambulance)',
+            pattern: '^(110|112)$',
+            translation: '+$1',
+          },
+          {
+            name: `${dialPlanIdentity}-National`,
+            description: 'German national dialing (0 prefix)',
+            pattern: '^0([1-9]\\d+)$',
+            translation: '+49$1',
+          },
+          {
+            name: `${dialPlanIdentity}-International`,
+            description: 'International dialing (00 prefix)',
+            pattern: '^00(\\d+)$',
+            translation: '+$1',
+          },
+        ];
+        break;
+
+      case '+44': // UK
+        rules = [
+          {
+            name: `${dialPlanIdentity}-Emergency`,
+            description: 'Emergency services (999, 112)',
+            pattern: '^(999|112)$',
+            translation: '+$1',
+          },
+          {
+            name: `${dialPlanIdentity}-National`,
+            description: 'UK national dialing (0 prefix)',
+            pattern: '^0([1-9]\\d+)$',
+            translation: '+44$1',
+          },
+          {
+            name: `${dialPlanIdentity}-International`,
+            description: 'International dialing (00 prefix)',
+            pattern: '^00(\\d+)$',
+            translation: '+$1',
+          },
+        ];
+        break;
+
+      default: // Fallback for unknown country codes
+        rules = [
+          {
+            name: `${dialPlanIdentity}-Emergency`,
+            description: 'Emergency services (112)',
+            pattern: '^(112|911)$',
+            translation: '+$1',
+          },
+          {
+            name: `${dialPlanIdentity}-E164`,
+            description: 'E.164 passthrough (already has + prefix)',
+            pattern: '^\\+?(\\d+)$',
+            translation: '+$1',
+          },
+        ];
+        break;
+    }
+
+    // Generate PowerShell script
+    let script = `# PortFlow - Dial Plan Setup Script
+# Migration: ${migration.name}
+# Dial Plan: ${dialPlanIdentity}
+# Country Code: ${migration.country_code}
+# Generated: ${new Date().toISOString()}
+#
+# Prerequisites:
+#   - Microsoft Teams PowerShell Module installed
+#   - Connected to Microsoft Teams: Connect-MicrosoftTeams
+#   - Appropriate admin permissions
+#
+# Usage: Run this script after connecting to Microsoft Teams
+# ============================================================
+
+# Connect to Microsoft Teams (uncomment if not already connected)
+# Connect-MicrosoftTeams
+
+Write-Host "Creating Tenant Dial Plan: ${dialPlanIdentity}..." -ForegroundColor Cyan
+Write-Host ""
+
+`;
+
+    // Create the dial plan
+    script += `# Step 1: Create the Tenant Dial Plan
+try {
+    New-CsTenantDialPlan -Identity "${dialPlanIdentity}" -Description "Dial plan for ${migration.name}"
+    Write-Host "Dial plan '${dialPlanIdentity}' created successfully." -ForegroundColor Green
+} catch {
+    if ($_.Exception.Message -like "*already exists*") {
+        Write-Host "Dial plan '${dialPlanIdentity}' already exists, updating normalization rules..." -ForegroundColor Yellow
+    } else {
+        Write-Host "Failed to create dial plan: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host ""
+Write-Host "Adding normalization rules..." -ForegroundColor Cyan
+Write-Host ""
+
+`;
+
+    // Add normalization rules
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      script += `# Rule ${i + 1}: ${rule.description}
+try {
+    Write-Host "Adding rule: ${rule.name}..." -NoNewline
+    $rule${i + 1} = New-CsVoiceNormalizationRule -Identity "${dialPlanIdentity}/${rule.name}" -Description "${rule.description}" -Pattern '${rule.pattern}' -Translation '${rule.translation}'
+    Write-Host " SUCCESS" -ForegroundColor Green
+} catch {
+    Write-Host " FAILED: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+`;
+    }
+
+    // Summary
+    script += `# Summary
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "Dial Plan Setup Complete" -ForegroundColor Cyan
+Write-Host "  Identity: ${dialPlanIdentity}" -ForegroundColor White
+Write-Host "  Rules:    ${rules.length} normalization rules" -ForegroundColor White
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "To assign this dial plan to users, run:" -ForegroundColor Yellow
+Write-Host "  Grant-CsTenantDialPlan -Identity <user@domain.com> -PolicyName \\"${dialPlanIdentity}\\"" -ForegroundColor White
+`;
+
+    const savedScripts = await query<GeneratedScript>(
+      `INSERT INTO generated_scripts (migration_id, script_type, name, description, script_content)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        migration_id,
+        'dial_plan',
+        `Dial Plan - ${dialPlanIdentity}`,
+        `Creates tenant dial plan ${dialPlanIdentity} with ${rules.length} normalization rules`,
+        script,
+      ]
+    );
+
+    res.status(201).json(savedScripts[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

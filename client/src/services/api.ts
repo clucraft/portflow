@@ -76,6 +76,8 @@ export interface Migration {
   voice_routing_policy: string | null  // Only for direct_routing
   dial_plan: string | null
   country_code: string  // E.164 country code for phone number validation (e.g., '+1')
+  region: string  // Region code for dial plan naming (AMER, EMEA, APAC)
+  location_code: string  // Location code for dial plan naming (e.g., 'CTE', 'RAU')
   currency: string  // Currency code for estimate amounts (USD or EUR)
 
   // Site info
@@ -477,6 +479,8 @@ export const scriptsApi = {
     api.post<GeneratedScript>('/scripts/generate/user-assignments', { migration_id }).then((r) => r.data),
   generateAdPhoneNumbers: (migration_id: string) =>
     api.post<GeneratedScript>('/scripts/generate/ad-phone-numbers', { migration_id }).then((r) => r.data),
+  generateDialPlan: (migration_id: string) =>
+    api.post<GeneratedScript>('/scripts/generate/dial-plan', { migration_id }).then((r) => r.data),
   delete: (id: string) => api.delete(`/scripts/${id}`),
 }
 

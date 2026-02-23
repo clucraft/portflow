@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Region & Location Code fields** — new mandatory `region` (AMER/EMEA/APAC) and `location_code` fields on migrations for dial plan naming convention
+- **Dial Plan Setup script generation** — generates PowerShell to create a Teams tenant dial plan (`New-CsTenantDialPlan`) with country-appropriate normalization rules (emergency, national, international); supports US/CA (+1), Germany (+49), UK (+44), and generic fallback
 - **Assign migrations to team members** — new `assigned_to` field tracks who is responsible for each migration project
 - Assignee dropdown in New Migration form (defaults to current user) and project detail edit form
 - Dashboard shows assignee on each migration card with "All Assignees" filter dropdown
@@ -57,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Database Migration Required
 ```sql
+-- Run docs/migration_add_region_location.sql
+-- Adds region and location_code columns to migrations
+
 -- Run docs/migration_add_assigned_to.sql
 -- Adds assigned_to column and recreates migration_dashboard view with assignee join
 

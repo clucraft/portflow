@@ -184,6 +184,8 @@ export default function MigrationDetail() {
     voice_routing_policy: '',
     dial_plan: '',
     country_code: '+1',
+    region: 'AMER',
+    location_code: '',
     currency: 'USD',
     assigned_to: '' as string | null,
   })
@@ -349,6 +351,15 @@ export default function MigrationDetail() {
     },
   })
 
+  const generateDialPlanMutation = useMutation({
+    mutationFn: () => scriptsApi.generateDialPlan(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      setScriptDropdownOpen(false)
+      navigate('/scripts')
+    },
+  })
+
   const updateDetailsMutation = useMutation({
     mutationFn: (data: typeof detailsForm) => migrationsApi.update(id!, data),
     onSuccess: () => {
@@ -393,6 +404,8 @@ export default function MigrationDetail() {
         voice_routing_policy: migration.voice_routing_policy || '',
         dial_plan: migration.dial_plan || '',
         country_code: migration.country_code || '+1',
+        region: migration.region || 'AMER',
+        location_code: migration.location_code || '',
         currency: migration.currency || 'USD',
         assigned_to: migration.assigned_to || '',
       })
@@ -696,6 +709,29 @@ export default function MigrationDetail() {
               <CountryCodeSelect
                 value={detailsForm.country_code}
                 onChange={(val) => setDetailsForm({ ...detailsForm, country_code: val })}
+              />
+            </div>
+            <div>
+              <label className="label">Region</label>
+              <select
+                className="input"
+                value={detailsForm.region}
+                onChange={(e) => setDetailsForm({ ...detailsForm, region: e.target.value })}
+              >
+                <option value="AMER">AMER</option>
+                <option value="EMEA">EMEA</option>
+                <option value="APAC">APAC</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Location Code</label>
+              <input
+                type="text"
+                className="input uppercase"
+                placeholder="e.g., CTE, RAU"
+                value={detailsForm.location_code}
+                onChange={(e) => setDetailsForm({ ...detailsForm, location_code: e.target.value.toUpperCase() })}
+                maxLength={10}
               />
             </div>
             <div>
@@ -1380,7 +1416,7 @@ export default function MigrationDetail() {
                                 <button
                                   onClick={() => setScriptDropdownOpen(!scriptDropdownOpen)}
                                   className="btn btn-secondary flex items-center gap-2"
-                                  disabled={generateTeamsScriptMutation.isPending || generateAdScriptMutation.isPending}
+                                  disabled={generateTeamsScriptMutation.isPending || generateAdScriptMutation.isPending || generateDialPlanMutation.isPending}
                                 >
                                   <FileCode className="h-4 w-4" />
                                   Generate Script
@@ -1404,6 +1440,14 @@ export default function MigrationDetail() {
                                       >
                                         <div className="font-medium text-zinc-200">Active Directory</div>
                                         <div className="text-xs text-zinc-500">Update phone numbers in AD user accounts</div>
+                                      </button>
+                                      <button
+                                        onClick={() => generateDialPlanMutation.mutate()}
+                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors mt-1"
+                                        disabled={generateDialPlanMutation.isPending}
+                                      >
+                                        <div className="font-medium text-zinc-200">Dial Plan Setup</div>
+                                        <div className="text-xs text-zinc-500">Create tenant dial plan with normalization rules</div>
                                       </button>
                                     </div>
                                     <div className="border-t border-surface-600 p-2">

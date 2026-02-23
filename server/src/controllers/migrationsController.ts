@@ -96,6 +96,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       routing_type,
       voice_routing_policy,
       dial_plan,
+      region,
+      location_code,
       currency,
       assigned_to,
     } = req.body;
@@ -107,8 +109,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
     const migrations = await query<Migration>(
       `INSERT INTO migrations (
         name, site_name, site_address, site_city, site_state, site_country, site_timezone,
-        target_carrier, routing_type, voice_routing_policy, dial_plan, currency, workflow_stage, created_by, assigned_to
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'estimate', $13, $14)
+        target_carrier, routing_type, voice_routing_policy, dial_plan, region, location_code, currency, workflow_stage, created_by, assigned_to
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'estimate', $15, $16)
       RETURNING *`,
       [
         name, site_name, site_address, site_city, site_state,
@@ -116,6 +118,8 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
         target_carrier || 'verizon', routing_type || 'direct_routing',
         (routing_type || 'direct_routing') === 'direct_routing' ? (voice_routing_policy || null) : null,
         dial_plan || null,
+        region || 'AMER',
+        location_code || '',
         currency || 'USD',
         req.user?.id || null,
         assigned_to || null,
@@ -624,7 +628,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       'name', 'site_name', 'site_address', 'site_city', 'site_state', 'site_country',
       'site_timezone', 'current_pbx_type', 'current_carrier', 'telephone_users',
       'physical_phones_needed', 'monthly_calling_minutes', 'is_porting_numbers',
-      'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'country_code', 'currency', 'notes', 'phase_tasks',
+      'new_numbers_requested', 'target_carrier', 'routing_type', 'voice_routing_policy', 'dial_plan', 'country_code', 'region', 'location_code', 'currency', 'notes', 'phase_tasks',
       'verizon_request_email_sent_to', 'verizon_site_id', 'foc_date', 'scheduled_port_date', 'actual_port_date',
       'site_questionnaire',
       'assigned_to',
