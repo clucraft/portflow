@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Pre-flight confirmation dialog** for script generation — clicking a script type in the dropdown now opens a modal showing a checklist of prerequisites (carrier, VRP, dial plan, location code, users) with green check / red X status icons; Generate button is disabled when any check fails
+- **Server-side validation** for Teams User Assignment script — rejects with 400 if Voice Routing Policy is missing on Direct Routing migrations, or if Dial Plan or Location Code are empty
+- Mutation errors now display inline in the confirmation dialog instead of failing silently
+
 ## [0.7.0] - 2026-02-23
 
 ### Added

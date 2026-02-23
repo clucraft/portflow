@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator, Loader2
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
@@ -170,6 +170,8 @@ export default function MigrationDetail() {
   const queryClient = useQueryClient()
   const [copiedEstimate, setCopiedEstimate] = useState(false)
   const [scriptDropdownOpen, setScriptDropdownOpen] = useState(false)
+  const [scriptConfirm, setScriptConfirm] = useState<'teams' | 'ad' | 'dial_plan' | null>(null)
+  const [scriptError, setScriptError] = useState<string | null>(null)
   const [editingDetails, setEditingDetails] = useState(false)
   const [detailsForm, setDetailsForm] = useState({
     name: '',
@@ -336,8 +338,13 @@ export default function MigrationDetail() {
     mutationFn: () => scriptsApi.generateUserAssignments(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scripts'] })
-      setScriptDropdownOpen(false)
+      setScriptConfirm(null)
+      setScriptError(null)
       navigate('/scripts')
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to generate script'
+      setScriptError(msg)
     },
   })
 
@@ -345,8 +352,13 @@ export default function MigrationDetail() {
     mutationFn: () => scriptsApi.generateAdPhoneNumbers(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scripts'] })
-      setScriptDropdownOpen(false)
+      setScriptConfirm(null)
+      setScriptError(null)
       navigate('/scripts')
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to generate script'
+      setScriptError(msg)
     },
   })
 
@@ -354,8 +366,13 @@ export default function MigrationDetail() {
     mutationFn: () => scriptsApi.generateDialPlan(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scripts'] })
-      setScriptDropdownOpen(false)
+      setScriptConfirm(null)
+      setScriptError(null)
       navigate('/scripts')
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to generate script'
+      setScriptError(msg)
     },
   })
 
@@ -1408,25 +1425,22 @@ export default function MigrationDetail() {
                                   <div className="absolute right-0 mt-2 w-64 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50">
                                     <div className="p-2">
                                       <button
-                                        onClick={() => generateTeamsScriptMutation.mutate()}
+                                        onClick={() => { setScriptConfirm('teams'); setScriptError(null); setScriptDropdownOpen(false) }}
                                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors"
-                                        disabled={generateTeamsScriptMutation.isPending}
                                       >
                                         <div className="font-medium text-zinc-200">Teams User Assignment</div>
                                         <div className="text-xs text-zinc-500">Assign phone numbers in Microsoft Teams</div>
                                       </button>
                                       <button
-                                        onClick={() => generateAdScriptMutation.mutate()}
+                                        onClick={() => { setScriptConfirm('ad'); setScriptError(null); setScriptDropdownOpen(false) }}
                                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors mt-1"
-                                        disabled={generateAdScriptMutation.isPending}
                                       >
                                         <div className="font-medium text-zinc-200">Active Directory</div>
                                         <div className="text-xs text-zinc-500">Update phone numbers in AD user accounts</div>
                                       </button>
                                       <button
-                                        onClick={() => generateDialPlanMutation.mutate()}
+                                        onClick={() => { setScriptConfirm('dial_plan'); setScriptError(null); setScriptDropdownOpen(false) }}
                                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-700 transition-colors mt-1"
-                                        disabled={generateDialPlanMutation.isPending}
                                       >
                                         <div className="font-medium text-zinc-200">Dial Plan Setup</div>
                                         <div className="text-xs text-zinc-500">Create tenant dial plan with normalization rules</div>
@@ -1855,6 +1869,117 @@ export default function MigrationDetail() {
           )
         })}
       </div>
+
+      {/* Script Pre-Flight Confirmation Dialog */}
+      {scriptConfirm && migration && (() => {
+        const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
+        const emergencyNumbers = String(qData.public_emergency_numbers || '').trim()
+
+        type CheckItem = { label: string; value: string; ok: boolean }
+        let checks: CheckItem[] = []
+        let title = ''
+        let activeMutation: typeof generateTeamsScriptMutation
+
+        if (scriptConfirm === 'teams') {
+          title = 'Generate Teams User Assignment Script'
+          activeMutation = generateTeamsScriptMutation
+          const vrpOk = migration.routing_type !== 'direct_routing' || !!migration.voice_routing_policy
+          checks = [
+            { label: 'Carrier', value: `${migration.target_carrier} (${formatRoutingType(migration.routing_type)})`, ok: true },
+            { label: 'Voice Routing Policy', value: migration.voice_routing_policy || 'Not set', ok: vrpOk },
+            { label: 'Dial Plan', value: migration.dial_plan || 'Not set', ok: !!migration.dial_plan },
+            { label: 'Location Code', value: migration.location_code || 'Not set', ok: !!migration.location_code },
+            { label: 'Users with phone numbers', value: `${migration.total_users} users`, ok: migration.total_users > 0 },
+          ]
+        } else if (scriptConfirm === 'dial_plan') {
+          title = 'Generate Dial Plan Setup Script'
+          activeMutation = generateDialPlanMutation
+          const region = migration.region || 'AMER'
+          const countryCode = (migration.country_code || '+1').replace('+', '')
+          const locationCode = migration.location_code || 'SITE'
+          checks = [
+            { label: 'Region / Location', value: `${region}-${countryCode}-${locationCode}`, ok: true },
+            { label: 'Emergency Numbers', value: emergencyNumbers || 'Not set', ok: !!emergencyNumbers },
+          ]
+        } else {
+          title = 'Generate AD Phone Numbers Script'
+          activeMutation = generateAdScriptMutation
+          checks = [
+            { label: 'Users with phone numbers', value: `${migration.total_users} users`, ok: migration.total_users > 0 },
+          ]
+        }
+
+        const hasFailure = checks.some(c => !c.ok)
+        const isPending = activeMutation.isPending
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-surface-800 border border-surface-600 rounded-xl shadow-2xl w-full max-w-lg">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-surface-600">
+                <div className="flex items-center gap-3">
+                  <FileCode className="h-5 w-5 text-primary-400" />
+                  <h3 className="text-lg font-semibold text-zinc-100">{title}</h3>
+                </div>
+                <button onClick={() => { setScriptConfirm(null); setScriptError(null) }} className="text-zinc-400 hover:text-zinc-200">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Checklist */}
+              <div className="px-6 py-4 space-y-3">
+                <p className="text-sm text-zinc-400 mb-4">Please verify the following before generating:</p>
+                {checks.map((item) => (
+                  <div key={item.label} className="flex items-center gap-3">
+                    {item.ok
+                      ? <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+                      : <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+                    }
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-zinc-400">{item.label}</span>
+                    </div>
+                    <span className={`text-sm font-medium truncate ${item.ok ? 'text-zinc-200' : 'text-red-400'}`}>
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Error message */}
+              {scriptError && (
+                <div className="mx-6 mb-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+                    <span className="text-sm text-red-300">{scriptError}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-600">
+                <button
+                  onClick={() => { setScriptConfirm(null); setScriptError(null) }}
+                  className="btn btn-secondary"
+                  disabled={isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setScriptError(null)
+                    activeMutation.mutate()
+                  }}
+                  className="btn btn-primary flex items-center gap-2"
+                  disabled={hasFailure || isPending}
+                >
+                  {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isPending ? 'Generating...' : 'Generate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

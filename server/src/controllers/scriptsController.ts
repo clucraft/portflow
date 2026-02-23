@@ -79,6 +79,17 @@ export const generateUserAssignments = async (req: Request, res: Response, next:
 
     const migration = migrations[0];
 
+    // Validate prerequisites before generating
+    if (migration.routing_type === 'direct_routing' && !migration.voice_routing_policy) {
+      throw ApiError.badRequest('Cannot generate script: Voice Routing Policy is required for Direct Routing migrations');
+    }
+    if (!migration.dial_plan) {
+      throw ApiError.badRequest('Cannot generate script: Dial Plan is required');
+    }
+    if (!migration.location_code) {
+      throw ApiError.badRequest('Cannot generate script: Location Code is required');
+    }
+
     // Get users with phone numbers (phone_number is directly on end_users)
     const usersWithNumbers = await query<UserWithNumber>(
       `SELECT id, display_name, upn, phone_number, department
