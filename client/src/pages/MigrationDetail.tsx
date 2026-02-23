@@ -178,7 +178,6 @@ export default function MigrationDetail() {
     site_city: '',
     site_state: '',
     site_country: '',
-    site_timezone: '',
     target_carrier: '',
     routing_type: 'direct_routing',
     voice_routing_policy: '',
@@ -398,7 +397,6 @@ export default function MigrationDetail() {
         site_city: migration.site_city || '',
         site_state: migration.site_state || '',
         site_country: migration.site_country || '',
-        site_timezone: migration.site_timezone || '',
         target_carrier: migration.target_carrier || '',
         routing_type: migration.routing_type || 'direct_routing',
         voice_routing_policy: migration.voice_routing_policy || '',
@@ -648,22 +646,6 @@ export default function MigrationDetail() {
                 value={detailsForm.site_country}
                 onChange={(e) => setDetailsForm({ ...detailsForm, site_country: e.target.value })}
               />
-            </div>
-            <div>
-              <label className="label">Timezone</label>
-              <select
-                className="input"
-                value={detailsForm.site_timezone}
-                onChange={(e) => setDetailsForm({ ...detailsForm, site_timezone: e.target.value })}
-              >
-                {[
-                  'America/New_York', 'America/Chicago', 'America/Denver',
-                  'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage',
-                  'Pacific/Honolulu', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo',
-                ].map((tz) => (
-                  <option key={tz} value={tz}>{tz}</option>
-                ))}
-              </select>
             </div>
             <div>
               <label className="label">Target Carrier</label>

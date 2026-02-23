@@ -23,7 +23,6 @@ export default function NewMigration() {
     site_city: '',
     site_state: '',
     site_country: 'United States',
-    site_timezone: 'America/New_York',
 
     // Config
     target_carrier: 'verizon',
@@ -59,19 +58,6 @@ export default function NewMigration() {
       name: formData.name || `${formData.site_name} Migration`,
     })
   }
-
-  const timezones = [
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Los_Angeles',
-    'America/Phoenix',
-    'America/Anchorage',
-    'Pacific/Honolulu',
-    'Europe/London',
-    'Europe/Paris',
-    'Asia/Tokyo',
-  ]
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -170,28 +156,14 @@ export default function NewMigration() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">Country</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.site_country}
-                  onChange={(e) => updateField('site_country', e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="label">Timezone</label>
-                <select
-                  className="input"
-                  value={formData.site_timezone}
-                  onChange={(e) => updateField('site_timezone', e.target.value)}
-                >
-                  {timezones.map((tz) => (
-                    <option key={tz} value={tz}>{tz}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="label">Country</label>
+              <input
+                type="text"
+                className="input"
+                value={formData.site_country}
+                onChange={(e) => updateField('site_country', e.target.value)}
+              />
             </div>
 
           </div>
