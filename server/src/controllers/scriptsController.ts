@@ -702,17 +702,38 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
       translation: string;
     }
 
-    let rules: NormRule[];
+    // Parse emergency numbers from questionnaire (required)
+    const qData = (migration.site_questionnaire || {}) as Record<string, unknown>;
+    const rawEmergency = String(qData.public_emergency_numbers || '').trim();
 
+    if (!rawEmergency) {
+      throw ApiError.badRequest('Cannot generate dial plan: Public Emergency Numbers must be filled in the site questionnaire first');
+    }
+
+    const emergencyNumbers = rawEmergency
+      .split(/[\s,;/|]+/)
+      .map(n => n.replace(/[^0-9]/g, ''))
+      .filter(n => n.length > 0);
+
+    if (emergencyNumbers.length === 0) {
+      throw ApiError.badRequest('Cannot generate dial plan: no valid emergency numbers found in the site questionnaire');
+    }
+    const emergencyPattern = `^(${emergencyNumbers.join('|')})$`;
+    const emergencyDesc = `Emergency services (${emergencyNumbers.join(', ')})`;
+
+    const rules: NormRule[] = [
+      {
+        name: `${dialPlanIdentity}-Emergency`,
+        description: emergencyDesc,
+        pattern: emergencyPattern,
+        translation: '+$1',
+      },
+    ];
+
+    // Add national and international rules based on country code
     switch (migration.country_code) {
       case '+1': // US / Canada
-        rules = [
-          {
-            name: `${dialPlanIdentity}-Emergency`,
-            description: 'Emergency services (911, 933)',
-            pattern: '^(911|933)$',
-            translation: '+$1',
-          },
+        rules.push(
           {
             name: `${dialPlanIdentity}-National`,
             description: 'US/CA national dialing (10-digit or 1+10-digit)',
@@ -725,17 +746,11 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
             pattern: '^011(\\d+)$',
             translation: '+$1',
           },
-        ];
+        );
         break;
 
       case '+49': // Germany
-        rules = [
-          {
-            name: `${dialPlanIdentity}-Emergency`,
-            description: 'Emergency services (110 police, 112 fire/ambulance)',
-            pattern: '^(110|112)$',
-            translation: '+$1',
-          },
+        rules.push(
           {
             name: `${dialPlanIdentity}-National`,
             description: 'German national dialing (0 prefix)',
@@ -748,17 +763,11 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
             pattern: '^00(\\d+)$',
             translation: '+$1',
           },
-        ];
+        );
         break;
 
       case '+44': // UK
-        rules = [
-          {
-            name: `${dialPlanIdentity}-Emergency`,
-            description: 'Emergency services (999, 112)',
-            pattern: '^(999|112)$',
-            translation: '+$1',
-          },
+        rules.push(
           {
             name: `${dialPlanIdentity}-National`,
             description: 'UK national dialing (0 prefix)',
@@ -771,24 +780,16 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
             pattern: '^00(\\d+)$',
             translation: '+$1',
           },
-        ];
+        );
         break;
 
       default: // Fallback for unknown country codes
-        rules = [
-          {
-            name: `${dialPlanIdentity}-Emergency`,
-            description: 'Emergency services (112)',
-            pattern: '^(112|911)$',
-            translation: '+$1',
-          },
-          {
-            name: `${dialPlanIdentity}-E164`,
-            description: 'E.164 passthrough (already has + prefix)',
-            pattern: '^\\+?(\\d+)$',
-            translation: '+$1',
-          },
-        ];
+        rules.push({
+          name: `${dialPlanIdentity}-E164`,
+          description: 'E.164 passthrough (already has + prefix)',
+          pattern: '^\\+?(\\d+)$',
+          translation: '+$1',
+        });
         break;
     }
 
