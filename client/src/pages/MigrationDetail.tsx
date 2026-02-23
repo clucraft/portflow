@@ -95,18 +95,24 @@ function exportQuestionnaireCSV(qData: QuestionnaireData, siteName: string) {
 // Default subtasks for Phase 4
 const DEFAULT_PHASE_TASKS: Record<string, PhaseTask[]> = {
   phase_4: [
+    { key: 'dial_plan', label: 'Dial Plan Creation', done: false },
     { key: 'aa_cq_config', label: 'Auto Attendants & Call Queues', done: false },
     { key: 'holiday_sets', label: 'Holiday Sets', done: false },
     { key: 'phone_deployment', label: 'Physical Phone Deployment', done: false },
   ],
 }
 
-// Get tasks for a phase, falling back to defaults for migrations without phase_tasks
+// Get tasks for a phase, falling back to defaults for migrations without phase_tasks.
+// Merges in any new default tasks that don't exist in the stored list yet.
 function getPhaseTasks(migration: { phase_tasks: Record<string, PhaseTask[]> | null }, phaseId: string): PhaseTask[] {
-  if (migration.phase_tasks && migration.phase_tasks[phaseId]) {
-    return migration.phase_tasks[phaseId]
+  const defaults = DEFAULT_PHASE_TASKS[phaseId] || []
+  if (!migration.phase_tasks || !migration.phase_tasks[phaseId]) {
+    return defaults
   }
-  return DEFAULT_PHASE_TASKS[phaseId] || []
+  const stored = migration.phase_tasks[phaseId]
+  const existingKeys = new Set(stored.map(t => t.key))
+  const missing = defaults.filter(d => !existingKeys.has(d.key))
+  return [...missing, ...stored]
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
