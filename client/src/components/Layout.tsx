@@ -29,6 +29,7 @@ export default function Layout() {
             <div>
               <h1 className="text-xl font-bold text-primary-400 text-glow">PortFlow</h1>
               <p className="text-xs text-zinc-500 tracking-wider">EV MIGRATION MANAGER</p>
+              <a href="https://github.com/clucraft/portflow/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-zinc-600 hover:text-primary-400 transition-colors">v0.8.0</a>
             </div>
           </div>
         </div>
