@@ -35,7 +35,7 @@ export default function EstimateAccept() {
 
   const migration = data?.migration
   const currency = migration?.currency || 'USD'
-  const currencySymbol = currency === 'EUR' ? '€' : '$'
+  const currencySymbol = currency === 'EUR' ? '€' : currency === 'CHF' ? 'CHF ' : '$'
   const otherCurrency = currency === 'EUR' ? 'USD' : 'EUR'
   const otherSymbol = currency === 'EUR' ? '$' : '€'
 
@@ -321,6 +321,71 @@ export default function EstimateAccept() {
             </div>
           )}
         </div>
+
+        {/* 3-Year Cost Comparison */}
+        {migration.cost_calculator && (() => {
+          const calc = migration.cost_calculator as Record<string, unknown>
+          const pbxMaintenance = Number(calc.pbx_maintenance_annual) || 0
+          const carrierAnnual = Number(calc.carrier_annual) || 0
+          const usageAnnual = Number(calc.usage_annual) || 0
+          const currentAnnual = pbxMaintenance + carrierAnnual + usageAnnual
+          if (currentAnnual <= 0) return null
+
+          const teamsMonthly = Number(migration.estimate_total_monthly) || 0
+          const teamsOnetime = Number(migration.estimate_total_onetime) || 0
+          const teamsAnnual = teamsMonthly * 12
+          const teamsYear1 = teamsAnnual + teamsOnetime
+          const teamsYear2 = teamsAnnual
+          const teamsYear3 = teamsAnnual
+          const currentTotal3 = currentAnnual * 3
+          const teamsTotal3 = teamsYear1 + teamsYear2 + teamsYear3
+          const savingsTotal = currentTotal3 - teamsTotal3
+
+          return (
+            <div className="card mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <DollarSign className="h-5 w-5 text-green-400" />
+                <h2 className="text-lg font-semibold text-zinc-100">3-Year Cost Comparison</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-600">
+                      <th className="text-left py-2 text-zinc-400 font-medium"></th>
+                      <th className="text-right py-2 text-zinc-400 font-medium px-3">Year 1</th>
+                      <th className="text-right py-2 text-zinc-400 font-medium px-3">Year 2</th>
+                      <th className="text-right py-2 text-zinc-400 font-medium px-3">Year 3</th>
+                      <th className="text-right py-2 text-zinc-400 font-medium px-3">3-Year Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-surface-700">
+                      <td className="py-2 text-zinc-300">Current System</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono font-medium px-3">{currencySymbol}{formatCurrency(currentTotal3)}</td>
+                    </tr>
+                    <tr className="border-b border-surface-700">
+                      <td className="py-2 text-zinc-300">Teams EV</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(teamsYear1)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(teamsYear2)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono px-3">{currencySymbol}{formatCurrency(teamsYear3)}</td>
+                      <td className="text-right py-2 text-zinc-200 font-mono font-medium px-3">{currencySymbol}{formatCurrency(teamsTotal3)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-green-400 font-medium">Savings</td>
+                      <td className="text-right py-2 text-green-400 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual - teamsYear1)}</td>
+                      <td className="text-right py-2 text-green-400 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual - teamsYear2)}</td>
+                      <td className="text-right py-2 text-green-400 font-mono px-3">{currencySymbol}{formatCurrency(currentAnnual - teamsYear3)}</td>
+                      <td className="text-right py-2 text-green-400 font-mono font-bold px-3">{currencySymbol}{formatCurrency(savingsTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Summary */}
         <div className="card bg-primary-500/10 border-primary-500/30 mb-6">

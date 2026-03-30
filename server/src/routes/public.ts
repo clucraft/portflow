@@ -18,7 +18,7 @@ router.get('/estimate/:token', async (req: Request, res: Response, next: NextFun
               target_carrier, routing_type, currency, estimate_user_service_charge, estimate_equipment_charge,
               estimate_usage_charge, estimate_carrier_charge, estimate_phone_equipment_charge,
               estimate_headset_equipment_charge, estimate_total_monthly, estimate_total_onetime,
-              estimate_notes, estimate_link_expires_at, estimate_accepted_at
+              estimate_notes, estimate_link_expires_at, estimate_accepted_at, cost_calculator
        FROM migrations
        WHERE estimate_link_token = $1`,
       [token]
@@ -56,6 +56,7 @@ router.get('/estimate/:token', async (req: Request, res: Response, next: NextFun
         estimate_total_onetime: migration.estimate_total_onetime,
         estimate_notes: migration.estimate_notes,
         estimate_accepted_at: migration.estimate_accepted_at,
+        cost_calculator: migration.cost_calculator,
       },
     });
   } catch (err) {

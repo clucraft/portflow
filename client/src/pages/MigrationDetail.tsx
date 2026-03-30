@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Calculator, Loader2
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
+import CostCalculator from '../components/CostCalculator'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
@@ -234,15 +235,6 @@ export default function MigrationDetail() {
   }, [])
 
   // Form states for each phase
-  const [estimateForm, setEstimateForm] = useState({
-    estimate_user_service_charge: 0,
-    estimate_carrier_charge: 0,
-    estimate_usage_charge: 0,
-    estimate_phone_equipment_charge: 0,
-    estimate_headset_equipment_charge: 0,
-    estimate_notes: '',
-  })
-
   const [verizonForm, setVerizonForm] = useState({
     billing_contact_name: '',
     billing_contact_email: '',
@@ -293,7 +285,7 @@ export default function MigrationDetail() {
 
   // Mutations
   const updateEstimateMutation = useMutation({
-    mutationFn: (data: typeof estimateForm) => migrationsApi.updateEstimate(id!, data),
+    mutationFn: (data: Parameters<typeof migrationsApi.updateEstimate>[1]) => migrationsApi.updateEstimate(id!, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration', id] }),
   })
 
@@ -538,7 +530,7 @@ export default function MigrationDetail() {
     return <div className="text-center py-12 text-zinc-500">Migration not found</div>
   }
 
-  const currencySymbol = migration.currency === 'EUR' ? '€' : '$'
+  const currencySymbol = migration.currency === 'EUR' ? '€' : migration.currency === 'CHF' ? 'CHF ' : '$'
   const progress = getOverallProgress(migration.workflow_stage)
 
   return (
@@ -748,6 +740,7 @@ export default function MigrationDetail() {
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
+                <option value="CHF">CHF (Fr.)</option>
               </select>
             </div>
             <div>
@@ -1090,141 +1083,27 @@ export default function MigrationDetail() {
                   {/* Expanded content for active phase */}
                   {isActive && (
                     <div className="mt-3 p-4 bg-surface-800/50 border border-surface-600 rounded-lg">
-                      {/* Phase 1: Estimate */}
-                      {phase.id === 1 && migration.workflow_stage === 'estimate' && (() => {
-                        const monthlyTotal = (estimateForm.estimate_user_service_charge || 0) + (estimateForm.estimate_usage_charge || 0) + (estimateForm.estimate_carrier_charge || 0)
-                        const onetimeTotal = (estimateForm.estimate_phone_equipment_charge || 0) + (estimateForm.estimate_headset_equipment_charge || 0)
-                        const annualTotal = monthlyTotal * 12
-                        const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
-                        const hasQuestionnaireData = !!(qData.total_end_user_count || qData.personal_desk_phones || qData.headset_count)
-
-                        const handlePreCalculate = () => {
-                          const rates = pricingRates?.value as { user_service_rate?: number; phone_unit_cost?: number; headset_unit_cost?: number } | null
-                          const endUsers = Number(qData.total_end_user_count) || 0
-                          const deskPhones = Number(qData.personal_desk_phones) || 0
-                          const headsets = Number(qData.headset_count) || 0
-                          const carrierObj = carriers?.find((c: Carrier) => c.slug === migration.target_carrier)
-                          const userRate = Number(rates?.user_service_rate ?? 3.45) || 0
-                          const phoneRate = Number(rates?.phone_unit_cost ?? 0) || 0
-                          const headsetRate = Number(rates?.headset_unit_cost ?? 0) || 0
-
-                          // Carrier charge depends on carrier type
-                          let carrierCharge = Number(carrierObj?.monthly_charge) || 0
-                          if (carrierObj?.carrier_type === 'operator_connect' || carrierObj?.carrier_type === 'calling_plan') {
-                            carrierCharge = parseFloat((carrierCharge * endUsers).toFixed(2))
-                          }
-
-                          setEstimateForm({
-                            ...estimateForm,
-                            estimate_user_service_charge: parseFloat((endUsers * userRate).toFixed(2)),
-                            estimate_carrier_charge: carrierCharge,
-                            estimate_phone_equipment_charge: parseFloat((deskPhones * phoneRate).toFixed(2)),
-                            estimate_headset_equipment_charge: parseFloat((headsets * headsetRate).toFixed(2)),
-                          })
-                        }
-
-                        return (
+                      {/* Phase 1: Cost Calculator */}
+                      {phase.id === 1 && migration.workflow_stage === 'estimate' && (
                         <div className="space-y-4">
-                          {/* Pre-Calculate button */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-400">Monthly Charges</span>
-                            <button
-                              onClick={handlePreCalculate}
-                              disabled={!hasQuestionnaireData}
-                              className="btn btn-secondary flex items-center gap-2 text-sm"
-                              title={hasQuestionnaireData ? 'Auto-fill from questionnaire data and pricing rates' : 'Complete the questionnaire first (end user count, desk phones, headset count)'}
-                            >
-                              <Calculator className="h-4 w-4" />
-                              Pre-Calculate
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <label className="label">Carrier Charge (Monthly){(() => { const co = carriers?.find((c: Carrier) => c.slug === migration.target_carrier); const qd = (migration.site_questionnaire || {}) as Record<string, unknown>; const euCount = Number(qd.total_end_user_count) || 0; return co?.carrier_type === 'operator_connect' ? ` (${euCount} DIDs)` : co?.carrier_type === 'calling_plan' ? ` (${euCount} users)` : ' (flat)'; })()}</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_carrier_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_carrier_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div>
-                              <label className="label">User Service (Monthly)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_user_service_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_user_service_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div>
-                              <label className="label">Usage (Monthly)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_usage_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_usage_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-sm text-zinc-500 mt-1">One-time Charges</div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="label">Phone Equipment (One-time)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_phone_equipment_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_phone_equipment_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div>
-                              <label className="label">Headset Equipment (One-time)</label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={estimateForm.estimate_headset_equipment_charge || ''}
-                                onChange={(e) => setEstimateForm({ ...estimateForm, estimate_headset_equipment_charge: parseFloat(e.target.value) || 0 })}
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-                          {/* Totals */}
-                          <div className="p-3 bg-surface-700/50 rounded-lg border border-surface-600 space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-zinc-400">Monthly Total</span>
-                              <span className="text-zinc-200 font-mono">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-zinc-400">Annual Total (x12)</span>
-                              <span className="text-zinc-200 font-mono">{currencySymbol}{annualTotal.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-zinc-400">One-time Total</span>
-                              <span className="text-zinc-200 font-mono">{currencySymbol}{onetimeTotal.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="label">Notes</label>
-                            <textarea
-                              className="input min-h-[60px]"
-                              value={estimateForm.estimate_notes}
-                              onChange={(e) => setEstimateForm({ ...estimateForm, estimate_notes: e.target.value })}
-                              placeholder="Additional notes..."
-                            />
-                          </div>
+                          <CostCalculator
+                            migration={migration}
+                            pricingRates={pricingRates?.value as Record<string, number> | null}
+                            carriers={carriers}
+                            currencySymbol={currencySymbol}
+                            isSaving={updateEstimateMutation.isPending}
+                            onSave={(data) => updateEstimateMutation.mutate(data)}
+                            onSaveCalculatorOnly={(data) => updateEstimateMutation.mutate({
+                              estimate_user_service_charge: Number(migration.estimate_user_service_charge) || 0,
+                              estimate_carrier_charge: Number(migration.estimate_carrier_charge) || 0,
+                              estimate_usage_charge: Number(migration.estimate_usage_charge) || 0,
+                              estimate_phone_equipment_charge: Number(migration.estimate_phone_equipment_charge) || 0,
+                              estimate_headset_equipment_charge: Number(migration.estimate_headset_equipment_charge) || 0,
+                              estimate_notes: migration.estimate_notes || '',
+                              ...data,
+                            })}
+                          />
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => updateEstimateMutation.mutate(estimateForm)}
-                              className="btn btn-secondary"
-                              disabled={updateEstimateMutation.isPending}
-                            >
-                              Save
-                            </button>
                             <button
                               onClick={() => generateEstimateLinkMutation.mutate()}
                               className="btn btn-secondary flex items-center gap-2"
@@ -1263,8 +1142,7 @@ export default function MigrationDetail() {
                             </div>
                           )}
                         </div>
-                        )
-                      })()}
+                      )}
 
                       {/* Phase 2: Carrier Setup */}
                       {phase.id === 2 && migration.workflow_stage === 'estimate_accepted' && (

@@ -118,6 +118,9 @@ export interface Migration {
   estimate_accepted_at: Date | null;
   estimate_notes: string | null;
 
+  // Cost calculator
+  cost_calculator: Record<string, unknown> | null;
+
   // Billing contact
   billing_contact_name: string | null;
   billing_contact_email: string | null;

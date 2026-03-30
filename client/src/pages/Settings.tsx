@@ -843,7 +843,7 @@ function PoliciesTab() {
 function PricingTab() {
   const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
-  const [config, setConfig] = useState({ user_service_rate: 3.45, phone_unit_cost: 0, headset_unit_cost: 0 })
+  const [config, setConfig] = useState({ user_service_rate: 3.45, phone_unit_cost: 0, headset_unit_cost: 0, smartphone_unit_cost: 400, carrier_activation_fee: 244 })
   const [loaded, setLoaded] = useState(false)
 
   const { data: setting } = useQuery({
@@ -852,11 +852,13 @@ function PricingTab() {
   })
 
   if (setting && !loaded) {
-    const val = setting.value as { user_service_rate?: number; phone_unit_cost?: number; headset_unit_cost?: number }
+    const val = setting.value as { user_service_rate?: number; phone_unit_cost?: number; headset_unit_cost?: number; smartphone_unit_cost?: number; carrier_activation_fee?: number }
     setConfig({
       user_service_rate: val.user_service_rate ?? 3.45,
       phone_unit_cost: val.phone_unit_cost ?? 0,
       headset_unit_cost: val.headset_unit_cost ?? 0,
+      smartphone_unit_cost: val.smartphone_unit_cost ?? 400,
+      carrier_activation_fee: val.carrier_activation_fee ?? 244,
     })
     setLoaded(true)
   }
@@ -880,16 +882,28 @@ function PricingTab() {
               step="0.01" placeholder="3.45" disabled={!isAdmin} />
           </div>
           <div>
-            <label className="label">Phone Unit Cost (per unit, one-time)</label>
+            <label className="label">Desk Phone Unit Cost (per unit, one-time)</label>
             <input type="number" className="input" value={config.phone_unit_cost}
               onChange={(e) => setConfig({ ...config, phone_unit_cost: parseFloat(e.target.value) || 0 })}
               step="0.01" placeholder="0.00" disabled={!isAdmin} />
+          </div>
+          <div>
+            <label className="label">Smartphone Unit Cost (per unit, one-time)</label>
+            <input type="number" className="input" value={config.smartphone_unit_cost}
+              onChange={(e) => setConfig({ ...config, smartphone_unit_cost: parseFloat(e.target.value) || 0 })}
+              step="0.01" placeholder="400.00" disabled={!isAdmin} />
           </div>
           <div>
             <label className="label">Headset Unit Cost (per unit, one-time)</label>
             <input type="number" className="input" value={config.headset_unit_cost}
               onChange={(e) => setConfig({ ...config, headset_unit_cost: parseFloat(e.target.value) || 0 })}
               step="0.01" placeholder="0.00" disabled={!isAdmin} />
+          </div>
+          <div>
+            <label className="label">Carrier Activation Fee (one-time)</label>
+            <input type="number" className="input" value={config.carrier_activation_fee}
+              onChange={(e) => setConfig({ ...config, carrier_activation_fee: parseFloat(e.target.value) || 0 })}
+              step="0.01" placeholder="244.00" disabled={!isAdmin} />
           </div>
         </div>
 

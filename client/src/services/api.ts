@@ -110,6 +110,9 @@ export interface Migration {
   estimate_accepted_at: string | null
   estimate_notes: string | null
 
+  // Cost calculator
+  cost_calculator: Record<string, unknown> | null
+
   // Billing contact
   billing_contact_name: string | null
   billing_contact_email: string | null
@@ -389,6 +392,7 @@ export const migrationsApi = {
     estimate_phone_equipment_charge?: number
     estimate_headset_equipment_charge?: number
     estimate_notes?: string
+    cost_calculator?: Record<string, unknown> | null
   }) => api.patch<Migration>(`/migrations/${id}/estimate`, data).then((r) => r.data),
   acceptEstimate: (id: string) =>
     api.post<Migration>(`/migrations/${id}/accept-estimate`).then((r) => r.data),

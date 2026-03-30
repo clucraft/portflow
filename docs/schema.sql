@@ -131,6 +131,9 @@ CREATE TABLE migrations (
     estimate_accepted_at TIMESTAMPTZ,
     estimate_notes TEXT,
 
+    -- Cost calculator (full calculator state as JSONB)
+    cost_calculator JSONB DEFAULT NULL,
+
     -- ========== PHASE 2: VERIZON SITE SETUP ==========
     -- Billing contact (for Verizon)
     billing_contact_name VARCHAR(255),

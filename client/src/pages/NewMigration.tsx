@@ -277,6 +277,7 @@ export default function NewMigration() {
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
+                <option value="CHF">CHF (Fr.)</option>
               </select>
               <p className="text-xs text-zinc-500 mt-1">
                 All estimate amounts will be displayed in this currency

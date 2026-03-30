@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-30
+
+### Added
+- **Cost Calculator** replacing the Phase 1 estimate form — 3-method side-by-side comparison (A: Report, B: Custom, C: 20%/50%) matching the Excel "EV Migration Site Cost Estimator" logic; user picks a method to "Apply" as the official estimate
+- **3-year cost comparison** on customer estimate acceptance page — compares current PBX system costs vs Teams EV over 3 years with annual savings breakdown (only shown when current system costs are entered)
+- **Smartphone unit cost** and **carrier activation fee** as new pricing fields in Settings > Pricing (defaults: 400 and 244 respectively)
+- **CHF currency** option for Swiss franc support — available in New Migration, project detail edit, and estimate acceptance page
+- New `cost_calculator` JSONB column on migrations storing all calculator inputs, per-method device quantities, current system costs, and selected method
+
+### Changed
+- Phase 1 estimate form replaced with full CostCalculator component (site inputs, unit costs, current system costs, method comparison table, notes)
+- Settings > Pricing expanded from 3 to 5 fields; "Phone Unit Cost" renamed to "Desk Phone Unit Cost" for clarity
+- Activation fee included in one-time total calculation (server-side)
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_cost_calculator.sql
+ALTER TABLE migrations ADD COLUMN IF NOT EXISTS cost_calculator JSONB DEFAULT NULL;
+```
+
 ## [0.8.0] - 2026-02-23
 
 ### Added
@@ -255,7 +275,9 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/clucraft/portflow/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/clucraft/portflow/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/clucraft/portflow/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/clucraft/portflow/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/clucraft/portflow/compare/v0.4.0...v0.5.0

@@ -146,6 +146,7 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
       estimate_phone_equipment_charge,
       estimate_headset_equipment_charge,
       estimate_notes,
+      cost_calculator,
     } = req.body;
 
     // Compute equipment total (phone + headset) for backward compat
@@ -159,7 +160,10 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
 
     // Calculate totals: monthly = user_service + usage + carrier_charge
     const total_monthly = (estimate_user_service_charge || 0) + (estimate_usage_charge || 0) + (estimate_carrier_charge || 0);
-    const total_onetime = final_equipment;
+    // One-time includes carrier activation fee from cost_calculator when present
+    const activation_fee = (cost_calculator && typeof cost_calculator === 'object')
+      ? (Number(cost_calculator.activation_fee) || 0) : 0;
+    const total_onetime = final_equipment + activation_fee;
 
     const migrations = await query<Migration>(
       `UPDATE migrations SET
@@ -172,13 +176,16 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
         estimate_total_monthly = $7,
         estimate_total_onetime = $8,
         estimate_notes = $9,
+        cost_calculator = $10,
         estimate_created_at = COALESCE(estimate_created_at, NOW())
-      WHERE id = $10
+      WHERE id = $11
       RETURNING *`,
       [
         estimate_user_service_charge, final_equipment, estimate_usage_charge,
         estimate_carrier_charge, estimate_phone_equipment_charge, estimate_headset_equipment_charge,
-        total_monthly, total_onetime, estimate_notes, id,
+        total_monthly, total_onetime, estimate_notes,
+        cost_calculator ? JSON.stringify(cost_calculator) : null,
+        id,
       ]
     );
 
