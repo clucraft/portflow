@@ -65,22 +65,46 @@
 ┌─ Migration Management ──────────────────────────────────────────────────────┐
 │                                                                             │
 │  • 4-phase workflow: Estimate → Carrier Setup → Porting → Teams Config      │
-│  • Support for Verizon, FusionConnect, and GTT carriers                     │
-│  • Direct Routing and Operator Connect support                              │
+│  • Dynamic carrier support (add your own via Settings)                      │
+│  • Direct Routing, Operator Connect, and MS Calling Plans                   │
 │  • Real-time progress tracking with terminal-style indicators               │
+│  • Assign migrations to team members                                        │
+│  • Phase subtask checklists (Dial Plan, AA/CQ, Holidays, Phones)           │
+│  • Editable completed phases with revert capability (admin)                 │
+│                                                                             │
+├─ Cost Calculator ──────────────────────────────────────────────────────────┤
+│                                                                             │
+│  • 3-method side-by-side comparison (Report / Custom / 20%-50%)            │
+│  • Pre-fills from site questionnaire and global pricing settings            │
+│  • Per-method device quantities: desk phones, smartphones, headsets         │
+│  • 3-year cost comparison vs current PBX system                             │
+│  • Multi-currency support (USD, EUR, CHF)                                   │
 │                                                                             │
 ├─ Customer Portal ───────────────────────────────────────────────────────────┤
 │                                                                             │
-│  • Shareable estimate acceptance links (no login required)                  │
-│  • Magic links for customer data collection                                 │
-│  • CSV upload support with flexible column mapping                          │
+│  • Shareable estimate links with detailed cost breakdown                    │
+│  • Collapsible alternative estimate methods for transparency                │
+│  • 3-year savings charts (bar chart + cumulative line chart)                │
+│  • Exchange rate conversion (ECB reference rates)                           │
+│  • Magic links for customer data collection (save drafts, append)           │
+│  • Site questionnaire with customer-facing submission portal                │
 │                                                                             │
 ├─ Script Generation ─────────────────────────────────────────────────────────┤
 │                                                                             │
-│  • Auto-generate Teams PowerShell scripts                                   │
-│  • User phone number assignments                                            │
-│  • Resource account creation                                                │
-│  • Auto Attendant & Call Queue configuration                                │
+│  • Auto-generate Teams PowerShell scripts with pre-flight validation        │
+│  • Teams User Assignment (voice routing policy, dial plan, numbers)         │
+│  • Active Directory phone number updates                                    │
+│  • Tenant Dial Plan creation with country-specific normalization            │
+│                                                                             │
+├─ Administration ───────────────────────────────────────────────────────────┤
+│                                                                             │
+│  • Role-based access: admin, member, viewer                                 │
+│  • Global pricing settings (service rate, equipment costs, fees)            │
+│  • Carrier, voice routing policy, and dial plan management                  │
+│  • Email relay notifications with per-migration subscriptions               │
+│  • Audit log with action filtering and pagination                           │
+│  • Reports dashboard with CSV exports (full detail + filtered)              │
+│  • Bulk questionnaire export across all migrations                          │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -159,7 +183,10 @@ cd client && npm install && npm run dev
 │  POSTGRES_DB         portflow                 Database name                 │
 │  DB_PORT             5432                     PostgreSQL port               │
 │  API_PORT            3001                     API server port               │
+│  CLIENT_PORT         5173                     Frontend port                 │
 │  CORS_ORIGIN         http://localhost:5173    Allowed CORS origin           │
+│  JWT_SECRET          change-me-in-production  Auth token signing key        │
+│  JWT_EXPIRES_IN      24h                      Token expiration              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -267,13 +294,31 @@ POST   /api/scripts/generate/user-assignments   Generate assignment script
 </details>
 
 <details>
+<summary><b>Settings & Admin</b></summary>
+
+```
+GET    /api/settings                                    List all settings
+GET    /api/settings/:key                               Get setting by key
+PUT    /api/settings/:key                               Update setting
+GET    /api/settings/carriers                            List carriers
+POST   /api/settings/carriers                            Create carrier
+GET    /api/settings/voice-routing-policies              List VRPs
+GET    /api/settings/dial-plans                          List dial plans
+GET    /api/settings/audit-log                           Query audit log
+```
+
+</details>
+
+<details>
 <summary><b>Public Endpoints (No Auth)</b></summary>
 
 ```
-GET    /api/public/estimate/:token         View estimate for acceptance
-POST   /api/public/estimate/:token/accept  Accept estimate via link
-GET    /api/public/collect/:token          Get migration info for magic link
-POST   /api/public/collect/:token/users    Submit users via magic link
+GET    /api/public/estimate/:token              View estimate for acceptance
+POST   /api/public/estimate/:token/accept       Accept estimate via link
+GET    /api/public/collect/:token               Get migration info for data entry
+POST   /api/public/collect/:token/users         Submit users via magic link
+GET    /api/public/questionnaire/:token         View questionnaire
+POST   /api/public/questionnaire/:token/submit  Submit questionnaire
 ```
 
 </details>
