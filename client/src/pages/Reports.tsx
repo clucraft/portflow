@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList } from 'lucide-react'
-import { migrationsApi, formatRoutingType } from '../services/api'
+import { migrationsApi, teamApi, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
@@ -101,25 +102,122 @@ export default function Reports() {
     downloadCSV(headers, rows, 'completed-migrations.csv')
   }
 
-  const exportAllMigrations = () => {
-    const allMigrations = migrations || []
-    const headers = ['Project Name', 'Site Name', 'Carrier', 'Routing Type', 'Phase', 'Status', 'Users', 'Created Date', 'Submitted Date', 'FOC Date', 'Port Date', 'Completed Date']
-    const rows = allMigrations.map(m => [
-      m.name,
-      m.site_name,
-      formatCarrierName(m.target_carrier),
-      formatRoutingType(m.routing_type),
-      getPhaseFromStage(m.workflow_stage),
-      m.workflow_stage.replace('_', ' '),
-      m.telephone_users,
-      new Date(m.created_at).toLocaleDateString(),
-      m.verizon_request_submitted_at ? new Date(m.verizon_request_submitted_at).toLocaleDateString() : '',
-      m.foc_date ? new Date(m.foc_date).toLocaleDateString() : '',
-      m.scheduled_port_date ? new Date(m.scheduled_port_date).toLocaleDateString() : '',
-      m.completed_at ? new Date(m.completed_at).toLocaleDateString() : '',
-    ])
+  const [exportingAll, setExportingAll] = useState(false)
 
-    downloadCSV(headers, rows, 'all-migrations.csv')
+  const exportAllMigrations = async () => {
+    setExportingAll(true)
+    try {
+      const [allMigrations, teamMembers] = await Promise.all([
+        migrationsApi.list(),
+        teamApi.list().catch(() => []),
+      ])
+      const memberMap = new Map(teamMembers.map(t => [t.id, t.display_name]))
+
+      const headers = [
+        // Project info
+        'Project Name', 'Site Name', 'City', 'State', 'Country',
+        'Carrier', 'Routing Type', 'Currency', 'Phase', 'Status',
+        'Assigned To',
+        // Counts
+        'Telephone Users', 'Total Users', 'Total Numbers', 'Ported Numbers', 'Configured Users',
+        // Estimate totals
+        'Estimate Monthly', 'Estimate Annual', 'Estimate One-time',
+        'Estimate User Service', 'Estimate Carrier Charge', 'Estimate Usage',
+        'Estimate Phone Equipment', 'Estimate Headset Equipment',
+        // Calculator details
+        'Calculator Method', 'Desk Phones', 'Smartphones', 'Headsets',
+        'Desk Phone Unit Cost', 'Smartphone Unit Cost', 'Headset Unit Cost',
+        'User Service Rate', 'Carrier Monthly Flat', 'Activation Fee',
+        'Current PBX Maintenance (Annual)', 'Current Carrier (Annual)', 'Current Usage (Annual)',
+        // Key dates
+        'Created Date', 'Estimate Accepted', 'Accepted By',
+        'Carrier Submitted', 'Carrier Completed', 'Carrier Site ID',
+        'LOA Submitted', 'FOC Date', 'Scheduled Port Date', 'Actual Port Date',
+        'Completed Date',
+        // Notes
+        'Estimate Notes',
+      ]
+
+      const rows = allMigrations.map(m => {
+        const calc = (m.cost_calculator || {}) as Record<string, unknown>
+        const hasCalc = m.cost_calculator && 'total_users' in calc
+        const method = hasCalc ? String(calc.selected_method || '') : ''
+
+        // Derive device counts from calculator if available
+        let deskPhones = '', smartphones = '', headsetCount = ''
+        if (hasCalc && method) {
+          const dp = method === 'A' ? calc.desk_phones_a : method === 'B' ? calc.desk_phones_b : calc.desk_phones_c
+          deskPhones = String(dp ?? '')
+          if (method === 'A') smartphones = String(calc.dect_phones ?? '')
+          else if (method === 'B') smartphones = String(calc.smartphones_b ?? '')
+          else smartphones = String(Math.round(Number(calc.dect_phones || 0) * 0.5))
+          if (method === 'A') headsetCount = String(Math.max(Number(calc.total_users || 0) - Number(calc.existing_headsets || 0), 0) + Number(calc.additional_headsets || 0))
+          else if (method === 'B') headsetCount = String(calc.headsets_b ?? '')
+          else headsetCount = String(Math.round(Number(calc.total_users || 0) * 0.2) + Number(calc.additional_headsets || 0))
+        }
+
+        const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString() : ''
+        const fmtNum = (v: unknown) => { const n = Number(v); return isNaN(n) ? '' : n.toFixed(2) }
+
+        return [
+          m.name,
+          m.site_name,
+          m.site_city || '',
+          m.site_state || '',
+          m.site_country || '',
+          formatCarrierName(m.target_carrier),
+          formatRoutingType(m.routing_type),
+          m.currency || 'USD',
+          getPhaseFromStage(m.workflow_stage),
+          m.workflow_stage.replace(/_/g, ' '),
+          (m.assigned_to && memberMap.get(m.assigned_to)) || '',
+          m.telephone_users,
+          m.total_users,
+          m.total_numbers,
+          m.ported_numbers,
+          m.configured_users,
+          fmtNum(m.estimate_total_monthly),
+          fmtNum(Number(m.estimate_total_monthly || 0) * 12),
+          fmtNum(m.estimate_total_onetime),
+          fmtNum(m.estimate_user_service_charge),
+          fmtNum(m.estimate_carrier_charge),
+          fmtNum(m.estimate_usage_charge),
+          fmtNum(m.estimate_phone_equipment_charge),
+          fmtNum(m.estimate_headset_equipment_charge),
+          method,
+          deskPhones,
+          smartphones,
+          headsetCount,
+          hasCalc ? fmtNum(calc.desk_phone_cost) : '',
+          hasCalc ? fmtNum(calc.smartphone_cost) : '',
+          hasCalc ? fmtNum(calc.headset_cost) : '',
+          hasCalc ? fmtNum(calc.user_service_rate) : '',
+          hasCalc ? fmtNum(calc.carrier_monthly_flat) : '',
+          hasCalc ? fmtNum(calc.activation_fee) : '',
+          hasCalc ? fmtNum(calc.pbx_maintenance_annual) : '',
+          hasCalc ? fmtNum(calc.carrier_annual) : '',
+          hasCalc ? fmtNum(calc.usage_annual) : '',
+          fmtDate(m.created_at),
+          fmtDate(m.estimate_accepted_at),
+          m.estimate_accepted_by || '',
+          fmtDate(m.verizon_request_submitted_at),
+          fmtDate(m.verizon_setup_complete_at),
+          m.verizon_site_id || '',
+          fmtDate(m.loa_submitted_at),
+          fmtDate(m.foc_date),
+          fmtDate(m.scheduled_port_date),
+          fmtDate(m.actual_port_date),
+          fmtDate(m.completed_at),
+          m.estimate_notes || '',
+        ]
+      })
+
+      downloadCSV(headers, rows, 'all-migrations-full.csv')
+    } catch {
+      // silently fail
+    } finally {
+      setExportingAll(false)
+    }
   }
 
   const escapeCSV = (value: string): string => {
@@ -178,10 +276,10 @@ export default function Reports() {
           <button
             onClick={exportAllMigrations}
             className="btn btn-primary flex items-center gap-2"
-            disabled={!migrations || migrations.length === 0}
+            disabled={!migrations || migrations.length === 0 || exportingAll}
           >
             <Download className="h-4 w-4" />
-            Export All ({migrations?.length || 0})
+            {exportingAll ? 'Exporting...' : `Export All (${migrations?.length || 0})`}
           </button>
           <button
             onClick={exportActiveMigrations}

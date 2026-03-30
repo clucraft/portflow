@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
 - **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
 
+- **Comprehensive Export All** on Reports page — replaces the basic export with a full-detail CSV including site info, estimate line items, calculator details (method, device counts, unit costs, current system costs), all phase milestone dates, assignee, and notes
+
 ### Changed
 - Phase 1 estimate form replaced with full CostCalculator component (site inputs, unit costs, current system costs, method comparison table, notes)
 - Settings > Pricing expanded from 3 to 5 fields; "Phone Unit Cost" renamed to "Desk Phone Unit Cost" for clarity; fields organized into categorized groups (Recurring Rates, Equipment Costs, Carrier Fees)
