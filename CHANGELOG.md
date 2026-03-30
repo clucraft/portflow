@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CHF currency** option for Swiss franc support — available in New Migration, project detail edit, and estimate acceptance page
 - New `cost_calculator` JSONB column on migrations storing all calculator inputs, per-method device quantities, current system costs, and selected method
 
+- **Detailed cost breakdown** on customer acceptance page — line items now show sub-item details (e.g. "20 units x $150.00") for desk phones, smartphones, headsets, carrier activation fee, and user service rate when calculator data is available; falls back to totals-only for legacy estimates
 - **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
 - **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
 

@@ -292,6 +292,11 @@ export default function EstimateAccept() {
     ? (['A', 'B', 'C'] as const).filter(m => m !== selectedMethod).map(m => ({ method: m, result: calcMethod(calc, m) }))
     : []
 
+  // Compute selected method result for detailed breakdown
+  const selectedResult = hasCalcData && selectedMethod
+    ? calcMethod(calc, selectedMethod as 'A' | 'B' | 'C')
+    : null
+
   // 3-year comparison data
   const pbxMaintenance = hasCalcData ? (Number(calc.pbx_maintenance_annual) || 0) : 0
   const carrierAnnual = hasCalcData ? (Number(calc.carrier_annual) || 0) : 0
@@ -394,65 +399,140 @@ export default function EstimateAccept() {
           </div>
 
           <div className="space-y-3">
-            {/* Monthly line items */}
+            {/* Monthly Charges */}
+            <div className="text-xs text-zinc-500 uppercase tracking-wider pt-1">Monthly Charges</div>
+
+            {/* Carrier Charge */}
             {Number(migration.estimate_carrier_charge) > 0 && (
-              <div className="flex justify-between py-2 border-b border-surface-600">
-                <span className="text-zinc-400">Carrier Charge (Monthly)</span>
-                <span className="text-zinc-200 font-mono">
-                  {currencySymbol}{formatCurrency(migration.estimate_carrier_charge)}
-                </span>
+              <div className="border-b border-surface-600 pb-2">
+                <div className="flex justify-between py-1">
+                  <span className="text-zinc-400">Carrier Charge</span>
+                  <span className="text-zinc-200 font-mono">
+                    {currencySymbol}{formatCurrency(migration.estimate_carrier_charge)}
+                  </span>
+                </div>
+                {hasCalcData && calc.carrier_monthly_flat > 0 && (
+                  <div className="text-xs text-zinc-500 pl-3">Flat monthly rate</div>
+                )}
               </div>
             )}
-            <div className="flex justify-between py-2 border-b border-surface-600">
-              <span className="text-zinc-400">User Service Charge (Monthly)</span>
-              <span className="text-zinc-200 font-mono">
-                {currencySymbol}{formatCurrency(migration.estimate_user_service_charge)}
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-surface-600">
-              <span className="text-zinc-400">Usage Charge (Monthly)</span>
-              <span className="text-zinc-200 font-mono">
-                {currencySymbol}{formatCurrency(migration.estimate_usage_charge)}
-              </span>
+
+            {/* User Service Charge with breakdown */}
+            <div className="border-b border-surface-600 pb-2">
+              <div className="flex justify-between py-1">
+                <span className="text-zinc-400">User Service Charge</span>
+                <span className="text-zinc-200 font-mono">
+                  {currencySymbol}{formatCurrency(migration.estimate_user_service_charge)}
+                </span>
+              </div>
+              {hasCalcData && calc.total_users > 0 && calc.user_service_rate > 0 && (
+                <div className="text-xs text-zinc-500 pl-3">
+                  {calc.total_users} users &times; {currencySymbol}{calc.user_service_rate.toFixed(2)}/mo
+                </div>
+              )}
             </div>
 
-            {/* Equipment line items - split if phone/headset available, fallback to single line */}
-            {(migration.estimate_phone_equipment_charge != null || migration.estimate_headset_equipment_charge != null) ? (
+            {/* Usage Charge */}
+            {Number(migration.estimate_usage_charge) > 0 && (
+              <div className="border-b border-surface-600 pb-2">
+                <div className="flex justify-between py-1">
+                  <span className="text-zinc-400">Usage Charge</span>
+                  <span className="text-zinc-200 font-mono">
+                    {currencySymbol}{formatCurrency(migration.estimate_usage_charge)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* One-time Charges */}
+            <div className="text-xs text-zinc-500 uppercase tracking-wider pt-2">One-time Charges</div>
+
+            {/* Equipment with detailed breakdown from calculator */}
+            {hasCalcData && selectedResult ? (
               <>
-                {Number(migration.estimate_phone_equipment_charge) > 0 && (
-                  <div className="flex justify-between py-2 border-b border-surface-600">
-                    <span className="text-zinc-400">Phone Equipment (One-time)</span>
-                    <span className="text-zinc-200 font-mono">
-                      {currencySymbol}{formatCurrency(migration.estimate_phone_equipment_charge)}
-                    </span>
+                {selectedResult.desk_phones > 0 && (
+                  <div className="border-b border-surface-600 pb-2">
+                    <div className="flex justify-between py-1">
+                      <span className="text-zinc-400">Desk Phones</span>
+                      <span className="text-zinc-200 font-mono">
+                        {currencySymbol}{formatCurrency(selectedResult.desk_phones * calc.desk_phone_cost)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-500 pl-3">
+                      {selectedResult.desk_phones} units &times; {currencySymbol}{calc.desk_phone_cost.toFixed(2)}
+                    </div>
                   </div>
                 )}
-                {Number(migration.estimate_headset_equipment_charge) > 0 && (
-                  <div className="flex justify-between py-2 border-b border-surface-600">
-                    <span className="text-zinc-400">Headset Equipment (One-time)</span>
-                    <span className="text-zinc-200 font-mono">
-                      {currencySymbol}{formatCurrency(migration.estimate_headset_equipment_charge)}
-                    </span>
+                {selectedResult.smartphones > 0 && (
+                  <div className="border-b border-surface-600 pb-2">
+                    <div className="flex justify-between py-1">
+                      <span className="text-zinc-400">Smartphones</span>
+                      <span className="text-zinc-200 font-mono">
+                        {currencySymbol}{formatCurrency(selectedResult.smartphones * calc.smartphone_cost)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-500 pl-3">
+                      {selectedResult.smartphones} units &times; {currencySymbol}{calc.smartphone_cost.toFixed(2)}
+                    </div>
                   </div>
                 )}
-                {Number(migration.estimate_phone_equipment_charge) === 0 && Number(migration.estimate_headset_equipment_charge) === 0 && Number(migration.estimate_equipment_charge) > 0 && (
-                  <div className="flex justify-between py-2 border-b border-surface-600">
-                    <span className="text-zinc-400">Equipment Charge (One-time)</span>
-                    <span className="text-zinc-200 font-mono">
-                      {currencySymbol}{formatCurrency(migration.estimate_equipment_charge)}
-                    </span>
+                {selectedResult.headsets > 0 && (
+                  <div className="border-b border-surface-600 pb-2">
+                    <div className="flex justify-between py-1">
+                      <span className="text-zinc-400">Headsets</span>
+                      <span className="text-zinc-200 font-mono">
+                        {currencySymbol}{formatCurrency(selectedResult.headsets * calc.headset_cost)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-500 pl-3">
+                      {selectedResult.headsets} units &times; {currencySymbol}{calc.headset_cost.toFixed(2)}
+                    </div>
+                  </div>
+                )}
+                {calc.activation_fee > 0 && (
+                  <div className="border-b border-surface-600 pb-2">
+                    <div className="flex justify-between py-1">
+                      <span className="text-zinc-400">Carrier Activation Fee</span>
+                      <span className="text-zinc-200 font-mono">
+                        {currencySymbol}{formatCurrency(calc.activation_fee)}
+                      </span>
+                    </div>
                   </div>
                 )}
               </>
             ) : (
-              Number(migration.estimate_equipment_charge) > 0 && (
-                <div className="flex justify-between py-2 border-b border-surface-600">
-                  <span className="text-zinc-400">Equipment Charge (One-time)</span>
-                  <span className="text-zinc-200 font-mono">
-                    {currencySymbol}{formatCurrency(migration.estimate_equipment_charge)}
-                  </span>
-                </div>
-              )
+              /* Fallback for estimates without calculator data */
+              <>
+                {(migration.estimate_phone_equipment_charge != null || migration.estimate_headset_equipment_charge != null) ? (
+                  <>
+                    {Number(migration.estimate_phone_equipment_charge) > 0 && (
+                      <div className="flex justify-between py-2 border-b border-surface-600">
+                        <span className="text-zinc-400">Phone Equipment</span>
+                        <span className="text-zinc-200 font-mono">
+                          {currencySymbol}{formatCurrency(migration.estimate_phone_equipment_charge)}
+                        </span>
+                      </div>
+                    )}
+                    {Number(migration.estimate_headset_equipment_charge) > 0 && (
+                      <div className="flex justify-between py-2 border-b border-surface-600">
+                        <span className="text-zinc-400">Headset Equipment</span>
+                        <span className="text-zinc-200 font-mono">
+                          {currencySymbol}{formatCurrency(migration.estimate_headset_equipment_charge)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  Number(migration.estimate_equipment_charge) > 0 && (
+                    <div className="flex justify-between py-2 border-b border-surface-600">
+                      <span className="text-zinc-400">Equipment Charge</span>
+                      <span className="text-zinc-200 font-mono">
+                        {currencySymbol}{formatCurrency(migration.estimate_equipment_charge)}
+                      </span>
+                    </div>
+                  )
+                )}
+              </>
             )}
 
             {/* Totals */}
