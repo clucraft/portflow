@@ -844,6 +844,8 @@ function PricingTab() {
   const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
   const [config, setConfig] = useState({ user_service_rate: 3.45, phone_unit_cost: 0, headset_unit_cost: 0, smartphone_unit_cost: 400, carrier_activation_fee: 244 })
+  const [serviceRateText, setServiceRateText] = useState('3.45')
+  const [serviceRateFocused, setServiceRateFocused] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
   const { data: setting } = useQuery({
@@ -860,6 +862,7 @@ function PricingTab() {
       smartphone_unit_cost: val.smartphone_unit_cost ?? 400,
       carrier_activation_fee: val.carrier_activation_fee ?? 244,
     })
+    setServiceRateText((val.user_service_rate ?? 3.45).toFixed(2))
     setLoaded(true)
   }
 
@@ -880,9 +883,12 @@ function PricingTab() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">User Service Rate (per user/month)</label>
-              <input type="number" className="input" value={config.user_service_rate}
-                onChange={(e) => setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 })}
-                step="0.01" placeholder="3.45" disabled={!isAdmin} />
+              <input type="text" inputMode="decimal" className="input"
+                value={serviceRateFocused ? serviceRateText : config.user_service_rate.toFixed(2)}
+                onChange={(e) => { setServiceRateText(e.target.value); setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 }) }}
+                onFocus={() => setServiceRateFocused(true)}
+                onBlur={() => { setServiceRateFocused(false); setServiceRateText(config.user_service_rate.toFixed(2)) }}
+                placeholder="3.45" disabled={!isAdmin} />
             </div>
           </div>
         </div>
