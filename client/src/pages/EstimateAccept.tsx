@@ -87,7 +87,7 @@ function CumulativeChart({ currentAnnual, teamsYear1, teamsAnnual, currencySymbo
   if (maxVal === 0) return null
 
   // Chart dimensions
-  const w = 520, h = 200, padL = 12, padR = 12, padT = 16, padB = 28
+  const w = 580, h = 200, padL = 12, padR = 72, padT = 16, padB = 28
   const plotW = w - padL - padR
   const plotH = h - padT - padB
 
@@ -101,7 +101,7 @@ function CumulativeChart({ currentAnnual, teamsYear1, teamsAnnual, currencySymbo
   const fillPath = `${currentPath} L${toX(3).toFixed(1)},${toY(teamsPoints[3]).toFixed(1)} L${toX(2).toFixed(1)},${toY(teamsPoints[2]).toFixed(1)} L${toX(1).toFixed(1)},${toY(teamsPoints[1]).toFixed(1)} L${toX(0).toFixed(1)},${toY(0).toFixed(1)} Z`
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxWidth: 520 }}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxWidth: 580 }}>
       {/* Grid lines */}
       {[0, 1, 2, 3].map(i => (
         <line key={`grid-${i}`} x1={toX(i)} y1={padT} x2={toX(i)} y2={padT + plotH} stroke="#3f3f46" strokeWidth="0.5" />
