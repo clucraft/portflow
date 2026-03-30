@@ -873,37 +873,55 @@ function PricingTab() {
       <h2 className="text-lg font-semibold text-zinc-100">Pricing Rates</h2>
       <p className="text-sm text-zinc-500">Configure default rates for auto-calculating cost estimates from questionnaire data.</p>
 
-      <div className="card space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="label">User Service Rate (per user/month)</label>
-            <input type="number" className="input" value={config.user_service_rate}
-              onChange={(e) => setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 })}
-              step="0.01" placeholder="3.45" disabled={!isAdmin} />
+      <div className="card space-y-6">
+        {/* Recurring Rates */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-300 mb-3">Recurring Rates</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="label">User Service Rate (per user/month)</label>
+              <input type="number" className="input" value={config.user_service_rate}
+                onChange={(e) => setConfig({ ...config, user_service_rate: parseFloat(e.target.value) || 0 })}
+                step="0.01" placeholder="3.45" disabled={!isAdmin} />
+            </div>
           </div>
-          <div>
-            <label className="label">Desk Phone Unit Cost (per unit, one-time)</label>
-            <input type="number" className="input" value={config.phone_unit_cost}
-              onChange={(e) => setConfig({ ...config, phone_unit_cost: parseFloat(e.target.value) || 0 })}
-              step="0.01" placeholder="0.00" disabled={!isAdmin} />
+        </div>
+
+        {/* Equipment Costs */}
+        <div className="pt-2 border-t border-surface-600">
+          <h3 className="text-sm font-medium text-zinc-300 mb-3">Equipment Costs (one-time per unit)</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="label">Desk Phone</label>
+              <input type="number" className="input" value={config.phone_unit_cost}
+                onChange={(e) => setConfig({ ...config, phone_unit_cost: parseFloat(e.target.value) || 0 })}
+                step="0.01" placeholder="0.00" disabled={!isAdmin} />
+            </div>
+            <div>
+              <label className="label">Smartphone</label>
+              <input type="number" className="input" value={config.smartphone_unit_cost}
+                onChange={(e) => setConfig({ ...config, smartphone_unit_cost: parseFloat(e.target.value) || 0 })}
+                step="0.01" placeholder="400.00" disabled={!isAdmin} />
+            </div>
+            <div>
+              <label className="label">Headset</label>
+              <input type="number" className="input" value={config.headset_unit_cost}
+                onChange={(e) => setConfig({ ...config, headset_unit_cost: parseFloat(e.target.value) || 0 })}
+                step="0.01" placeholder="0.00" disabled={!isAdmin} />
+            </div>
           </div>
-          <div>
-            <label className="label">Smartphone Unit Cost (per unit, one-time)</label>
-            <input type="number" className="input" value={config.smartphone_unit_cost}
-              onChange={(e) => setConfig({ ...config, smartphone_unit_cost: parseFloat(e.target.value) || 0 })}
-              step="0.01" placeholder="400.00" disabled={!isAdmin} />
-          </div>
-          <div>
-            <label className="label">Headset Unit Cost (per unit, one-time)</label>
-            <input type="number" className="input" value={config.headset_unit_cost}
-              onChange={(e) => setConfig({ ...config, headset_unit_cost: parseFloat(e.target.value) || 0 })}
-              step="0.01" placeholder="0.00" disabled={!isAdmin} />
-          </div>
-          <div>
-            <label className="label">Carrier Activation Fee (one-time)</label>
-            <input type="number" className="input" value={config.carrier_activation_fee}
-              onChange={(e) => setConfig({ ...config, carrier_activation_fee: parseFloat(e.target.value) || 0 })}
-              step="0.01" placeholder="244.00" disabled={!isAdmin} />
+        </div>
+
+        {/* Carrier Fees */}
+        <div className="pt-2 border-t border-surface-600">
+          <h3 className="text-sm font-medium text-zinc-300 mb-3">Carrier Fees</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="label">Activation Fee (one-time)</label>
+              <input type="number" className="input" value={config.carrier_activation_fee}
+                onChange={(e) => setConfig({ ...config, carrier_activation_fee: parseFloat(e.target.value) || 0 })}
+                step="0.01" placeholder="244.00" disabled={!isAdmin} />
+            </div>
           </div>
         </div>
 
