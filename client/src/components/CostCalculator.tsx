@@ -325,9 +325,18 @@ export default function CostCalculator({
             <thead>
               <tr className="border-b border-surface-600">
                 <th className="text-left py-2 text-zinc-400 font-medium w-32"></th>
-                <th className="text-center py-2 text-zinc-300 font-medium px-2">A: Report</th>
-                <th className="text-center py-2 text-zinc-300 font-medium px-2">B: Custom</th>
-                <th className="text-center py-2 text-zinc-300 font-medium px-2">C: 20%/50%</th>
+                <th className="text-center py-2 px-2">
+                  <div className="text-zinc-300 font-medium">A: Report</div>
+                  <div className="text-[10px] text-zinc-500 font-normal leading-tight mt-0.5">Site survey based. Smartphones = DECT count.</div>
+                </th>
+                <th className="text-center py-2 px-2">
+                  <div className="text-zinc-300 font-medium">B: Custom</div>
+                  <div className="text-[10px] text-zinc-500 font-normal leading-tight mt-0.5">Manual quantities for each category.</div>
+                </th>
+                <th className="text-center py-2 px-2">
+                  <div className="text-zinc-300 font-medium">C: 20%/50%</div>
+                  <div className="text-[10px] text-zinc-500 font-normal leading-tight mt-0.5">Conservative. 50% DECT, 20% users.</div>
+                </th>
               </tr>
             </thead>
             <tbody>

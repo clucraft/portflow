@@ -75,6 +75,11 @@ function calcMethod(data: CalcData, method: 'A' | 'B' | 'C'): MethodResult {
 }
 
 const METHOD_LABELS: Record<string, string> = { A: 'Method A (Report)', B: 'Method B (Custom)', C: 'Method C (20%/50%)' }
+const METHOD_DESCRIPTIONS: Record<string, string> = {
+  A: 'Based on site survey data. Smartphones match DECT phone count, headsets estimated from total users minus existing.',
+  B: 'Manually specified device quantities for each category.',
+  C: 'Conservative estimate. Smartphones at 50% of DECT count, headsets at 20% of total users.',
+}
 
 // SVG Cumulative Line Chart component
 function CumulativeChart({ currentAnnual, teamsYear1, teamsAnnual, currencySymbol }: {
@@ -524,16 +529,21 @@ export default function EstimateAccept() {
 
         {/* Cost Estimate */}
         <div className="card mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="h-5 w-5 text-green-400" />
-            <h2 className="text-lg font-semibold text-zinc-100">
-              Cost Estimate ({currency})
-              {selectedMethod && (
-                <span className="text-sm font-normal text-zinc-500 ml-2">
-                  — {METHOD_LABELS[selectedMethod] || `Method ${selectedMethod}`}
-                </span>
-              )}
-            </h2>
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-400" />
+              <h2 className="text-lg font-semibold text-zinc-100">
+                Cost Estimate ({currency})
+                {selectedMethod && (
+                  <span className="text-sm font-normal text-zinc-500 ml-2">
+                    — {METHOD_LABELS[selectedMethod] || `Method ${selectedMethod}`}
+                  </span>
+                )}
+              </h2>
+            </div>
+            {selectedMethod && METHOD_DESCRIPTIONS[selectedMethod] && (
+              <p className="text-xs text-zinc-500 mt-1 ml-7">{METHOD_DESCRIPTIONS[selectedMethod]}</p>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -756,7 +766,10 @@ export default function EstimateAccept() {
                 <div className="mt-3 space-y-3">
                   {alternativeMethods.map(({ method, result }) => (
                     <div key={method} className="p-3 bg-surface-700/50 rounded-lg border border-surface-600">
-                      <div className="text-sm font-medium text-zinc-300 mb-2">{METHOD_LABELS[method]}</div>
+                      <div className="text-sm font-medium text-zinc-300">{METHOD_LABELS[method]}</div>
+                      {METHOD_DESCRIPTIONS[method] && (
+                        <p className="text-xs text-zinc-500 mb-2">{METHOD_DESCRIPTIONS[method]}</p>
+                      )}
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
                           <span className="text-zinc-500">Desk Phones</span>

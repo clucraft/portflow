@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
 - **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
 
+- **Method descriptions** on cost calculator and customer estimate page — short explanations of what each estimation method calculates (Report: site survey based, Custom: manual quantities, 20%/50%: conservative estimate)
 - **Download Excel** button on customer estimate acceptance page — generates a multi-sheet XLSX workbook with Cost Estimate (project details, line-item breakdown with unit counts), Method Comparison (all 3 methods side by side), and 3-Year Comparison (current system vs Teams with savings)
 - **Comprehensive Export All** on Reports page — replaces the basic export with a full-detail CSV including site info, estimate line items, calculator details (method, device counts, unit costs, current system costs), all phase milestone dates, assignee, and notes
 
