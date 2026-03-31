@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Phone, Zap, DollarSign, Users, Check, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react'
+import { Phone, Zap, DollarSign, Users, Check, AlertCircle, RefreshCw, ChevronDown, Download } from 'lucide-react'
 import { publicApi, formatRoutingType } from '../services/api'
+import * as XLSX from 'xlsx'
 import ParticleBackground from '../components/ParticleBackground'
 
 // Helper to safely format currency (handles string/number/null)
@@ -307,6 +308,136 @@ export default function EstimateAccept() {
   const teamsAnnual = teamsMonthly * 12
   const teamsYear1 = teamsAnnual + teamsOnetime
 
+  const downloadExcel = () => {
+    const wb = XLSX.utils.book_new()
+    const fmt = (n: number) => Number(n.toFixed(2))
+    const sym = currencySymbol.trim()
+
+    // ── Sheet 1: Cost Estimate ──
+    const s1: (string | number | null)[][] = [
+      ['Cost Estimate'],
+      [],
+      ['Project Details'],
+      ['Project Name', migration.name || ''],
+      ['Site', [migration.site_name, migration.site_city, migration.site_state].filter(Boolean).join(', ')],
+      ['Carrier', migration.target_carrier || ''],
+      ['Routing Type', formatRoutingType(migration.routing_type)],
+      ['Currency', currency],
+      ['End Users', endUsers],
+      [],
+    ]
+
+    if (selectedMethod && selectedResult && hasCalcData) {
+      s1.push(
+        ['Selected Method', METHOD_LABELS[selectedMethod] || `Method ${selectedMethod}`],
+        [],
+        ['Monthly Charges', '', `Amount (${sym})`],
+        ['Carrier Charge', '', fmt(Number(migration.estimate_carrier_charge) || 0)],
+        ['User Service Charge', `${calc.total_users} users x ${sym}${calc.user_service_rate.toFixed(2)}/mo`, fmt(Number(migration.estimate_user_service_charge) || 0)],
+        ['Usage Charge', '', fmt(Number(migration.estimate_usage_charge) || 0)],
+        [],
+        ['One-time Charges', '', `Amount (${sym})`],
+      )
+      if (selectedResult.desk_phones > 0) {
+        s1.push(['Desk Phones', `${selectedResult.desk_phones} units x ${sym}${calc.desk_phone_cost.toFixed(2)}`, fmt(selectedResult.desk_phones * calc.desk_phone_cost)])
+      }
+      if (selectedResult.smartphones > 0) {
+        s1.push(['Smartphones', `${selectedResult.smartphones} units x ${sym}${calc.smartphone_cost.toFixed(2)}`, fmt(selectedResult.smartphones * calc.smartphone_cost)])
+      }
+      if (selectedResult.headsets > 0) {
+        s1.push(['Headsets', `${selectedResult.headsets} units x ${sym}${calc.headset_cost.toFixed(2)}`, fmt(selectedResult.headsets * calc.headset_cost)])
+      }
+      if (calc.activation_fee > 0) {
+        s1.push(['Carrier Activation Fee', '', fmt(calc.activation_fee)])
+      }
+    } else {
+      s1.push(
+        ['Monthly Charges', '', `Amount (${sym})`],
+        ['Carrier Charge', '', fmt(Number(migration.estimate_carrier_charge) || 0)],
+        ['User Service Charge', '', fmt(Number(migration.estimate_user_service_charge) || 0)],
+        ['Usage Charge', '', fmt(Number(migration.estimate_usage_charge) || 0)],
+        [],
+        ['One-time Charges', '', `Amount (${sym})`],
+        ['Phone Equipment', '', fmt(Number(migration.estimate_phone_equipment_charge) || 0)],
+        ['Headset Equipment', '', fmt(Number(migration.estimate_headset_equipment_charge) || 0)],
+      )
+    }
+
+    s1.push(
+      [],
+      ['Totals', '', `Amount (${sym})`],
+      ['Monthly Total', '', fmt(teamsMonthly)],
+      ['Annual Total', '', fmt(teamsAnnual)],
+      ['One-time Total', '', fmt(teamsOnetime)],
+      ['First Year Total', '', fmt(teamsYear1)],
+    )
+
+    if (migration.estimate_notes) {
+      s1.push([], ['Notes', migration.estimate_notes])
+    }
+
+    const ws1 = XLSX.utils.aoa_to_sheet(s1)
+    ws1['!cols'] = [{ wch: 24 }, { wch: 30 }, { wch: 16 }]
+    XLSX.utils.book_append_sheet(wb, ws1, 'Cost Estimate')
+
+    // ── Sheet 2: Method Comparison ──
+    if (hasCalcData) {
+      const rA = calcMethod(calc, 'A')
+      const rB = calcMethod(calc, 'B')
+      const rC = calcMethod(calc, 'C')
+
+      const s2: (string | number | null)[][] = [
+        ['Method Comparison'],
+        [],
+        ['', 'A: Report', 'B: Custom', 'C: 20%/50%'],
+        ['Desk Phones', rA.desk_phones, rB.desk_phones, rC.desk_phones],
+        ['Smartphones', rA.smartphones, rB.smartphones, rC.smartphones],
+        ['Headsets', rA.headsets, rB.headsets, rC.headsets],
+        [],
+        [`One-time (${sym})`, fmt(rA.onetime), fmt(rB.onetime), fmt(rC.onetime)],
+        [`Monthly (${sym})`, fmt(rA.monthly), fmt(rB.monthly), fmt(rC.monthly)],
+        [`Annual (${sym})`, fmt(rA.annual), fmt(rB.annual), fmt(rC.annual)],
+        [`First Year (${sym})`, fmt(rA.firstYear), fmt(rB.firstYear), fmt(rC.firstYear)],
+        [],
+        ['Selected Method', selectedMethod ? METHOD_LABELS[selectedMethod] : 'None'],
+      ]
+
+      const ws2 = XLSX.utils.aoa_to_sheet(s2)
+      ws2['!cols'] = [{ wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
+      XLSX.utils.book_append_sheet(wb, ws2, 'Method Comparison')
+    }
+
+    // ── Sheet 3: 3-Year Comparison ──
+    if (currentAnnual > 0) {
+      const teamsY2 = teamsAnnual
+      const teamsY3 = teamsAnnual
+      const currentTotal3 = currentAnnual * 3
+      const teamsTotal3 = teamsYear1 + teamsY2 + teamsY3
+
+      const s3: (string | number | null)[][] = [
+        ['3-Year Cost Comparison'],
+        [],
+        ['', 'Year 1', 'Year 2', 'Year 3', '3-Year Total'],
+        [`Current System (${sym})`, fmt(currentAnnual), fmt(currentAnnual), fmt(currentAnnual), fmt(currentTotal3)],
+        [`Teams EV (${sym})`, fmt(teamsYear1), fmt(teamsY2), fmt(teamsY3), fmt(teamsTotal3)],
+        [`Savings (${sym})`, fmt(currentAnnual - teamsYear1), fmt(currentAnnual - teamsY2), fmt(currentAnnual - teamsY3), fmt(currentTotal3 - teamsTotal3)],
+        [],
+        ['Current System Breakdown (Annual)'],
+        ['PBX Maintenance', fmt(pbxMaintenance)],
+        ['Carrier Service', fmt(carrierAnnual)],
+        ['Usage', fmt(usageAnnual)],
+        ['Total', fmt(currentAnnual)],
+      ]
+
+      const ws3 = XLSX.utils.aoa_to_sheet(s3)
+      ws3['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }]
+      XLSX.utils.book_append_sheet(wb, ws3, '3-Year Comparison')
+    }
+
+    const filename = `${migration.site_name || migration.name || 'Estimate'} - Cost Estimate.xlsx`
+    XLSX.writeFile(wb, filename)
+  }
+
   if (accepted || alreadyAccepted) {
     return (
       <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4 relative">
@@ -339,10 +470,17 @@ export default function EstimateAccept() {
             <Phone className="h-8 w-8 text-primary-400" />
             <Zap className="h-3 w-3 text-primary-300 absolute -top-1 -right-1" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-primary-400 text-glow">PortFlow</h1>
             <p className="text-xs text-zinc-500 tracking-wider">COST ESTIMATE REVIEW</p>
           </div>
+          <button
+            onClick={downloadExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 bg-surface-800/80 hover:bg-surface-700 border border-surface-600 rounded-lg transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Download Excel
+          </button>
         </div>
 
         {/* Project Info */}
