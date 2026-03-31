@@ -35,6 +35,8 @@ export default function Reports() {
     queryFn: migrationsApi.listQuestionnaires,
   })
 
+  const [exportingAll, setExportingAll] = useState(false)
+
   if (isLoading) {
     return <div className="text-center py-12 text-zinc-500">Loading...</div>
   }
@@ -101,8 +103,6 @@ export default function Reports() {
 
     downloadCSV(headers, rows, 'completed-migrations.csv')
   }
-
-  const [exportingAll, setExportingAll] = useState(false)
 
   const exportAllMigrations = async () => {
     setExportingAll(true)
