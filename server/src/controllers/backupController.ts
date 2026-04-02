@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { query } from '../utils/db.js';
+import { query, getClient } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 
 // Tables in dependency order (parents before children)
@@ -69,18 +69,21 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
     const restoredTables: string[] = [];
     const skippedTables: string[] = [];
 
-    // Disable FK constraints for the restore
-    await query('SET session_replication_role = replica');
+    // Use a single dedicated client so session settings (FK disable) persist
+    const client = await getClient();
 
     try {
-      // Truncate all known tables in a single statement to avoid CASCADE ordering issues
+      // Disable FK constraints for the restore (on THIS connection)
+      await client.query('SET session_replication_role = replica');
+
+      // Truncate all known tables in a single statement
       try {
-        await query(`TRUNCATE TABLE ${BACKUP_TABLES.join(', ')} CASCADE`);
+        await client.query(`TRUNCATE TABLE ${BACKUP_TABLES.join(', ')} CASCADE`);
       } catch {
         // Some tables may not exist — truncate individually as fallback
         for (const table of [...BACKUP_TABLES].reverse()) {
           try {
-            await query(`TRUNCATE TABLE ${table} CASCADE`);
+            await client.query(`TRUNCATE TABLE ${table} CASCADE`);
           } catch {
             // Table may not exist
           }
@@ -112,7 +115,7 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
               }
               return val;
             });
-            await query(insertSql, values);
+            await client.query(insertSql, values);
           }
 
           restoredTables.push(`${table} (${rows.length} rows)`);
@@ -121,23 +124,19 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
         }
       }
 
-      // Reset sequences for tables with serial/UUID columns
-      // PostgreSQL UUID columns don't need sequence resets, but any SERIAL columns do
-      try {
-        await query(`
-          SELECT setval(pg_get_serial_sequence(t.table_name, c.column_name),
-                 COALESCE((SELECT MAX(CAST(c2.column_name AS bigint)) FROM information_schema.columns c2), 1), true)
-          FROM information_schema.columns c
-          JOIN information_schema.tables t ON t.table_name = c.table_name
-          WHERE c.column_default LIKE 'nextval%'
-            AND t.table_schema = 'public'
-        `);
-      } catch {
-        // Not all tables have sequences, safe to ignore
-      }
-    } finally {
       // Re-enable FK constraints
-      await query('SET session_replication_role = DEFAULT');
+      await client.query('SET session_replication_role = DEFAULT');
+    } catch (err) {
+      // Re-enable FK constraints on error
+      try {
+        await client.query('SET session_replication_role = DEFAULT');
+      } catch {
+        // ignore
+      }
+      throw err;
+    } finally {
+      // Always release the client back to the pool
+      client.release();
     }
 
     res.json({
@@ -149,12 +148,6 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
       skipped: skippedTables,
     });
   } catch (err) {
-    // Make sure FK constraints are re-enabled even on error
-    try {
-      await query('SET session_replication_role = DEFAULT');
-    } catch {
-      // ignore
-    }
     next(err);
   }
 };
