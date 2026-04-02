@@ -73,13 +73,12 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
     await query('SET session_replication_role = replica');
 
     try {
-      // Truncate and restore in reverse dependency order for truncation,
-      // then insert in forward dependency order
-      const reverseTables = [...BACKUP_TABLES].reverse();
-
-      // Truncate all tables (reverse order)
-      for (const table of reverseTables) {
-        if (tables[table] && Array.isArray(tables[table]) && tables[table].length > 0) {
+      // Truncate all known tables in a single statement to avoid CASCADE ordering issues
+      try {
+        await query(`TRUNCATE TABLE ${BACKUP_TABLES.join(', ')} CASCADE`);
+      } catch {
+        // Some tables may not exist — truncate individually as fallback
+        for (const table of [...BACKUP_TABLES].reverse()) {
           try {
             await query(`TRUNCATE TABLE ${table} CASCADE`);
           } catch {
