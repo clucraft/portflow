@@ -324,6 +324,10 @@ export const settingsApi = {
   get: (key: string) => api.get<AppSetting>(`/settings/${key}`).then((r) => r.data),
   update: (key: string, value: unknown) =>
     api.put<AppSetting>(`/settings/${key}`, { value }).then((r) => r.data),
+  backup: () => api.post('/settings/backup', {}, { responseType: 'blob' }).then((r) => r.data),
+  restore: (data: unknown) => api.post<{ success: boolean; message: string; restored: string[]; skipped: string[] }>(
+    '/settings/restore', data, { maxBodyLength: Infinity, maxContentLength: Infinity }
+  ).then((r) => r.data),
 }
 
 export const carriersApi = {

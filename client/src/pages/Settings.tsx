@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download, DollarSign } from 'lucide-react'
+import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download, DollarSign, Database, AlertTriangle, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
   type TeamMember, type Carrier, formatCarrierType
 } from '../services/api'
 
-type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'email' | 'audit'
+type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'email' | 'audit' | 'backup'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
@@ -20,6 +20,7 @@ export default function Settings() {
     { id: 'pricing', label: 'Pricing', icon: DollarSign },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'audit', label: 'Audit Log', icon: Shield, adminOnly: true },
+    { id: 'backup', label: 'Backup', icon: Database, adminOnly: true },
   ]
 
   return (
@@ -60,6 +61,7 @@ export default function Settings() {
       {activeTab === 'pricing' && <PricingTab />}
       {activeTab === 'email' && <EmailTab />}
       {activeTab === 'audit' && isAdmin && <AuditLogTab />}
+      {activeTab === 'backup' && isAdmin && <BackupTab />}
     </div>
   )
 }
@@ -1136,6 +1138,204 @@ function AuditLogTab() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// ============ BACKUP TAB ============
+function BackupTab() {
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [restoreLoading, setRestoreLoading] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string; restored?: string[]; skipped?: string[] } | null>(null)
+  const [restoreError, setRestoreError] = useState<string | null>(null)
+  const [confirmRestore, setConfirmRestore] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<{ version: string; created_at: string; tables: Record<string, unknown[]> } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleBackup = async () => {
+    setBackupLoading(true)
+    try {
+      const blob = await settingsApi.backup()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `portflow-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setRestoreError('Failed to create backup')
+    } finally {
+      setBackupLoading(false)
+    }
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setRestoreResult(null)
+    setRestoreError(null)
+    setConfirmRestore(false)
+
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      if (!data.version || !data.tables || !data.created_at) {
+        setRestoreError('Invalid backup file: missing version, tables, or created_at')
+        return
+      }
+      setPendingFile(file)
+      setPendingPreview(data)
+      setConfirmRestore(true)
+    } catch {
+      setRestoreError('Failed to read backup file. Ensure it is a valid JSON backup.')
+    }
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleRestore = async () => {
+    if (!pendingFile) return
+    setRestoreLoading(true)
+    setRestoreError(null)
+    setRestoreResult(null)
+
+    try {
+      const text = await pendingFile.text()
+      const data = JSON.parse(text)
+      const result = await settingsApi.restore(data)
+      setRestoreResult(result)
+      setConfirmRestore(false)
+      setPendingFile(null)
+      setPendingPreview(null)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err as Error)?.message
+        || 'Restore failed'
+      setRestoreError(msg)
+    } finally {
+      setRestoreLoading(false)
+    }
+  }
+
+  const cancelRestore = () => {
+    setConfirmRestore(false)
+    setPendingFile(null)
+    setPendingPreview(null)
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-zinc-100">Backup & Restore</h2>
+      <p className="text-sm text-zinc-500">
+        Create a full backup of all PortFlow data or restore from a previous backup.
+      </p>
+
+      {/* Download Backup */}
+      <div className="card space-y-3">
+        <h3 className="text-sm font-medium text-zinc-300">Download Backup</h3>
+        <p className="text-xs text-zinc-500">
+          Exports all data as a JSON file: team members, settings, carriers, policies, migrations (with all estimates, questionnaires, cost calculators), users, phone numbers, scripts, and audit log.
+        </p>
+        <button
+          onClick={handleBackup}
+          disabled={backupLoading}
+          className="btn btn-primary flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          {backupLoading ? 'Creating Backup...' : 'Download Backup'}
+        </button>
+      </div>
+
+      {/* Restore from Backup */}
+      <div className="card space-y-3">
+        <h3 className="text-sm font-medium text-zinc-300">Restore from Backup</h3>
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-300">
+            Restoring a backup will <strong>replace all existing data</strong> with the backup contents. This action cannot be undone. Consider downloading a backup of the current state first.
+          </p>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={restoreLoading}
+          className="btn btn-secondary flex items-center gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          Select Backup File
+        </button>
+
+        {/* Confirmation dialog */}
+        {confirmRestore && pendingPreview && (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg space-y-3">
+            <h4 className="text-sm font-medium text-red-400">Confirm Restore</h4>
+            <div className="text-xs text-zinc-400 space-y-1">
+              <p>Backup version: <span className="text-zinc-200">{pendingPreview.version}</span></p>
+              <p>Backup date: <span className="text-zinc-200">{new Date(pendingPreview.created_at).toLocaleString()}</span></p>
+              <p>Tables:</p>
+              <div className="pl-3 space-y-0.5">
+                {Object.entries(pendingPreview.tables).map(([table, rows]) => (
+                  <p key={table} className="font-mono">
+                    {table}: <span className="text-zinc-200">{Array.isArray(rows) ? rows.length : 0} rows</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={handleRestore}
+                disabled={restoreLoading}
+                className="btn btn-primary bg-red-600 hover:bg-red-500 border-red-500 flex items-center gap-2"
+              >
+                {restoreLoading ? 'Restoring...' : 'Restore Now'}
+              </button>
+              <button
+                onClick={cancelRestore}
+                disabled={restoreLoading}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Success result */}
+        {restoreResult?.success && (
+          <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg space-y-2">
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-400" />
+              <span className="text-sm text-green-400 font-medium">{restoreResult.message}</span>
+            </div>
+            {restoreResult.restored && restoreResult.restored.length > 0 && (
+              <div className="text-xs text-zinc-400">
+                <p className="mb-1">Restored:</p>
+                {restoreResult.restored.map((t, i) => (
+                  <p key={i} className="pl-3 font-mono">{t}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error */}
+        {restoreError && (
+          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p className="text-sm text-red-400">{restoreError}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

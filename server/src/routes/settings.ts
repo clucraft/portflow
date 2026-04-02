@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import express from 'express';
 import * as settingsController from '../controllers/settingsController.js';
 import * as carriersController from '../controllers/carriersController.js';
 import * as policiesController from '../controllers/policiesController.js';
 import * as auditController from '../controllers/auditController.js';
+import * as backupController from '../controllers/backupController.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -29,6 +31,10 @@ router.post('/dial-plans/import', requireAdmin, policiesController.importDialPla
 router.post('/dial-plans', requireAdmin, policiesController.createDialPlan);
 router.put('/dial-plans/:id', requireAdmin, policiesController.updateDialPlan);
 router.delete('/dial-plans/:id', requireAdmin, policiesController.removeDialPlan);
+
+// === Backup & Restore ===
+router.post('/backup', requireAdmin, backupController.createBackup);
+router.post('/restore', requireAdmin, express.json({ limit: '100mb' }), backupController.restoreBackup);
 
 // === Email ===
 router.post('/email-relay/test', requireAdmin, settingsController.testEmailRelay);
