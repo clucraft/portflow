@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { query, getClient } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 
+// Columns that are JSONB type and need JSON.stringify for restore
+const JSONB_COLUMNS = new Set([
+  'details', 'value', 'site_questionnaire', 'phase_tasks', 'cost_calculator',
+  'menu_options', 'business_hours', 'agent_ids',
+]);
+
 // Tables in dependency order (parents before children)
 const BACKUP_TABLES = [
   'team_members',
@@ -109,8 +115,13 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
             const record = row as Record<string, unknown>;
             const values = columns.map(col => {
               const val = record[col];
-              // Convert objects/arrays to JSON strings for JSONB columns
-              if (val !== null && typeof val === 'object') {
+              if (val === null || val === undefined) return null;
+              // JSONB columns need JSON.stringify regardless of JS type
+              if (JSONB_COLUMNS.has(col)) {
+                return JSON.stringify(val);
+              }
+              // Non-JSONB object values (shouldn't happen, but handle safely)
+              if (typeof val === 'object') {
                 return JSON.stringify(val);
               }
               return val;
