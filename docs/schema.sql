@@ -1,7 +1,7 @@
--- PortFlow Database Schema v2
+-- PortFlow Database Schema v3 (consolidated)
 -- PostgreSQL 15+
 -- Enterprise Voice Migration Management
--- Updated for actual workflow: Estimate → Verizon Setup → Porting → User Config
+-- All migration columns consolidated — works for fresh deployments
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -10,31 +10,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ENUM TYPES
 -- ============================================================================
 
--- Workflow stages aligned with actual process
 CREATE TYPE workflow_stage AS ENUM (
-    'estimate',              -- Cost estimate phase
-    'estimate_accepted',     -- Customer accepted estimate
-    'verizon_submitted',     -- Submitted to Verizon
-    'verizon_in_progress',   -- Verizon working on setup (1-2 weeks)
-    'verizon_complete',      -- Verizon site setup complete
-    'porting_submitted',     -- LOA submitted for number porting
-    'porting_scheduled',     -- FOC received, port date set
-    'porting_complete',      -- Numbers ported
-    'user_config',           -- Assigning numbers to users in Teams
-    'completed',             -- Migration complete
+    'estimate',
+    'estimate_accepted',
+    'verizon_submitted',
+    'verizon_in_progress',
+    'verizon_complete',
+    'porting_submitted',
+    'porting_scheduled',
+    'porting_complete',
+    'user_config',
+    'completed',
     'on_hold',
     'cancelled'
-);
-
-CREATE TYPE target_carrier AS ENUM (
-    'verizon',
-    'fusionconnect',
-    'gtt'
-);
-
-CREATE TYPE routing_type AS ENUM (
-    'direct_routing',
-    'operator_connect'
 );
 
 CREATE TYPE phone_number_type AS ENUM (
@@ -77,6 +65,7 @@ CREATE TABLE team_members (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) NOT NULL UNIQUE,
     display_name VARCHAR(255) NOT NULL,
+    password_hash TEXT,
     role team_role NOT NULL DEFAULT 'member',
     is_active BOOLEAN NOT NULL DEFAULT true,
     last_login_at TIMESTAMPTZ,
@@ -87,6 +76,59 @@ CREATE TABLE team_members (
 CREATE INDEX idx_team_members_email ON team_members(email);
 
 -- ============================================================================
+-- APP SETTINGS (key-value configuration store)
+-- ============================================================================
+
+CREATE TABLE app_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by UUID REFERENCES team_members(id)
+);
+
+-- ============================================================================
+-- CARRIERS (dynamic carrier configuration)
+-- ============================================================================
+
+CREATE TABLE carriers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    carrier_type TEXT NOT NULL DEFAULT 'direct_routing',
+    monthly_charge DECIMAL(10,2) DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- VOICE ROUTING POLICIES
+-- ============================================================================
+
+CREATE TABLE voice_routing_policies (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- DIAL PLANS
+-- ============================================================================
+
+CREATE TABLE dial_plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
 -- MIGRATIONS (EV migration projects - main entity for workflow)
 -- ============================================================================
 
@@ -95,11 +137,18 @@ CREATE TABLE migrations (
 
     -- Basic info
     name VARCHAR(255) NOT NULL,
+    survey_id TEXT,
     workflow_stage workflow_stage NOT NULL DEFAULT 'estimate',
 
-    -- Carrier and routing
-    target_carrier target_carrier NOT NULL DEFAULT 'verizon',
-    routing_type routing_type NOT NULL DEFAULT 'direct_routing',
+    -- Carrier and routing (TEXT, not ENUM — carriers are dynamic)
+    target_carrier TEXT NOT NULL DEFAULT 'verizon',
+    routing_type TEXT NOT NULL DEFAULT 'direct_routing',
+    voice_routing_policy TEXT,
+    dial_plan TEXT,
+    country_code VARCHAR(10) NOT NULL DEFAULT '+1',
+    region VARCHAR(10) NOT NULL DEFAULT 'AMER',
+    location_code VARCHAR(50) NOT NULL DEFAULT '',
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
 
     -- ========== PHASE 1: SITE INFO & COST ESTIMATE ==========
     site_name VARCHAR(255) NOT NULL,
@@ -114,18 +163,21 @@ CREATE TABLE migrations (
     current_carrier VARCHAR(100),
 
     -- Estimate inputs
-    telephone_users INTEGER NOT NULL DEFAULT 0,        -- number of users needing phones
-    physical_phones_needed INTEGER NOT NULL DEFAULT 0, -- equipment count
-    monthly_calling_minutes INTEGER,                   -- from existing carrier invoice
-    is_porting_numbers BOOLEAN NOT NULL DEFAULT true,  -- are we porting or getting new numbers?
-    new_numbers_requested INTEGER DEFAULT 0,           -- if not porting, how many new numbers
+    telephone_users INTEGER NOT NULL DEFAULT 0,
+    physical_phones_needed INTEGER NOT NULL DEFAULT 0,
+    monthly_calling_minutes INTEGER,
+    is_porting_numbers BOOLEAN NOT NULL DEFAULT true,
+    new_numbers_requested INTEGER DEFAULT 0,
 
-    -- Estimate amounts (manually entered)
-    estimate_user_service_charge DECIMAL(10,2),  -- monthly per-user charge
-    estimate_equipment_charge DECIMAL(10,2),     -- one-time equipment cost
-    estimate_usage_charge DECIMAL(10,2),         -- estimated monthly usage
-    estimate_total_monthly DECIMAL(10,2),        -- calculated total monthly
-    estimate_total_onetime DECIMAL(10,2),        -- calculated total one-time
+    -- Estimate amounts
+    estimate_user_service_charge DECIMAL(10,2),
+    estimate_equipment_charge DECIMAL(10,2),
+    estimate_usage_charge DECIMAL(10,2),
+    estimate_carrier_charge DECIMAL(10,2),
+    estimate_phone_equipment_charge DECIMAL(10,2),
+    estimate_headset_equipment_charge DECIMAL(10,2),
+    estimate_total_monthly DECIMAL(10,2),
+    estimate_total_onetime DECIMAL(10,2),
 
     estimate_created_at TIMESTAMPTZ,
     estimate_accepted_at TIMESTAMPTZ,
@@ -134,35 +186,43 @@ CREATE TABLE migrations (
     -- Cost calculator (full calculator state as JSONB)
     cost_calculator JSONB DEFAULT NULL,
 
-    -- ========== PHASE 2: VERIZON SITE SETUP ==========
-    -- Billing contact (for Verizon)
+    -- Estimate link for customer acceptance
+    estimate_link_token VARCHAR(100) UNIQUE,
+    estimate_link_created_at TIMESTAMPTZ,
+    estimate_link_expires_at TIMESTAMPTZ,
+    estimate_accepted_by VARCHAR(255),
+
+    -- Site questionnaire
+    site_questionnaire JSONB,
+    questionnaire_link_token VARCHAR(100) UNIQUE,
+    questionnaire_link_created_at TIMESTAMPTZ,
+    questionnaire_link_expires_at TIMESTAMPTZ,
+    questionnaire_submitted_at TIMESTAMPTZ,
+
+    -- ========== PHASE 2: CARRIER SETUP ==========
     billing_contact_name VARCHAR(255),
     billing_contact_email VARCHAR(255),
     billing_contact_phone VARCHAR(50),
 
-    -- Local site contact
     local_contact_name VARCHAR(255),
     local_contact_email VARCHAR(255),
     local_contact_phone VARCHAR(50),
 
-    -- Verizon request tracking
     verizon_request_submitted_at TIMESTAMPTZ,
     verizon_request_email_sent_to VARCHAR(255),
-    verizon_site_id VARCHAR(100),              -- ID assigned by Verizon
+    verizon_site_id VARCHAR(100),
     verizon_setup_complete_at TIMESTAMPTZ,
     verizon_notes TEXT,
 
     -- ========== PHASE 3: NUMBER PORTING ==========
-    -- Carrier invoice for porting (file reference or notes)
     carrier_invoice_received BOOLEAN DEFAULT false,
     carrier_invoice_notes TEXT,
     carrier_account_number VARCHAR(100),
     carrier_pin VARCHAR(50),
 
-    -- LOA tracking
     loa_submitted_at TIMESTAMPTZ,
-    loa_submitted_to VARCHAR(255),            -- email sent to
-    foc_date DATE,                            -- Firm Order Commitment
+    loa_submitted_to VARCHAR(255),
+    foc_date DATE,
     scheduled_port_date DATE,
     actual_port_date DATE,
     porting_notes TEXT,
@@ -180,6 +240,9 @@ CREATE TABLE migrations (
 
     -- ========== COMPLETION ==========
     completed_at TIMESTAMPTZ,
+
+    -- Phase subtask checklists
+    phase_tasks JSONB DEFAULT '{}',
 
     -- Summary counts (denormalized for dashboard)
     total_numbers INTEGER DEFAULT 0,
@@ -209,20 +272,16 @@ CREATE TABLE end_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     migration_id UUID NOT NULL REFERENCES migrations(id) ON DELETE CASCADE,
 
-    -- Identity (entered by customer via magic link or imported)
     display_name VARCHAR(255) NOT NULL,
-    upn VARCHAR(255) NOT NULL,                -- user principal name (email)
-    phone_number VARCHAR(50),                  -- E.164 format, entered by customer
+    upn VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50),
 
-    -- Optional details
     department VARCHAR(255),
     job_title VARCHAR(255),
 
-    -- Status tracking
-    is_configured BOOLEAN DEFAULT false,      -- number assigned in Teams
+    is_configured BOOLEAN DEFAULT false,
     configuration_date TIMESTAMPTZ,
 
-    -- Source tracking
     entered_via_magic_link BOOLEAN DEFAULT false,
 
     notes TEXT,
@@ -245,19 +304,15 @@ CREATE TABLE phone_numbers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     migration_id UUID NOT NULL REFERENCES migrations(id) ON DELETE CASCADE,
 
-    -- Number in E.164 format (e.g., "+12125551234")
     number VARCHAR(50) NOT NULL,
     number_type phone_number_type NOT NULL DEFAULT 'user',
 
-    -- Original carrier info (for porting)
     original_carrier VARCHAR(100),
 
-    -- Porting status
     porting_status porting_status NOT NULL DEFAULT 'not_started',
     ported_date DATE,
     verified_date DATE,
 
-    -- Assignment
     assigned_user_id UUID REFERENCES end_users(id) ON DELETE SET NULL,
 
     notes TEXT,
@@ -299,7 +354,7 @@ CREATE TABLE resource_accounts (
 CREATE INDEX idx_resource_accounts_migration ON resource_accounts(migration_id);
 
 -- ============================================================================
--- AUTO ATTENDANTS (simplified)
+-- AUTO ATTENDANTS
 -- ============================================================================
 
 CREATE TABLE auto_attendants (
@@ -329,7 +384,7 @@ CREATE TABLE auto_attendants (
 CREATE INDEX idx_auto_attendants_migration ON auto_attendants(migration_id);
 
 -- ============================================================================
--- CALL QUEUES (simplified)
+-- CALL QUEUES
 -- ============================================================================
 
 CREATE TABLE call_queues (
@@ -344,7 +399,7 @@ CREATE TABLE call_queues (
     routing_method VARCHAR(50) DEFAULT 'attendant',
 
     greeting_text TEXT,
-    agent_ids JSONB,  -- array of end_user IDs
+    agent_ids JSONB,
 
     is_deployed BOOLEAN DEFAULT false,
     teams_cq_id VARCHAR(100),
@@ -394,6 +449,18 @@ CREATE TABLE activity_log (
 
 CREATE INDEX idx_activity_log_migration ON activity_log(migration_id);
 CREATE INDEX idx_activity_log_created ON activity_log(created_at);
+
+-- ============================================================================
+-- NOTIFICATION SUBSCRIPTIONS
+-- ============================================================================
+
+CREATE TABLE notification_subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    migration_id UUID REFERENCES migrations(id) ON DELETE CASCADE,
+    team_member_id UUID REFERENCES team_members(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(migration_id, team_member_id)
+);
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -469,6 +536,9 @@ SELECT
     m.ported_numbers,
     m.total_users,
     m.configured_users,
+
+    -- Phase tasks
+    m.phase_tasks,
 
     -- Progress calculations
     CASE m.workflow_stage

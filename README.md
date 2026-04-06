@@ -128,16 +128,21 @@
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Fresh Deployment with Docker (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/clucraft/portflow.git
 cd portflow
 
+# Set a secure JWT secret (required for authentication)
+export JWT_SECRET=$(openssl rand -hex 32)
+
 # Start with Docker Compose
 docker-compose up -d
 ```
+
+The database schema is automatically initialized on first startup. Open the frontend and you'll be prompted to create the initial admin account.
 
 ```
 ┌─ Access Points ─────────────────────────────────────────────────────────────┐
@@ -147,6 +152,16 @@ docker-compose up -d
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Restoring from a Backup
+
+If you have a backup file from an existing PortFlow instance:
+
+1. Deploy fresh using the steps above
+2. Create the initial admin account (temporary — it will be overwritten by the restore)
+3. Go to **Settings > Backup** and restore from your backup file
+
+This brings over all data: team members, migrations, settings, carriers, users, scripts, and audit log.
 
 ### Development Setup
 
