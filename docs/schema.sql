@@ -241,6 +241,11 @@ CREATE TABLE migrations (
     -- ========== COMPLETION ==========
     completed_at TIMESTAMPTZ,
 
+    -- On hold tracking
+    on_hold_previous_stage TEXT,
+    on_hold_reason TEXT,
+    on_hold_at TIMESTAMPTZ,
+
     -- Phase subtask checklists
     phase_tasks JSONB DEFAULT '{}',
 
@@ -539,6 +544,11 @@ SELECT
 
     -- Phase tasks
     m.phase_tasks,
+
+    -- On hold info
+    m.on_hold_previous_stage,
+    m.on_hold_reason,
+    m.on_hold_at,
 
     -- Progress calculations
     CASE m.workflow_stage

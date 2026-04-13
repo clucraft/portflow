@@ -159,6 +159,11 @@ export interface Migration {
   questionnaire_link_expires_at: string | null
   questionnaire_submitted_at: string | null
 
+  // On hold tracking
+  on_hold_previous_stage: string | null
+  on_hold_reason: string | null
+  on_hold_at: string | null
+
   // Phase subtask checklists
   phase_tasks: Record<string, PhaseTask[]> | null
 
@@ -384,8 +389,8 @@ export const migrationsApi = {
     api.put<Migration>(`/migrations/${id}`, data).then((r) => r.data),
 
   // Workflow transitions
-  updateStage: (id: string, stage: WorkflowStage) =>
-    api.patch<Migration>(`/migrations/${id}/stage`, { stage }).then((r) => r.data),
+  updateStage: (id: string, stage: WorkflowStage | 'resume', on_hold_reason?: string) =>
+    api.patch<Migration>(`/migrations/${id}/stage`, { stage, on_hold_reason }).then((r) => r.data),
 
   // Phase 1: Estimate
   updateEstimate: (id: string, data: {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList } from 'lucide-react'
+import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle } from 'lucide-react'
 import { migrationsApi, teamApi, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
@@ -42,8 +42,9 @@ export default function Reports() {
   }
 
   // Calculate summary data
-  const activeMigrations = migrations?.filter(m => !['completed', 'cancelled'].includes(m.workflow_stage)) || []
+  const activeMigrations = migrations?.filter(m => !['completed', 'cancelled', 'on_hold'].includes(m.workflow_stage)) || []
   const completedMigrations = migrations?.filter(m => m.workflow_stage === 'completed') || []
+  const onHoldCount = migrations?.filter(m => m.workflow_stage === 'on_hold').length || 0
 
   // Count by phase
   const byPhase = {
@@ -309,14 +310,14 @@ export default function Reports() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary-500/20 rounded-lg border border-primary-500/30">
               <TrendingUp className="h-6 w-6 text-primary-400" />
             </div>
             <div>
-              <p className="text-sm text-zinc-500">Active Migrations</p>
+              <p className="text-sm text-zinc-500">Active</p>
               <p className="text-2xl font-bold text-zinc-100">{activeMigrations.length}</p>
             </div>
           </div>
@@ -328,8 +329,20 @@ export default function Reports() {
               <CheckCircle className="h-6 w-6 text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-zinc-500">Completed (All Time)</p>
+              <p className="text-sm text-zinc-500">Completed</p>
               <p className="text-2xl font-bold text-zinc-100">{completedMigrations.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
+              <PauseCircle className="h-6 w-6 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm text-zinc-500">On Hold</p>
+              <p className="text-2xl font-bold text-zinc-100">{onHoldCount}</p>
             </div>
           </div>
         </div>

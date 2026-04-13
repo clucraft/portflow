@@ -174,6 +174,11 @@ export interface Migration {
   questionnaire_link_expires_at: Date | null;
   questionnaire_submitted_at: Date | null;
 
+  // On hold tracking
+  on_hold_previous_stage: string | null;
+  on_hold_reason: string | null;
+  on_hold_at: Date | null;
+
   // Completion
   completed_at: Date | null;
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload } from 'lucide-react'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload, PauseCircle } from 'lucide-react'
 import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportSurveyDialog from '../components/ImportSurveyDialog'
@@ -146,6 +146,13 @@ export default function Dashboard() {
   )
 
   const completedCount = migrations?.filter((m) => m.workflow_stage === 'completed').length || 0
+  const onHoldCount = migrations?.filter((m) => m.workflow_stage === 'on_hold').length || 0
+
+  const onHoldMigrations = useMemo(() =>
+    (migrations?.filter((m) => m.workflow_stage === 'on_hold' && filterMigration(m)) || []).sort(sortMigrations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [migrations, searchQuery, sortBy, filterCreator, filterAssignee, filterCarrier, filterCountry]
+  )
   const totalUsers = migrations?.reduce((sum, m) => sum + m.telephone_users, 0) || 0
 
   if (isLoading) {
@@ -193,7 +200,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary-500/20 rounded-lg border border-primary-500/30">
@@ -214,6 +221,18 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-zinc-500">Completed</p>
               <p className="text-2xl font-bold text-zinc-100">{completedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
+              <PauseCircle className="h-6 w-6 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm text-zinc-500">On Hold</p>
+              <p className="text-2xl font-bold text-zinc-100">{onHoldCount}</p>
             </div>
           </div>
         </div>
@@ -420,6 +439,43 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* On Hold */}
+      {onHoldMigrations.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-zinc-100 mb-4 flex items-center gap-2">
+            <PauseCircle className="h-5 w-5 text-amber-400" />
+            On Hold
+          </h2>
+          <div className="space-y-2">
+            {onHoldMigrations.map(m => (
+              <Link
+                key={m.id}
+                to={`/migrations/${m.id}`}
+                className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-zinc-200">{m.name}</span>
+                    <span className="text-zinc-500 text-sm ml-2">{m.site_name}</span>
+                  </div>
+                  {m.on_hold_reason && (
+                    <p className="text-xs text-zinc-500 mt-0.5 truncate">{m.on_hold_reason}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {m.on_hold_at && (
+                    <span className="text-zinc-500 text-xs">
+                      {new Date(m.on_hold_at).toLocaleDateString()}
+                    </span>
+                  )}
+                  <PauseCircle className="h-4 w-4 text-amber-400" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recently Completed */}
       {completedCount > 0 && (

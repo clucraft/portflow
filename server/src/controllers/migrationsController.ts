@@ -581,42 +581,82 @@ export const updateStage = async (req: Request, res: Response, next: NextFunctio
     const { id } = req.params;
     const { stage } = req.body;
 
-    const validStages: WorkflowStage[] = [
+    const validStages = [
       'estimate', 'estimate_accepted', 'verizon_submitted', 'verizon_in_progress',
       'verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete',
-      'user_config', 'completed', 'on_hold', 'cancelled',
+      'user_config', 'completed', 'on_hold', 'cancelled', 'resume',
     ];
 
     if (!validStages.includes(stage)) {
       throw ApiError.badRequest(`Invalid stage. Must be one of: ${validStages.join(', ')}`);
     }
 
-    const updates: Record<string, unknown> = { workflow_stage: stage };
+    // When putting on hold, require the on_hold_reason field
+    const { on_hold_reason } = req.body;
+
+    if (stage === 'on_hold') {
+      // First get current stage to save it
+      const current = await query<Migration>('SELECT workflow_stage FROM migrations WHERE id = $1', [id]);
+      if (current.length === 0) throw ApiError.notFound('Migration not found');
+      if (current[0].workflow_stage === 'on_hold') throw ApiError.badRequest('Migration is already on hold');
+      if (current[0].workflow_stage === 'completed') throw ApiError.badRequest('Cannot put a completed migration on hold');
+
+      const migrations = await query<Migration>(
+        `UPDATE migrations SET
+          workflow_stage = 'on_hold',
+          on_hold_previous_stage = $1,
+          on_hold_reason = $2,
+          on_hold_at = NOW()
+        WHERE id = $3
+        RETURNING *`,
+        [current[0].workflow_stage, on_hold_reason || null, id]
+      );
+
+      notifySubscribers(id, migrations[0].name, 'Put on hold', on_hold_reason || undefined, req.user?.display_name).catch(() => {});
+      logActivity(req.user?.id || null, 'migration.on_hold', on_hold_reason || 'Put on hold', id).catch(() => {});
+
+      res.json(migrations[0]);
+      return;
+    }
+
+    // When resuming from on hold, use 'resume' as a special value
+    let targetStage = stage;
+    if (stage === 'resume') {
+      const current = await query<Migration>('SELECT workflow_stage, on_hold_previous_stage FROM migrations WHERE id = $1', [id]);
+      if (current.length === 0) throw ApiError.notFound('Migration not found');
+      if (current[0].workflow_stage !== 'on_hold') throw ApiError.badRequest('Migration is not on hold');
+      targetStage = (current[0].on_hold_previous_stage || 'estimate') as WorkflowStage;
+    }
 
     if (stage === 'completed') {
-      updates.completed_at = new Date();
+      // completed_at is set below
     }
 
     // When reverting to estimate phase, clear acceptance so customer can re-accept
-    const clearAcceptance = stage === 'estimate';
+    const clearAcceptance = targetStage === 'estimate';
+    const isResuming = stage === 'resume';
 
     const migrations = await query<Migration>(
       `UPDATE migrations SET
         workflow_stage = $1,
         completed_at = $2,
         estimate_accepted_at = CASE WHEN $4 THEN NULL ELSE estimate_accepted_at END,
-        estimate_accepted_by = CASE WHEN $4 THEN NULL ELSE estimate_accepted_by END
+        estimate_accepted_by = CASE WHEN $4 THEN NULL ELSE estimate_accepted_by END,
+        on_hold_previous_stage = CASE WHEN $5 THEN NULL ELSE on_hold_previous_stage END,
+        on_hold_reason = CASE WHEN $5 THEN NULL ELSE on_hold_reason END,
+        on_hold_at = CASE WHEN $5 THEN NULL ELSE on_hold_at END
       WHERE id = $3
       RETURNING *`,
-      [stage, stage === 'completed' ? new Date() : null, id, clearAcceptance]
+      [targetStage, targetStage === 'completed' ? new Date() : null, id, clearAcceptance, isResuming]
     );
 
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
 
-    notifySubscribers(id, migrations[0].name, `Stage changed to ${stage}`, undefined, req.user?.display_name).catch(() => {});
-    logActivity(req.user?.id || null, 'migration.stage_change', `Stage changed to ${stage}`, id).catch(() => {});
+    const stageLabel = isResuming ? `Resumed from on hold (back to ${targetStage})` : `Stage changed to ${targetStage}`;
+    notifySubscribers(id, migrations[0].name, stageLabel, undefined, req.user?.display_name).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.stage_change', stageLabel, id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {

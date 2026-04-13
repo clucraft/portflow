@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import CostCalculator from '../components/CostCalculator'
@@ -217,6 +217,10 @@ export default function MigrationDetail() {
     actual_port_date: '',
   })
 
+  // On hold state
+  const [showOnHoldDialog, setShowOnHoldDialog] = useState(false)
+  const [onHoldReason, setOnHoldReason] = useState('')
+
   // Questionnaire state
   const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -320,7 +324,12 @@ export default function MigrationDetail() {
   })
 
   const updateStageMutation = useMutation({
-    mutationFn: (stage: WorkflowStage) => migrationsApi.updateStage(id!, stage),
+    mutationFn: (args: WorkflowStage | { stage: string; on_hold_reason?: string }) => {
+      if (typeof args === 'string') {
+        return migrationsApi.updateStage(id!, args)
+      }
+      return migrationsApi.updateStage(id!, args.stage as WorkflowStage, args.on_hold_reason)
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration', id] }),
   })
 
@@ -582,6 +591,27 @@ export default function MigrationDetail() {
             <FileCode className="h-4 w-4" />
             Scripts
           </Link>
+          {canWrite && migration.workflow_stage !== 'on_hold' && migration.workflow_stage !== 'completed' && migration.workflow_stage !== 'cancelled' && (
+            <button
+              onClick={() => { setOnHoldReason(''); setShowOnHoldDialog(true) }}
+              className="btn btn-secondary flex items-center gap-2 text-amber-400 hover:text-amber-300 hover:border-amber-500/50"
+              title="Put migration on hold"
+            >
+              <PauseCircle className="h-4 w-4" />
+              <span className="text-xs">Hold</span>
+            </button>
+          )}
+          {canWrite && migration.workflow_stage === 'on_hold' && (
+            <button
+              onClick={() => updateStageMutation.mutate({ stage: 'resume' })}
+              className="btn btn-secondary flex items-center gap-2 text-green-400 hover:text-green-300 hover:border-green-500/50"
+              title="Resume migration"
+              disabled={updateStageMutation.isPending}
+            >
+              <PlayCircle className="h-4 w-4" />
+              <span className="text-xs">{updateStageMutation.isPending ? 'Resuming...' : 'Resume'}</span>
+            </button>
+          )}
           {canWrite && (
             <button
               onClick={handleDelete}
@@ -594,6 +624,67 @@ export default function MigrationDetail() {
           )}
         </div>
       </div>
+
+      {/* On Hold Banner */}
+      {migration.workflow_stage === 'on_hold' && (
+        <div className="card border-amber-500/30 bg-amber-500/10">
+          <div className="flex items-center gap-3">
+            <PauseCircle className="h-5 w-5 text-amber-400 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-400">Migration On Hold</p>
+              {migration.on_hold_reason && (
+                <p className="text-sm text-zinc-400 mt-0.5">{migration.on_hold_reason}</p>
+              )}
+              <p className="text-xs text-zinc-500 mt-0.5">
+                On hold since {migration.on_hold_at ? new Date(migration.on_hold_at).toLocaleDateString() : 'unknown'}
+                {migration.on_hold_previous_stage && (
+                  <> &bull; Was in: <span className="capitalize">{migration.on_hold_previous_stage.replace(/_/g, ' ')}</span></>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* On Hold Confirmation Dialog */}
+      {showOnHoldDialog && (
+        <div className="card border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium text-amber-400 flex items-center gap-2">
+              <PauseCircle className="h-4 w-4" />
+              Put Migration On Hold
+            </h3>
+            <button onClick={() => setShowOnHoldDialog(false)} className="p-1 text-zinc-500 hover:text-zinc-300">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mb-3">
+            <label className="label">Reason (optional)</label>
+            <textarea
+              className="input min-h-[60px]"
+              value={onHoldReason}
+              onChange={(e) => setOnHoldReason(e.target.value)}
+              placeholder="e.g. Waiting for contract renewal, pending budget approval..."
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                updateStageMutation.mutate({ stage: 'on_hold', on_hold_reason: onHoldReason }, {
+                  onSuccess: () => setShowOnHoldDialog(false),
+                })
+              }}
+              className="btn btn-primary bg-amber-600 hover:bg-amber-500 border-amber-500"
+              disabled={updateStageMutation.isPending}
+            >
+              {updateStageMutation.isPending ? 'Processing...' : 'Confirm Hold'}
+            </button>
+            <button onClick={() => setShowOnHoldDialog(false)} className="btn btn-secondary">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Details Form */}
       {editingDetails && (
