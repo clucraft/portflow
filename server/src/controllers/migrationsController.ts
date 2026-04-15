@@ -771,29 +771,30 @@ export const importSurvey = async (req: Request, res: Response, next: NextFuncti
         }
 
         const companyName = String(row.company_name || '');
-        const siteAddress = String(row.site_address || '');
+        const streetAddress = String(row.street_address || row.site_address || '');
+        const city = String(row.city || '');
+        const state = String(row.state || '');
+        const country = String(row.country || '');
+        const locationCode = String(row.location_code || '');
 
-        // Best-effort parse city from address "Street, ZIP City" or "Street, ZIP, City"
-        let city = '';
-        let state = '';
-        if (siteAddress) {
-          const parts = siteAddress.split(',').map((s: string) => s.trim());
+        // If no separate city field, try to parse from site_address
+        let parsedCity = city;
+        if (!parsedCity && streetAddress) {
+          const parts = streetAddress.split(',').map((s: string) => s.trim());
           if (parts.length >= 3) {
-            // Format: "Street, ZIP, City" — take last part as city
-            city = parts[parts.length - 1];
+            parsedCity = parts[parts.length - 1];
           } else if (parts.length === 2) {
-            // Format: "Street, ZIP City" — extract city from "ZIP City"
             const zipCity = parts[1].trim();
             const match = zipCity.match(/^\d+\s+(.+)/);
             if (match) {
-              city = match[1];
+              parsedCity = match[1];
             } else {
-              city = zipCity;
+              parsedCity = zipCity;
             }
           }
         }
 
-        const migrationName = city ? `${companyName} - ${city}` : companyName;
+        const migrationName = parsedCity ? `${companyName} - ${parsedCity}` : companyName;
 
         // Build site_questionnaire from all survey fields
         const questionnaire: Record<string, unknown> = {};
@@ -802,6 +803,11 @@ export const importSurvey = async (req: Request, res: Response, next: NextFuncti
           ['name', 'name'],
           ['company_name', 'company_name'],
           ['legal_entity_code', 'legal_entity_code'],
+          ['location_code', 'location_code'],
+          ['street_address', 'street_address'],
+          ['city', 'city'],
+          ['state', 'state'],
+          ['country', 'country'],
           ['site_address', 'site_address'],
           ['project_requestor', 'project_requestor'],
           ['head_of_location', 'head_of_location'],
@@ -853,22 +859,23 @@ export const importSurvey = async (req: Request, res: Response, next: NextFuncti
         const migrations = await query<Migration>(
           `INSERT INTO migrations (
             name, survey_id, site_name, site_address, site_city, site_state, site_country,
-            site_timezone, target_carrier, routing_type, currency, workflow_stage,
+            site_timezone, target_carrier, routing_type, currency, location_code, workflow_stage,
             telephone_users, site_questionnaire, created_by, assigned_to
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'estimate', $12, $13, $14, $15)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'estimate', $13, $14, $15, $16)
           RETURNING *`,
           [
             migrationName,
             surveyId || null,
             companyName,
-            siteAddress || null,
-            city || null,
+            streetAddress || null,
+            parsedCity || null,
             state || null,
-            'Germany',
+            country || 'Germany',
             'Europe/Berlin',
             'verizon',
             'direct_routing',
             'EUR',
+            locationCode || '',
             totalUsers,
             JSON.stringify(questionnaire),
             req.user?.id || null,

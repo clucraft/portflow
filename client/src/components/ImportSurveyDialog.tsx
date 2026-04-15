@@ -21,8 +21,14 @@ const COLUMN_MAP: Record<string, string> = {
   'Name': 'name',
   'Company Name': 'company_name',
   'Legal Entity Code': 'legal_entity_code',
+  'LA Code': 'location_code',
+  'Street Address': 'street_address',
+  'City': 'city',
+  'State': 'state',
+  'Country': 'country',
   'Site Address': 'site_address',
   'Project Requestor': 'project_requestor',
+  'Requestor name': 'project_requestor',
   'Head of Location': 'head_of_location',
   'Infrastructure Contact': 'infrastructure_contact',
   'Service Desk': 'service_desk',
@@ -37,6 +43,8 @@ const COLUMN_MAP: Record<string, string> = {
   'Concurrent Channels': 'concurrent_channels',
   'Main Subscriber Range': 'main_subscriber_range',
   'Total End User Count': 'total_end_user_count',
+  'Total Enterprise Voice User Count': 'total_end_user_count',
+  'Total Enterprise Voice User Count (~)': 'total_end_user_count',
   'Personal Desk Phones': 'personal_desk_phones',
   'Headset %': 'headset_percentage',
   'Default Headset': 'default_headset',
@@ -64,7 +72,18 @@ const COLUMN_MAP: Record<string, string> = {
 function mapRow(excelRow: Record<string, unknown>): SurveyRow {
   const mapped: Record<string, unknown> = {}
   for (const [excelCol, value] of Object.entries(excelRow)) {
-    const fieldName = COLUMN_MAP[excelCol]
+    // Try exact match first
+    let fieldName = COLUMN_MAP[excelCol]
+    // Fuzzy match: check if any COLUMN_MAP key is contained in the Excel header (case-insensitive)
+    if (!fieldName) {
+      const lowerCol = excelCol.toLowerCase()
+      for (const [mapKey, mapVal] of Object.entries(COLUMN_MAP)) {
+        if (lowerCol.startsWith(mapKey.toLowerCase())) {
+          fieldName = mapVal
+          break
+        }
+      }
+    }
     if (fieldName) {
       mapped[fieldName] = value
     }
@@ -268,8 +287,8 @@ export default function ImportSurveyDialog({ open, onClose, onComplete }: Import
                       <th className="px-3 py-2 text-left w-10"></th>
                       <th className="px-3 py-2 text-left text-zinc-400 font-medium">ID</th>
                       <th className="px-3 py-2 text-left text-zinc-400 font-medium">Company</th>
-                      <th className="px-3 py-2 text-left text-zinc-400 font-medium">Site Address</th>
-                      <th className="px-3 py-2 text-left text-zinc-400 font-medium">End Users</th>
+                      <th className="px-3 py-2 text-left text-zinc-400 font-medium">Location</th>
+                      <th className="px-3 py-2 text-left text-zinc-400 font-medium">EV Users</th>
                       <th className="px-3 py-2 text-left text-zinc-400 font-medium">Status</th>
                     </tr>
                   </thead>
@@ -293,8 +312,8 @@ export default function ImportSurveyDialog({ open, onClose, onComplete }: Import
                           </td>
                           <td className="px-3 py-2 text-zinc-300 font-mono text-xs">{row.survey_id}</td>
                           <td className="px-3 py-2 text-zinc-200">{String(row.company_name || '')}</td>
-                          <td className="px-3 py-2 text-zinc-400 truncate max-w-[200px]" title={String(row.site_address || '')}>
-                            {String(row.site_address || '')}
+                          <td className="px-3 py-2 text-zinc-400 truncate max-w-[200px]" title={[row.city, row.state, row.country].filter(Boolean).join(', ') || String(row.site_address || '')}>
+                            {[row.city, row.state, row.country].filter(Boolean).join(', ') || String(row.site_address || '')}
                           </td>
                           <td className="px-3 py-2 text-zinc-300">{String(row.total_end_user_count || '-')}</td>
                           <td className="px-3 py-2">

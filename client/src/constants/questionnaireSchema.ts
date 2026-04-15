@@ -42,7 +42,7 @@ export const QUESTIONNAIRE_SECTIONS: QuestionnaireSection[] = [
       { key: 'connection_details', label: 'Connection Type & Details', type: 'textarea', placeholder: 'e.g. SIP trunk, PRI, analog lines' },
       { key: 'concurrent_channels', label: 'Concurrent Channels / Lines', type: 'number', placeholder: 'Number of concurrent channels' },
       { key: 'main_subscriber_range', label: 'Main Subscriber Number Range', type: 'text', placeholder: 'e.g. +49 30 1234 0-99' },
-      { key: 'total_end_user_count', label: 'Total End User Count', type: 'number', placeholder: 'Number of end users' },
+      { key: 'total_end_user_count', label: 'Total Enterprise Voice Users', type: 'number', placeholder: 'Number of enterprise voice users' },
       { key: 'monthly_calling_minutes', label: 'Monthly Calling Minutes', type: 'number', placeholder: 'Total monthly calling minutes from carrier invoice' },
       { key: 'is_porting_numbers', label: 'Porting Existing Numbers', type: 'boolean' },
       { key: 'new_numbers_requested', label: 'New Numbers Requested', type: 'number', placeholder: 'Number of new phone numbers needed (if not porting)' },

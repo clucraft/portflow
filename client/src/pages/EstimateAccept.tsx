@@ -285,7 +285,10 @@ export default function EstimateAccept() {
   }
 
   const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
-  const endUsers = Number(qData.total_end_user_count) || 0
+  // Prefer cost calculator values over questionnaire for display
+  const calcData = migration.cost_calculator as CalcData | null
+  const hasCalc = calcData && typeof calcData === 'object' && 'total_users' in calcData
+  const endUsers = hasCalc ? calcData.total_users : (Number(qData.total_end_user_count) || 0)
   const deskPhones = Number(qData.personal_desk_phones) || 0
   const headsets = Number(qData.headset_count) || 0
   const alreadyAccepted = !!migration.estimate_accepted_at
@@ -328,7 +331,7 @@ export default function EstimateAccept() {
       ['Carrier', migration.target_carrier || ''],
       ['Routing Type', formatRoutingType(migration.routing_type)],
       ['Currency', currency],
-      ['End Users', endUsers],
+      ['Enterprise Voice Users', endUsers],
       [],
     ]
 
@@ -505,7 +508,7 @@ export default function EstimateAccept() {
               </p>
             </div>
             <div>
-              <p className="text-sm text-zinc-500">End Users</p>
+              <p className="text-sm text-zinc-500">Enterprise Voice Users</p>
               <p className="text-zinc-200">{endUsers}</p>
             </div>
             <div>

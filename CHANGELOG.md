@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
 - **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
 
+- **Expanded survey import** — maps new Excel columns: Street Address, City, State, Country, LA Code, and "Total Enterprise Voice User Count"; fuzzy header matching for long Excel column names; location details auto-populate migration fields on import
 - **On Hold status** for migration projects — "Hold" button on any active migration opens a dialog for an optional reason; "Resume" button returns to the previous workflow stage; on-hold banner shows reason and date on the migration detail page; dedicated "On Hold" section on the dashboard with count in stats; on-hold count added to Reports summary
 - **Backup & Restore** in Settings (admin only) — download a full JSON backup of all database tables (team members, settings, carriers, policies, migrations with all child data, scripts, audit log) and restore from a previous backup with confirmation dialog showing table row counts
 - **Method descriptions** on cost calculator and customer estimate page — short explanations of what each estimation method calculates (Report: site survey based, Custom: manual quantities, 20%/50%: conservative estimate)
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 1 estimate form replaced with full CostCalculator component (site inputs, unit costs, current system costs, method comparison table, notes)
 - Settings > Pricing expanded from 3 to 5 fields; "Phone Unit Cost" renamed to "Desk Phone Unit Cost" for clarity; fields organized into categorized groups (Recurring Rates, Equipment Costs, Carrier Fees)
 - Activation fee included in one-time total calculation (server-side)
+- "Total End User Count" renamed to "Total Enterprise Voice Users" throughout the app
+- Customer estimate page now shows user count from cost calculator (not questionnaire) when available
 
 ### Database Migration Required
 ```sql
