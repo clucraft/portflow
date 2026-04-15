@@ -374,20 +374,39 @@ export default function Dashboard() {
                         {migration.site_city && `, ${migration.site_city}`}
                         {migration.site_state && `, ${migration.site_state}`}
                       </p>
-                      <p className="text-xs text-zinc-600 mt-0.5">
-                        Created {new Date(migration.created_at).toLocaleDateString()}
-                        {migration.assigned_to_name && <span> &bull; Assigned to {migration.assigned_to_name}</span>}
-                        {' '}&bull; Updated {timeAgo(migration.updated_at)}
-                      </p>
                     </div>
-                    <div className="text-right">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stageBadgeStyles[migration.workflow_stage]}`}>
-                        {stageLabel}
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stageBadgeStyles[migration.workflow_stage]}`}>
+                      {stageLabel}
+                    </span>
+                  </div>
+
+                  {/* Info pills */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {migration.assigned_to_name && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-primary-500/10 border-primary-500/30 text-primary-400">
+                        {migration.assigned_to_name}
                       </span>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        {migration.telephone_users} users • {migration.target_carrier}
-                      </p>
-                    </div>
+                    )}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-red-500/10 border-red-500/30 text-red-400">
+                      {carrierName}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-purple-500/10 border-purple-500/30 text-purple-400">
+                      {migration.telephone_users} users
+                    </span>
+                    {migration.scheduled_port_date && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${
+                        migration.actual_port_date
+                          ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                      }`}>
+                        Port: {new Date(migration.scheduled_port_date).toLocaleDateString()}
+                      </span>
+                    )}
+                    {migration.foc_date && !migration.scheduled_port_date && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-amber-500/10 border-amber-500/30 text-amber-400">
+                        FOC: {new Date(migration.foc_date).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
 
                   {/* Progress bar */}
@@ -398,7 +417,6 @@ export default function Dashboard() {
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
-                    {/* Stage dots */}
                     <div className="flex justify-between mt-2">
                       {WORKFLOW_STAGES.map((stage, i) => (
                         <div
@@ -412,26 +430,9 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Key dates */}
-                  <div className="mt-3 flex gap-4 text-xs text-zinc-500">
-                    {migration.scheduled_port_date && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Port: {new Date(migration.scheduled_port_date).toLocaleDateString()}
-                      </span>
-                    )}
-                    {migration.foc_date && (
-                      <span className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        FOC: {new Date(migration.foc_date).toLocaleDateString()}
-                      </span>
-                    )}
-                    {!migration.scheduled_port_date && !migration.foc_date && migration.verizon_request_submitted_at && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatCarrierName(migration.target_carrier)} submitted: {new Date(migration.verizon_request_submitted_at).toLocaleDateString()}
-                      </span>
-                    )}
+                  {/* Created/updated meta */}
+                  <div className="mt-2 text-xs text-zinc-600">
+                    Created {new Date(migration.created_at).toLocaleDateString()} &bull; Updated {timeAgo(migration.updated_at)}
                   </div>
                 </Link>
               )
