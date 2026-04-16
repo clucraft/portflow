@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload, PauseCircle } from 'lucide-react'
 import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -75,12 +75,30 @@ export default function Dashboard() {
   const queryClient = useQueryClient()
   const { canWrite } = useAuth()
   const [showImport, setShowImport] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<SortBy>('updated')
-  const [filterCreator, setFilterCreator] = useState('')
-  const [filterAssignee, setFilterAssignee] = useState('')
-  const [filterCarrier, setFilterCarrier] = useState('')
-  const [filterCountry, setFilterCountry] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Filter/sort state backed by URL params (persists across navigation)
+  const searchQuery = searchParams.get('q') || ''
+  const sortBy = (searchParams.get('sort') || 'updated') as SortBy
+  const filterCreator = searchParams.get('creator') || ''
+  const filterAssignee = searchParams.get('assignee') || ''
+  const filterCarrier = searchParams.get('carrier') || ''
+  const filterCountry = searchParams.get('country') || ''
+
+  const setParam = (key: string, value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      return next
+    }, { replace: true })
+  }
+  const setSearchQuery = (v: string) => setParam('q', v)
+  const setSortBy = (v: SortBy) => setParam('sort', v === 'updated' ? '' : v)
+  const setFilterCreator = (v: string) => setParam('creator', v)
+  const setFilterAssignee = (v: string) => setParam('assignee', v)
+  const setFilterCarrier = (v: string) => setParam('carrier', v)
+  const setFilterCountry = (v: string) => setParam('country', v)
 
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
@@ -312,7 +330,14 @@ export default function Dashboard() {
 
         {hasActiveFilters && (
           <button
-            onClick={() => { setFilterCreator(''); setFilterAssignee(''); setFilterCarrier(''); setFilterCountry('') }}
+            onClick={() => setSearchParams(prev => {
+              const next = new URLSearchParams(prev)
+              next.delete('creator')
+              next.delete('assignee')
+              next.delete('carrier')
+              next.delete('country')
+              return next
+            }, { replace: true })}
             className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
