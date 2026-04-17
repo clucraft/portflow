@@ -35,6 +35,7 @@ export default function NewMigration() {
     currency: 'USD',
     assigned_to: user?.id || '',
   })
+  const [notifyAssignee, setNotifyAssignee] = useState(false)
 
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
@@ -56,6 +57,7 @@ export default function NewMigration() {
     createMutation.mutate({
       ...formData,
       name: formData.name || `${formData.site_name} Migration`,
+      notify_assignee: notifyAssignee,
     })
   }
 
@@ -299,6 +301,17 @@ export default function NewMigration() {
               <p className="text-xs text-zinc-500 mt-1">
                 Team member responsible for this migration
               </p>
+              {formData.assigned_to && formData.assigned_to !== user?.id && (
+                <label className="flex items-center gap-2 mt-2 text-sm text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifyAssignee}
+                    onChange={(e) => setNotifyAssignee(e.target.checked)}
+                    className="rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500"
+                  />
+                  Notify assignee by email
+                </label>
+              )}
             </div>
 
             {/* Summary */}

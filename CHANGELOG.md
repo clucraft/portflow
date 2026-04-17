@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Assignment email notifications** — "Notify assignee by email" checkbox appears next to the Assignee dropdown on New Migration and project detail edit forms when selecting someone other than yourself. Opts in per-assignment (always resets to unchecked). Sends a notification email via the configured email relay with project name, site, current stage, who assigned them, and a direct link. Silently skipped if the assignee is unchanged, if it's the current user, or if email relay isn't configured
+
 ### Changed
 - Dial plan script description format: `Dial plan for <migration name>` → `DP <city>, GIS <country>` using the migration's site location fields
 - Dial plan pre-flight confirmation now shows City, Country, and the resulting Description string; blocks generation if City or Country is missing (server also validates)

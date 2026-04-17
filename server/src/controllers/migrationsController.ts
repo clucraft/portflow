@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, WorkflowStage, WORKFLOW_STAGES } from '../types/index.js';
-import { notifySubscribers } from '../utils/notifications.js';
+import { notifySubscribers, notifyAssignment } from '../utils/notifications.js';
 import { logActivity } from '../utils/audit.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
@@ -100,6 +100,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       location_code,
       currency,
       assigned_to,
+      notify_assignee,
     } = req.body;
 
     if (!name || !site_name) {
@@ -127,6 +128,18 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
     );
 
     logActivity(req.user?.id || null, 'migration.create', `Created migration: ${migrations[0].name}`, migrations[0].id).catch(() => {});
+
+    // Send assignment notification if requested and assignee is not the creator
+    if (notify_assignee && assigned_to && assigned_to !== req.user?.id) {
+      notifyAssignment(
+        migrations[0].id,
+        migrations[0].name,
+        migrations[0].site_name,
+        migrations[0].workflow_stage,
+        assigned_to,
+        req.user?.display_name
+      ).catch(() => {});
+    }
 
     res.status(201).json(migrations[0]);
   } catch (err) {
@@ -695,6 +708,13 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       throw ApiError.badRequest('No fields to update');
     }
 
+    // Check if assignee is changing so we can optionally notify
+    let previousAssignee: string | null = null;
+    if (body.assigned_to !== undefined) {
+      const existing = await query<{ assigned_to: string | null }>('SELECT assigned_to FROM migrations WHERE id = $1', [id]);
+      previousAssignee = existing[0]?.assigned_to ?? null;
+    }
+
     values.push(id);
     const migrations = await query<Migration>(
       `UPDATE migrations SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`,
@@ -703,6 +723,24 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
 
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
+    }
+
+    // Send assignment notification if requested and assignee actually changed (and isn't the current user)
+    const newAssignee = migrations[0].assigned_to;
+    if (
+      body.notify_assignee &&
+      newAssignee &&
+      newAssignee !== previousAssignee &&
+      newAssignee !== req.user?.id
+    ) {
+      notifyAssignment(
+        migrations[0].id,
+        migrations[0].name,
+        migrations[0].site_name,
+        migrations[0].workflow_stage,
+        newAssignee,
+        req.user?.display_name
+      ).catch(() => {});
     }
 
     res.json(migrations[0]);

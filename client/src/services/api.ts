@@ -384,8 +384,9 @@ export const migrationsApi = {
     api.get<Migration[]>('/migrations', { params }).then((r) => r.data),
   dashboard: () => api.get<Migration[]>('/migrations/dashboard').then((r) => r.data),
   get: (id: string) => api.get<Migration>(`/migrations/${id}`).then((r) => r.data),
-  create: (data: Partial<Migration>) => api.post<Migration>('/migrations', data).then((r) => r.data),
-  update: (id: string, data: Partial<Migration>) =>
+  create: (data: Partial<Migration> & { notify_assignee?: boolean }) =>
+    api.post<Migration>('/migrations', data).then((r) => r.data),
+  update: (id: string, data: Partial<Migration> & { notify_assignee?: boolean }) =>
     api.put<Migration>(`/migrations/${id}`, data).then((r) => r.data),
 
   // Workflow transitions

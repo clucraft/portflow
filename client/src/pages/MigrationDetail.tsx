@@ -171,7 +171,7 @@ function getOverallProgress(stage: WorkflowStage): number {
 }
 
 export default function MigrationDetail() {
-  const { canWrite, isAdmin } = useAuth()
+  const { canWrite, isAdmin, user } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -220,6 +220,9 @@ export default function MigrationDetail() {
   // On hold state
   const [showOnHoldDialog, setShowOnHoldDialog] = useState(false)
   const [onHoldReason, setOnHoldReason] = useState('')
+
+  // Notify assignee on edit
+  const [notifyAssignee, setNotifyAssignee] = useState(false)
 
   // Questionnaire state
   const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
@@ -384,7 +387,7 @@ export default function MigrationDetail() {
   })
 
   const updateDetailsMutation = useMutation({
-    mutationFn: (data: typeof detailsForm) => migrationsApi.update(id!, data),
+    mutationFn: (data: typeof detailsForm & { notify_assignee?: boolean }) => migrationsApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['migration', id] })
       queryClient.invalidateQueries({ queryKey: ['migrations'] })
@@ -431,6 +434,7 @@ export default function MigrationDetail() {
         currency: migration.currency || 'USD',
         assigned_to: migration.assigned_to || '',
       })
+      setNotifyAssignee(false)
       setEditingDetails(true)
     }
   }
@@ -846,6 +850,17 @@ export default function MigrationDetail() {
                   <option key={tm.id} value={tm.id}>{tm.display_name}</option>
                 ))}
               </select>
+              {detailsForm.assigned_to && detailsForm.assigned_to !== migration.assigned_to && detailsForm.assigned_to !== user?.id && (
+                <label className="flex items-center gap-2 mt-2 text-sm text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifyAssignee}
+                    onChange={(e) => setNotifyAssignee(e.target.checked)}
+                    className="rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500"
+                  />
+                  Notify assignee by email
+                </label>
+              )}
             </div>
           </div>
           <div className="flex gap-2 mt-4 pt-4 border-t border-surface-600">
@@ -855,7 +870,7 @@ export default function MigrationDetail() {
               </div>
             )}
             <button
-              onClick={() => updateDetailsMutation.mutate(detailsForm)}
+              onClick={() => updateDetailsMutation.mutate({ ...detailsForm, notify_assignee: notifyAssignee })}
               disabled={!detailsForm.name || !detailsForm.site_name || updateDetailsMutation.isPending}
               className="btn btn-primary"
             >
