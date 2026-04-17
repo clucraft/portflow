@@ -705,6 +705,10 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
     const locationCode = migration.location_code || 'SITE';
     const dialPlanIdentity = `${region}-${countryCode.padStart(3, '0')}-${locationCode}`;
 
+    if (!migration.site_city || !migration.site_country) {
+      throw ApiError.badRequest('Cannot generate dial plan: City and Country must be set on the migration');
+    }
+
     // Build country-specific normalization rules
     interface NormRule {
       name: string;
@@ -828,9 +832,13 @@ Write-Host ""
 `;
 
     // Create the dial plan
+    const dpCity = (migration.site_city || '').trim();
+    const dpCountry = (migration.site_country || '').trim();
+    const dpDescription = `DP ${dpCity}, GIS ${dpCountry}`;
+
     script += `# Step 1: Create the Tenant Dial Plan
 try {
-    New-CsTenantDialPlan -Identity "${dialPlanIdentity}" -Description "Dial plan for ${migration.name}"
+    New-CsTenantDialPlan -Identity "${dialPlanIdentity}" -Description "${dpDescription}"
     Write-Host "Dial plan '${dialPlanIdentity}' created successfully." -ForegroundColor Green
 } catch {
     if ($_.Exception.Message -like "*already exists*") {

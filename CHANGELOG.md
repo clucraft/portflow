@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dial plan script description format: `Dial plan for <migration name>` → `DP <city>, GIS <country>` using the migration's site location fields
+- Dial plan pre-flight confirmation now shows City, Country, and the resulting Description string; blocks generation if City or Country is missing (server also validates)
+
 ### Fixed
 - Emergency numbers in generated dial plan scripts no longer prefix with `+` — 911, 112, etc. now translate to the plain dialed digits (previously produced "+911", "+112" which are invalid for short emergency codes)
 

@@ -1872,8 +1872,13 @@ export default function MigrationDetail() {
           const region = migration.region || 'AMER'
           const countryCode = (migration.country_code || '+1').replace('+', '')
           const locationCode = migration.location_code || 'SITE'
+          const city = migration.site_city || ''
+          const country = migration.site_country || ''
           checks = [
             { label: 'Region / Location', value: `${region}-${countryCode}-${locationCode}`, ok: true },
+            { label: 'City', value: city || 'Not set', ok: !!city },
+            { label: 'Country', value: country || 'Not set', ok: !!country },
+            { label: 'Description', value: `DP ${city}, GIS ${country}`, ok: !!city && !!country },
             { label: 'Emergency Numbers', value: emergencyNumbers || 'Not set', ok: !!emergencyNumbers },
           ]
         } else {
