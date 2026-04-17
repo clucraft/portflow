@@ -537,76 +537,72 @@ export default function MigrationDetail() {
     const d = getLoopDocData()
     if (!d) return
 
-    // Build HTML with real H2 headings — Loop preserves these on paste
-    const html = `<h2>1. Introduction</h2>
-<p>Regular EV site following the EV blueprint located at ${d.city} ${d.locationCode}</p>
-<h2>2. Contacts</h2>
-<p>Local Responsible: ${d.localContactEmail}</p>
-<h2>3. Location Overview</h2>
-<p>Visio Sheet:<br>Number Range:<br>Phone List:</p>
-<h2>4. Enterprise Voice Configuration</h2>
-<p>Provider: ${d.carrierName}</p>
-<p>SBC:</p>
-<p><strong>Teams Config</strong><br>Voice Routing Policy: ${d.vrp}<br>Dial Plan: ${d.dialPlan}<br>Emergency Dial Plan:<br>Emergency Info: ${d.emergencyNumber}</p>
-<h2>5. Special Configuration</h2>
-<p>Auto Attendant / Call Queues</p>
-<p>Special Call Flow</p>
-<p>Hotline</p>
-<p>Main Number / Front Desk</p>
-<p>FAX (Retarus)</p>`
+    // Build HTML with inline styles so Loop/Office apps recognize and preserve
+    // the formatting. Copying from a rendered contenteditable element uses the
+    // browser's native "copy rich text from a webpage" path which produces the
+    // exact HTML flavor Office apps expect (with fragment markers, etc.)
+    const html = `<div>
+  <h2 style="font-size:1.5em;font-weight:600;margin:0 0 8px 0;">1. Introduction</h2>
+  <p style="margin:0 0 16px 0;">Regular EV site following the EV blueprint located at ${d.city} ${d.locationCode}</p>
+  <h2 style="font-size:1.5em;font-weight:600;margin:0 0 8px 0;">2. Contacts</h2>
+  <p style="margin:0 0 16px 0;">Local Responsible: ${d.localContactEmail}</p>
+  <h2 style="font-size:1.5em;font-weight:600;margin:0 0 8px 0;">3. Location Overview</h2>
+  <p style="margin:0 0 16px 0;">Visio Sheet:<br>Number Range:<br>Phone List:</p>
+  <h2 style="font-size:1.5em;font-weight:600;margin:0 0 8px 0;">4. Enterprise Voice Configuration</h2>
+  <p style="margin:0 0 8px 0;">Provider: ${d.carrierName}</p>
+  <p style="margin:0 0 8px 0;">SBC:</p>
+  <p style="margin:0 0 16px 0;"><strong>Teams Config</strong><br>Voice Routing Policy: ${d.vrp}<br>Dial Plan: ${d.dialPlan}<br>Emergency Dial Plan:<br>Emergency Info: ${d.emergencyNumber}</p>
+  <h2 style="font-size:1.5em;font-weight:600;margin:0 0 8px 0;">5. Special Configuration</h2>
+  <p style="margin:0 0 8px 0;">Auto Attendant / Call Queues</p>
+  <p style="margin:0 0 8px 0;">Special Call Flow</p>
+  <p style="margin:0 0 8px 0;">Hotline</p>
+  <p style="margin:0 0 8px 0;">Main Number / Front Desk</p>
+  <p style="margin:0 0 0 0;">FAX (Retarus)</p>
+</div>`
 
-    // Plain-text fallback with markdown-style H2 prefix (##)
-    const plain = `## 1. Introduction
-Regular EV site following the EV blueprint located at ${d.city} ${d.locationCode}
-
-## 2. Contacts
-Local Responsible: ${d.localContactEmail}
-
-## 3. Location Overview
-Visio Sheet:
-Number Range:
-Phone List:
-
-## 4. Enterprise Voice Configuration
-Provider: ${d.carrierName}
-
-SBC:
-
-Teams Config
-Voice Routing Policy: ${d.vrp}
-Dial Plan: ${d.dialPlan}
-Emergency Dial Plan:
-Emergency Info: ${d.emergencyNumber}
-
-## 5. Special Configuration
-Auto Attendant / Call Queues
-
-Special Call Flow
-
-Hotline
-
-Main Number / Front Desk
-
-FAX (Retarus)
-`
+    // Create an off-screen contenteditable element, select it, then use
+    // document.execCommand('copy'). This path produces the richest clipboard
+    // HTML because it's identical to what happens when a user selects and
+    // copies from any webpage — Loop, Word, OneNote, etc. all handle this.
+    const container = document.createElement('div')
+    container.contentEditable = 'true'
+    container.innerHTML = html
+    container.style.position = 'fixed'
+    container.style.top = '0'
+    container.style.left = '-99999px'
+    container.style.opacity = '0'
+    container.style.pointerEvents = 'none'
+    document.body.appendChild(container)
 
     try {
-      if (navigator.clipboard && window.ClipboardItem) {
-        const item = new ClipboardItem({
-          'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([plain], { type: 'text/plain' }),
-        })
-        await navigator.clipboard.write([item])
-      } else {
-        await navigator.clipboard.writeText(plain)
+      const range = document.createRange()
+      range.selectNodeContents(container)
+      const selection = window.getSelection()
+      if (selection) {
+        selection.removeAllRanges()
+        selection.addRange(range)
       }
+      const copied = document.execCommand('copy')
+      selection?.removeAllRanges()
+
+      if (!copied) {
+        // Fallback: raw HTML via ClipboardItem
+        const plain = container.innerText
+        if (navigator.clipboard && window.ClipboardItem) {
+          const item = new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plain], { type: 'text/plain' }),
+          })
+          await navigator.clipboard.write([item])
+        } else {
+          await navigator.clipboard.writeText(plain)
+        }
+      }
+
       setLoopDocCopied(true)
       setTimeout(() => setLoopDocCopied(false), 2000)
-    } catch {
-      // Fallback for older browsers
-      await navigator.clipboard.writeText(plain)
-      setLoopDocCopied(true)
-      setTimeout(() => setLoopDocCopied(false), 2000)
+    } finally {
+      document.body.removeChild(container)
     }
   }
 
