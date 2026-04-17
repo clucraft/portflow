@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-16
+
+### Added
+- **Detailed cost breakdown** on customer acceptance page — line items now show sub-item details (e.g. "20 units x $150.00") for desk phones, smartphones, headsets, carrier activation fee, and user service rate when calculator data is available; falls back to totals-only for legacy estimates
+- **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
+- **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
+- **Method descriptions** on cost calculator and customer estimate page — short explanations of what each estimation method calculates (Report: site survey based, Custom: manual quantities, 20%/50%: conservative estimate)
+- **Download Excel** button on customer estimate acceptance page — generates a multi-sheet XLSX workbook with Cost Estimate (project details, line-item breakdown with unit counts), Method Comparison (all 3 methods side by side), and 3-Year Comparison (current system vs Teams with savings)
+- **Comprehensive Export All** on Reports page — replaces the basic export with a full-detail CSV including site info, estimate line items, calculator details (method, device counts, unit costs, current system costs), all phase milestone dates, assignee, and notes
+- **Dashboard filters persist in URL** — search, sort, and filter selections (creator, assignee, carrier, country) are stored as URL query parameters. Filters survive back/forward navigation, page refresh, and can be bookmarked or shared as links
+- **Colored pill badges on dashboard cards** — assignee (cyan), carrier (red), user count (purple), and port/FOC dates (amber/green) now show as colored pill badges for at-a-glance scanning
+- **Expanded survey import** — maps new Excel columns: Street Address, City, State, Country, LA Code, and "Total Enterprise Voice User Count"; fuzzy header matching for long Excel column names; location details auto-populate migration fields on import
+- **On Hold status** for migration projects — "Hold" button on any active migration opens a dialog for an optional reason; "Resume" button returns to the previous workflow stage; on-hold banner shows reason and date on the migration detail page; dedicated "On Hold" section on the dashboard with count in stats; on-hold count added to Reports summary
+- **Backup & Restore** in Settings (admin only) — download a full JSON backup of all database tables (team members, settings, carriers, policies, migrations with all child data, scripts, audit log) and restore from a previous backup with confirmation dialog showing table row counts
+- Consolidated `docs/schema.sql` — fresh Docker deployments now include all previously-separate migration changes (password_hash, cost_calculator, currency, voice_routing_policy, dial_plan, region/location_code, phase_tasks, site_questionnaire, app_settings/carriers/voice_routing_policies/dial_plans/notification_subscriptions tables), working out of the box without manual migration commands
+
+### Changed
+- Settings > Pricing fields organized into categorized groups (Recurring Rates, Equipment Costs, Carrier Fees)
+- User Service Rate in Settings now displays with 2 decimal places
+- "Total End User Count" renamed to "Total Enterprise Voice Users" throughout the app
+- Customer estimate page now shows user count from cost calculator (not questionnaire) when available
+- Dashboard shows on-hold migrations in a dedicated section (previously hidden from the main view with no surfacing)
+
+### Fixed
+- Dial plan script generation no longer prompts for `-InMemory` parameter — `New-CsVoiceNormalizationRule` now uses `-Parent`/`-Name`/`-InMemory` with `Set-CsTenantDialPlan -NormalizationRules @{Add=$rule}` pattern, running cleanly without interactive prompts
+- Backup/restore: `activity_log` table now restores correctly (JSONB string values properly serialized; dedicated client connection ensures FK disable persists across queries)
+- Cumulative 3-year chart on customer estimate page no longer clips the end labels or "Year 3" x-axis text
+- Reports page no longer crashes with React error #310 (useState declaration order fixed)
+
+### Security
+- Upgraded `axios` from 1.13.4 to 1.14.0 to address DoS vulnerability (GHSA-43fc-jf86-j433)
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_on_hold.sql
+-- Adds on_hold_previous_stage, on_hold_reason, on_hold_at columns
+-- and recreates the migration_dashboard view to include them
+```
+
 ## [0.9.0] - 2026-03-30
 
 ### Added
@@ -16,27 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CHF currency** option for Swiss franc support — available in New Migration, project detail edit, and estimate acceptance page
 - New `cost_calculator` JSONB column on migrations storing all calculator inputs, per-method device quantities, current system costs, and selected method
 
-- **Detailed cost breakdown** on customer acceptance page — line items now show sub-item details (e.g. "20 units x $150.00") for desk phones, smartphones, headsets, carrier activation fee, and user service rate when calculator data is available; falls back to totals-only for legacy estimates
-- **Alternative estimates** on customer acceptance page — collapsible "View alternative estimates" section shows the two non-selected methods with device quantities and cost breakdowns
-- **Cost comparison charts** on customer acceptance page — grouped bar chart (annual cost breakdown) and cumulative SVG line chart (3-year spend with savings area) when current system costs are available
-
-- **Dashboard filters persist in URL** — search, sort, and filter selections (creator, assignee, carrier, country) are stored as URL query parameters. Filters survive back/forward navigation, page refresh, and can be bookmarked or shared as links
-- **Expanded survey import** — maps new Excel columns: Street Address, City, State, Country, LA Code, and "Total Enterprise Voice User Count"; fuzzy header matching for long Excel column names; location details auto-populate migration fields on import
-- **On Hold status** for migration projects — "Hold" button on any active migration opens a dialog for an optional reason; "Resume" button returns to the previous workflow stage; on-hold banner shows reason and date on the migration detail page; dedicated "On Hold" section on the dashboard with count in stats; on-hold count added to Reports summary
-- **Backup & Restore** in Settings (admin only) — download a full JSON backup of all database tables (team members, settings, carriers, policies, migrations with all child data, scripts, audit log) and restore from a previous backup with confirmation dialog showing table row counts
-- **Method descriptions** on cost calculator and customer estimate page — short explanations of what each estimation method calculates (Report: site survey based, Custom: manual quantities, 20%/50%: conservative estimate)
-- **Download Excel** button on customer estimate acceptance page — generates a multi-sheet XLSX workbook with Cost Estimate (project details, line-item breakdown with unit counts), Method Comparison (all 3 methods side by side), and 3-Year Comparison (current system vs Teams with savings)
-- **Comprehensive Export All** on Reports page — replaces the basic export with a full-detail CSV including site info, estimate line items, calculator details (method, device counts, unit costs, current system costs), all phase milestone dates, assignee, and notes
-
 ### Changed
 - Phase 1 estimate form replaced with full CostCalculator component (site inputs, unit costs, current system costs, method comparison table, notes)
-- Settings > Pricing expanded from 3 to 5 fields; "Phone Unit Cost" renamed to "Desk Phone Unit Cost" for clarity; fields organized into categorized groups (Recurring Rates, Equipment Costs, Carrier Fees)
+- Settings > Pricing expanded from 3 to 5 fields; "Phone Unit Cost" renamed to "Desk Phone Unit Cost" for clarity
 - Activation fee included in one-time total calculation (server-side)
-- "Total End User Count" renamed to "Total Enterprise Voice Users" throughout the app
-- Customer estimate page now shows user count from cost calculator (not questionnaire) when available
-
-### Fixed
-- Dial plan script generation no longer prompts for `-InMemory` parameter — `New-CsVoiceNormalizationRule` now uses `-Parent`/`-Name`/`-InMemory` with `Set-CsTenantDialPlan -NormalizationRules @{Add=$rule}` pattern, running cleanly without interactive prompts
 
 ### Database Migration Required
 ```sql
@@ -292,7 +314,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/clucraft/portflow/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/clucraft/portflow/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/clucraft/portflow/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/clucraft/portflow/compare/v0.6.0...v0.7.0
