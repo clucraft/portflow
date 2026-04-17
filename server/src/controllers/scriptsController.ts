@@ -737,7 +737,7 @@ export const generateDialPlan = async (req: Request, res: Response, next: NextFu
         name: `${dialPlanIdentity}-Emergency`,
         description: emergencyDesc,
         pattern: emergencyPattern,
-        translation: '+$1',
+        translation: '$1',
       },
     ];
 

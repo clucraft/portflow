@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Emergency numbers in generated dial plan scripts no longer prefix with `+` — 911, 112, etc. now translate to the plain dialed digits (previously produced "+911", "+112" which are invalid for short emergency codes)
+
 ## [0.10.0] - 2026-04-16
 
 ### Added
