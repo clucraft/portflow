@@ -1609,20 +1609,6 @@ FAX (Retarus)
                             )
                           })()}
 
-                          {/* Show waiting message if porting not complete */}
-                          {!isPortingComplete(migration.workflow_stage) && (
-                            <p className="text-amber-400 text-sm">
-                              Waiting for number porting to complete before finalizing migration
-                            </p>
-                          )}
-
-                          <button
-                            onClick={() => updateStageMutation.mutate('completed')}
-                            className="btn btn-primary"
-                            disabled={!isPortingComplete(migration.workflow_stage)}
-                          >
-                            Mark Migration Complete
-                          </button>
                         </div>
                       )}
 
@@ -1685,6 +1671,29 @@ FAX (Retarus)
                                 })}
                               </div>
                             </div>
+
+                            {/* Completed state message */}
+                            {migration.workflow_stage === 'completed' ? (
+                              <div className="text-green-400 flex items-center gap-2">
+                                <Check className="h-5 w-5" />
+                                Migration completed successfully!
+                              </div>
+                            ) : (
+                              <>
+                                {!isPortingComplete(migration.workflow_stage) && (
+                                  <p className="text-amber-400 text-sm">
+                                    Waiting for number porting to complete before finalizing migration
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => updateStageMutation.mutate('completed')}
+                                  className="btn btn-primary"
+                                  disabled={!isPortingComplete(migration.workflow_stage)}
+                                >
+                                  Mark Migration Complete
+                                </button>
+                              </>
+                            )}
                           </div>
                         )
                       })()}
