@@ -853,7 +853,15 @@ Write-Host ""
       script += `# Rule ${i + 1}: ${rule.description}
 try {
     Write-Host "Adding rule: ${rule.name}..." -NoNewline
-    $rule${i + 1} = New-CsVoiceNormalizationRule -Identity "${dialPlanIdentity}/${rule.name}" -Description "${rule.description}" -Pattern '${rule.pattern}' -Translation '${rule.translation}'
+    $rule${i + 1} = New-CsVoiceNormalizationRule \`
+        -Parent "${dialPlanIdentity}" \`
+        -Name "${rule.name}" \`
+        -Description "${rule.description}" \`
+        -Pattern '${rule.pattern}' \`
+        -Translation '${rule.translation}' \`
+        -InMemory
+
+    Set-CsTenantDialPlan -Identity "${dialPlanIdentity}" -NormalizationRules @{Add=$rule${i + 1}}
     Write-Host " SUCCESS" -ForegroundColor Green
 } catch {
     Write-Host " FAILED: $($_.Exception.Message)" -ForegroundColor Red
