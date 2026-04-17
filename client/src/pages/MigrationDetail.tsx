@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle, FileText
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import CostCalculator from '../components/CostCalculator'
@@ -20,6 +20,7 @@ const BASE_PHASES = [
   { id: 2, name: 'Carrier Setup', stages: ['estimate_accepted', 'verizon_submitted', 'verizon_in_progress'] as WorkflowStage[], icon: Building, color: 'red' },
   { id: 3, name: 'Number Porting', stages: ['verizon_complete', 'porting_submitted', 'porting_scheduled', 'porting_complete'] as WorkflowStage[], icon: Phone, color: 'amber' },
   { id: 4, name: 'Teams Config', stages: ['user_config', 'completed'] as WorkflowStage[], icon: UserCheck, color: 'purple' },
+  { id: 5, name: 'Documentation', stages: ['user_config', 'completed'] as WorkflowStage[], icon: FileText, color: 'blue' },
 ]
 
 // Stages where porting is complete (Phase 3 done)
@@ -93,27 +94,55 @@ function exportQuestionnaireCSV(qData: QuestionnaireData, siteName: string) {
   URL.revokeObjectURL(url)
 }
 
-// Default subtasks for Phase 4
+// Default subtasks per phase
 const DEFAULT_PHASE_TASKS: Record<string, PhaseTask[]> = {
   phase_4: [
     { key: 'dial_plan', label: 'Dial Plan Creation', done: false },
     { key: 'aa_cq_config', label: 'Auto Attendants & Call Queues', done: false },
     { key: 'holiday_sets', label: 'Holiday Sets', done: false },
-    { key: 'phone_deployment', label: 'Physical Phone Deployment', done: false },
+    { key: 'test_numbers_validated', label: 'Test numbers validated working', done: false },
+    { key: 'phone_deployment', label: 'Device configuration (phones, fax, ATA, etc.)', done: false },
   ],
+  phase_5: [
+    { key: 'phone_list_created', label: 'Phone List Created (SharePoint)', done: false },
+    { key: 'loop_documentation_created', label: 'Loop Documentation Created', done: false },
+  ],
+}
+
+// Phase 5 extra tasks (carrier-specific)
+const PHASE_5_VERIZON_TASK: PhaseTask = {
+  key: 'verizon_management_account',
+  label: 'Verizon — Location Account Added to Management Accounts',
+  done: false,
 }
 
 // Get tasks for a phase, falling back to defaults for migrations without phase_tasks.
 // Merges in any new default tasks that don't exist in the stored list yet.
-function getPhaseTasks(migration: { phase_tasks: Record<string, PhaseTask[]> | null }, phaseId: string): PhaseTask[] {
-  const defaults = DEFAULT_PHASE_TASKS[phaseId] || []
+function getPhaseTasks(
+  migration: { phase_tasks: Record<string, PhaseTask[]> | null; target_carrier?: string | null },
+  phaseId: string
+): PhaseTask[] {
+  let defaults = DEFAULT_PHASE_TASKS[phaseId] || []
+
+  // Add Verizon-specific task to phase_5 when the selected carrier is Verizon
+  if (phaseId === 'phase_5' && (migration.target_carrier || '').toLowerCase() === 'verizon') {
+    defaults = [...defaults, PHASE_5_VERIZON_TASK]
+  }
+
   if (!migration.phase_tasks || !migration.phase_tasks[phaseId]) {
     return defaults
   }
   const stored = migration.phase_tasks[phaseId]
   const existingKeys = new Set(stored.map(t => t.key))
   const missing = defaults.filter(d => !existingKeys.has(d.key))
-  return [...missing, ...stored]
+  // Also remove stored Verizon task if the carrier changed away from Verizon
+  const filtered = stored.filter(t => {
+    if (t.key === PHASE_5_VERIZON_TASK.key && phaseId === 'phase_5') {
+      return (migration.target_carrier || '').toLowerCase() === 'verizon'
+    }
+    return true
+  })
+  return [...missing, ...filtered]
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
@@ -141,6 +170,13 @@ function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 
     if (['estimate', 'estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(currentStage)) return 'pending'
     if (currentStage === 'completed') return 'done'
     return 'active' // Active alongside Phase 3
+  }
+
+  // Phase 5 (Documentation): active in PARALLEL with Phase 4, starts after Phase 2 completes
+  if (phaseId === 5) {
+    if (['estimate', 'estimate_accepted', 'verizon_submitted', 'verizon_in_progress'].includes(currentStage)) return 'pending'
+    if (currentStage === 'completed') return 'done'
+    return 'active'
   }
 
   return 'pending'
@@ -477,6 +513,68 @@ export default function MigrationDetail() {
       setCopiedEstimate(true)
       setTimeout(() => setCopiedEstimate(false), 2000)
     }
+  }
+
+  const generateLoopDoc = () => {
+    if (!migration) return
+    const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
+    const localContactEmail = String(qData.email || '')
+    const emergencyNumber = String(qData.public_emergency_numbers || qData.internal_emergency_number || '')
+    const carrierName = formatCarrierName(migration.target_carrier)
+
+    const doc = `1. Introduction
+Regular EV site following the EV blueprint located at ${migration.site_city || ''} ${migration.location_code || ''}
+
+2. Contacts
+Local Responsible: ${localContactEmail}
+
+3. Location Overview
+
+Visio Sheet:
+Number Range:
+Phone List:
+
+
+4. Enterprise Voice Configuration
+
+Provider: ${carrierName}
+
+
+SBC:
+
+
+Teams Config
+Voice Routing Policy: ${migration.voice_routing_policy || ''}
+Dial Plan: ${migration.dial_plan || ''}
+Emergency Dial Plan:
+Emergency Info: ${emergencyNumber}
+
+5. Special Configuration
+
+Auto Attendant / Call Queues
+
+
+Special Call Flow
+
+
+Hotline
+
+
+Main Number / Front Desk
+
+
+FAX (Retarus)
+`
+
+    const blob = new Blob([doc], { type: 'text/plain;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${migration.site_name || migration.name || 'site'}-loop-documentation.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const openPhaseEdit = (phaseId: number) => {
@@ -1183,6 +1281,13 @@ export default function MigrationDetail() {
                           </span>
                         )
                       })()}
+                      {phase.id === 5 && (() => {
+                        const tasks = getPhaseTasks(migration, 'phase_5')
+                        const doneCount = tasks.filter(t => t.done).length
+                        return (
+                          <span>{doneCount}/{tasks.length} tasks complete</span>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -1528,6 +1633,61 @@ export default function MigrationDetail() {
                           Migration completed successfully!
                         </div>
                       )}
+
+                      {/* Phase 5: Documentation — active content (parallel with Phase 4) */}
+                      {phase.id === 5 && (() => {
+                        const tasks = getPhaseTasks(migration, 'phase_5')
+                        const doneCount = tasks.filter(t => t.done).length
+                        return (
+                          <div className="space-y-4">
+                            <div className="border border-surface-600 rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-medium text-zinc-300">Documentation Tasks</span>
+                                <span className="text-xs text-zinc-500">{doneCount}/{tasks.length} complete</span>
+                              </div>
+                              <div className="space-y-2">
+                                {tasks.map((task) => {
+                                  const isLoopDoc = task.key === 'loop_documentation_created'
+                                  return (
+                                    <div key={task.key} className="flex items-center gap-2">
+                                      <button
+                                        className="flex items-center gap-3 flex-1 text-left px-2 py-1.5 rounded hover:bg-surface-700 transition-colors group"
+                                        disabled={updatePhaseTasksMutation.isPending}
+                                        onClick={() => {
+                                          const updatedTasks = tasks.map(t =>
+                                            t.key === task.key ? { ...t, done: !t.done } : t
+                                          )
+                                          const allPhaseTasks = { ...(migration.phase_tasks || {}), phase_5: updatedTasks }
+                                          updatePhaseTasksMutation.mutate(allPhaseTasks)
+                                        }}
+                                      >
+                                        {task.done ? (
+                                          <CheckSquare className="h-4 w-4 text-green-400 flex-shrink-0" />
+                                        ) : (
+                                          <Square className="h-4 w-4 text-zinc-500 group-hover:text-zinc-400 flex-shrink-0" />
+                                        )}
+                                        <span className={task.done ? 'text-zinc-500 line-through' : 'text-zinc-300'}>
+                                          {task.label}
+                                        </span>
+                                      </button>
+                                      {isLoopDoc && (
+                                        <button
+                                          onClick={() => generateLoopDoc()}
+                                          className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2"
+                                          title="Generate Loop documentation from template"
+                                        >
+                                          <FileText className="h-3.5 w-3.5" />
+                                          Generate
+                                        </button>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
 

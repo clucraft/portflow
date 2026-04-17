@@ -8,9 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 5: Documentation** — new parallel phase (runs alongside Phase 4) for administrative closeout tasks. Default checklist: Phone List Created (SharePoint), Loop Documentation Created. Verizon migrations also get "Location Account Added to Management Accounts" (conditional on carrier)
+- **Loop Documentation generator** — "Generate" button next to the Loop Documentation task creates a pre-filled text file using migration data (site city, location code, local contact email, carrier, voice routing policy, dial plan, emergency number) matching the standard template
+- **Phase 4 task**: "Test numbers validated working" (normally validated ~1 week after carrier location creation)
 - **Assignment email notifications** — "Notify assignee by email" checkbox appears next to the Assignee dropdown on New Migration and project detail edit forms when selecting someone other than yourself. Opts in per-assignment (always resets to unchecked). Sends a notification email via the configured email relay with project name, site, current stage, who assigned them, and a direct link. Silently skipped if the assignee is unchanged, if it's the current user, or if email relay isn't configured
 
 ### Changed
+- Phase 4 task "Physical Phone Deployment" renamed to "Device configuration (phones, fax, ATA, etc.)"
 - Dial plan script description format: `Dial plan for <migration name>` → `DP <city>, GIS <country>` using the migration's site location fields
 - Dial plan pre-flight confirmation now shows City, Country, and the resulting Description string; blocks generation if City or Country is missing (server also validates)
 
