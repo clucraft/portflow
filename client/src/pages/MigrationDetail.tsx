@@ -98,9 +98,9 @@ function exportQuestionnaireCSV(qData: QuestionnaireData, siteName: string) {
 const DEFAULT_PHASE_TASKS: Record<string, PhaseTask[]> = {
   phase_4: [
     { key: 'dial_plan', label: 'Dial Plan Creation', done: false },
-    { key: 'aa_cq_config', label: 'Auto Attendants & Call Queues', done: false },
-    { key: 'holiday_sets', label: 'Holiday Sets', done: false },
     { key: 'test_numbers_validated', label: 'Test numbers validated working', done: false },
+    { key: 'holiday_sets', label: 'Holiday Sets', done: false },
+    { key: 'aa_cq_config', label: 'Auto Attendants & Call Queues', done: false },
     { key: 'phone_deployment', label: 'Device configuration (phones, fax, ATA, etc.)', done: false },
   ],
   phase_5: [
@@ -133,16 +133,22 @@ function getPhaseTasks(
     return defaults
   }
   const stored = migration.phase_tasks[phaseId]
-  const existingKeys = new Set(stored.map(t => t.key))
-  const missing = defaults.filter(d => !existingKeys.has(d.key))
-  // Also remove stored Verizon task if the carrier changed away from Verizon
-  const filtered = stored.filter(t => {
+  const storedMap = new Map(stored.map(t => [t.key, t]))
+
+  // Canonical order: follow defaults, pulling in stored `done` state where present
+  const ordered = defaults.map(d => storedMap.get(d.key) || d)
+
+  // Append any stored tasks not in defaults (custom/legacy keys), except the
+  // Verizon task if the carrier is no longer Verizon
+  const defaultKeys = new Set(defaults.map(d => d.key))
+  const extras = stored.filter(t => {
+    if (defaultKeys.has(t.key)) return false
     if (t.key === PHASE_5_VERIZON_TASK.key && phaseId === 'phase_5') {
       return (migration.target_carrier || '').toLowerCase() === 'verizon'
     }
     return true
   })
-  return [...missing, ...filtered]
+  return [...ordered, ...extras]
 }
 
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {

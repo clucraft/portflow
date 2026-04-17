@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - "Mark Migration Complete" button moved from Phase 4 to Phase 5 (Documentation is the natural closeout phase). Gating unchanged — still requires number porting to be complete
 - Phase 4 task "Physical Phone Deployment" renamed to "Device configuration (phones, fax, ATA, etc.)"
+- Phase 4 task order: Dial Plan Creation → Test numbers validated working → Holiday Sets → Auto Attendants & Call Queues → Device configuration. Existing migrations now also display in this canonical order (previously kept the order they were first saved in)
 - Dial plan script description format: `Dial plan for <migration name>` → `DP <city>, GIS <country>` using the migration's site location fields
 - Dial plan pre-flight confirmation now shows City, Country, and the resulting Description string; blocks generation if City or Country is missing (server also validates)
 
