@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Total End User Count" renamed to "Total Enterprise Voice Users" throughout the app
 - Customer estimate page now shows user count from cost calculator (not questionnaire) when available
 
+### Fixed
+- Dial plan script generation no longer prompts for `-InMemory` parameter — `New-CsVoiceNormalizationRule` now uses `-Parent`/`-Name`/`-InMemory` with `Set-CsTenantDialPlan -NormalizationRules @{Add=$rule}` pattern, running cleanly without interactive prompts
+
 ### Database Migration Required
 ```sql
 -- Run docs/migration_add_cost_calculator.sql
