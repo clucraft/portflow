@@ -260,6 +260,10 @@ export default function MigrationDetail() {
   // Notify assignee on edit
   const [notifyAssignee, setNotifyAssignee] = useState(false)
 
+  // Loop documentation preview modal
+  const [showLoopDoc, setShowLoopDoc] = useState(false)
+  const [loopDocCopied, setLoopDocCopied] = useState(false)
+
   // Questionnaire state
   const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -515,66 +519,95 @@ export default function MigrationDetail() {
     }
   }
 
-  const generateLoopDoc = () => {
-    if (!migration) return
+  const getLoopDocData = () => {
+    if (!migration) return null
     const qData = (migration.site_questionnaire || {}) as Record<string, unknown>
-    const localContactEmail = String(qData.email || '')
-    const emergencyNumber = String(qData.public_emergency_numbers || qData.internal_emergency_number || '')
-    const carrierName = formatCarrierName(migration.target_carrier)
+    return {
+      city: migration.site_city || '',
+      locationCode: migration.location_code || '',
+      localContactEmail: String(qData.email || ''),
+      emergencyNumber: String(qData.public_emergency_numbers || qData.internal_emergency_number || ''),
+      carrierName: formatCarrierName(migration.target_carrier),
+      vrp: migration.voice_routing_policy || '',
+      dialPlan: migration.dial_plan || '',
+    }
+  }
 
-    const doc = `1. Introduction
-Regular EV site following the EV blueprint located at ${migration.site_city || ''} ${migration.location_code || ''}
+  const copyLoopDocToClipboard = async () => {
+    const d = getLoopDocData()
+    if (!d) return
 
-2. Contacts
-Local Responsible: ${localContactEmail}
+    // Build HTML with real H2 headings — Loop preserves these on paste
+    const html = `<h2>1. Introduction</h2>
+<p>Regular EV site following the EV blueprint located at ${d.city} ${d.locationCode}</p>
+<h2>2. Contacts</h2>
+<p>Local Responsible: ${d.localContactEmail}</p>
+<h2>3. Location Overview</h2>
+<p>Visio Sheet:<br>Number Range:<br>Phone List:</p>
+<h2>4. Enterprise Voice Configuration</h2>
+<p>Provider: ${d.carrierName}</p>
+<p>SBC:</p>
+<p><strong>Teams Config</strong><br>Voice Routing Policy: ${d.vrp}<br>Dial Plan: ${d.dialPlan}<br>Emergency Dial Plan:<br>Emergency Info: ${d.emergencyNumber}</p>
+<h2>5. Special Configuration</h2>
+<p>Auto Attendant / Call Queues</p>
+<p>Special Call Flow</p>
+<p>Hotline</p>
+<p>Main Number / Front Desk</p>
+<p>FAX (Retarus)</p>`
 
-3. Location Overview
+    // Plain-text fallback with markdown-style H2 prefix (##)
+    const plain = `## 1. Introduction
+Regular EV site following the EV blueprint located at ${d.city} ${d.locationCode}
 
+## 2. Contacts
+Local Responsible: ${d.localContactEmail}
+
+## 3. Location Overview
 Visio Sheet:
 Number Range:
 Phone List:
 
-
-4. Enterprise Voice Configuration
-
-Provider: ${carrierName}
-
+## 4. Enterprise Voice Configuration
+Provider: ${d.carrierName}
 
 SBC:
 
-
 Teams Config
-Voice Routing Policy: ${migration.voice_routing_policy || ''}
-Dial Plan: ${migration.dial_plan || ''}
+Voice Routing Policy: ${d.vrp}
+Dial Plan: ${d.dialPlan}
 Emergency Dial Plan:
-Emergency Info: ${emergencyNumber}
+Emergency Info: ${d.emergencyNumber}
 
-5. Special Configuration
-
+## 5. Special Configuration
 Auto Attendant / Call Queues
-
 
 Special Call Flow
 
-
 Hotline
 
-
 Main Number / Front Desk
-
 
 FAX (Retarus)
 `
 
-    const blob = new Blob([doc], { type: 'text/plain;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${migration.site_name || migration.name || 'site'}-loop-documentation.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+        })
+        await navigator.clipboard.write([item])
+      } else {
+        await navigator.clipboard.writeText(plain)
+      }
+      setLoopDocCopied(true)
+      setTimeout(() => setLoopDocCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers
+      await navigator.clipboard.writeText(plain)
+      setLoopDocCopied(true)
+      setTimeout(() => setLoopDocCopied(false), 2000)
+    }
   }
 
   const openPhaseEdit = (phaseId: number) => {
@@ -1658,9 +1691,9 @@ FAX (Retarus)
                                       </button>
                                       {isLoopDoc && (
                                         <button
-                                          onClick={() => generateLoopDoc()}
+                                          onClick={() => setShowLoopDoc(true)}
                                           className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2"
-                                          title="Generate Loop documentation from template"
+                                          title="Preview Loop documentation"
                                         >
                                           <FileText className="h-3.5 w-3.5" />
                                           Generate
@@ -2028,6 +2061,92 @@ FAX (Retarus)
           )
         })}
       </div>
+
+      {/* Loop Documentation Preview Modal */}
+      {showLoopDoc && migration && (() => {
+        const d = getLoopDocData()
+        if (!d) return null
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-surface-800 border border-surface-600 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-surface-600">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary-400" />
+                  <h3 className="text-lg font-semibold text-zinc-100">Loop Documentation</h3>
+                </div>
+                <button onClick={() => setShowLoopDoc(false)} className="text-zinc-400 hover:text-zinc-200">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Preview content */}
+              <div className="flex-1 overflow-auto px-6 py-4">
+                <div className="bg-surface-900/50 border border-surface-600 rounded-lg p-5 space-y-5">
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-100 mb-2">1. Introduction</h2>
+                    <p className="text-zinc-300">Regular EV site following the EV blueprint located at {d.city} {d.locationCode}</p>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-100 mb-2">2. Contacts</h2>
+                    <p className="text-zinc-300">Local Responsible: {d.localContactEmail || <span className="text-zinc-500 italic">(not set)</span>}</p>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-100 mb-2">3. Location Overview</h2>
+                    <p className="text-zinc-300">Visio Sheet:<br/>Number Range:<br/>Phone List:</p>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-100 mb-2">4. Enterprise Voice Configuration</h2>
+                    <p className="text-zinc-300">Provider: {d.carrierName}</p>
+                    <p className="text-zinc-300 mt-2">SBC:</p>
+                    <p className="text-zinc-300 mt-2">
+                      <strong className="text-zinc-200">Teams Config</strong><br/>
+                      Voice Routing Policy: {d.vrp || <span className="text-zinc-500 italic">(not set)</span>}<br/>
+                      Dial Plan: {d.dialPlan || <span className="text-zinc-500 italic">(not set)</span>}<br/>
+                      Emergency Dial Plan:<br/>
+                      Emergency Info: {d.emergencyNumber || <span className="text-zinc-500 italic">(not set)</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-100 mb-2">5. Special Configuration</h2>
+                    <p className="text-zinc-300">Auto Attendant / Call Queues</p>
+                    <p className="text-zinc-300 mt-2">Special Call Flow</p>
+                    <p className="text-zinc-300 mt-2">Hotline</p>
+                    <p className="text-zinc-300 mt-2">Main Number / Front Desk</p>
+                    <p className="text-zinc-300 mt-2">FAX (Retarus)</p>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-3">
+                  Tip: Paste directly into Loop — the numbered headings are preserved as H2 formatting.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-surface-600">
+                <button onClick={() => setShowLoopDoc(false)} className="btn btn-secondary">
+                  Close
+                </button>
+                <button
+                  onClick={copyLoopDocToClipboard}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  {loopDocCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy to Clipboard
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Script Pre-Flight Confirmation Dialog */}
       {scriptConfirm && migration && (() => {
