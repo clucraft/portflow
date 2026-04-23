@@ -52,6 +52,7 @@ const COLUMN_MAP: Record<string, string> = {
   'DECT in use?': 'cordless_dect_in_use',
   'DECT Details': 'dect_details',
   'DECT Count': 'dect_count',
+  'How many cordless phones (DECT) are there?': 'dect_count',
   'DECT Smartphone %': 'dect_smartphone_percentage',
   'Mobile Standard Device': 'mobile_standard_device',
   'Special Endpoints?': 'special_endpoints',
