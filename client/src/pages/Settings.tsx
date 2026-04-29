@@ -7,7 +7,7 @@ import {
   type TeamMember, type Carrier, formatCarrierType
 } from '../services/api'
 
-type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'email' | 'audit' | 'backup'
+type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'integrations' | 'audit' | 'backup'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
@@ -18,7 +18,7 @@ export default function Settings() {
     { id: 'carriers', label: 'Carriers', icon: Truck },
     { id: 'policies', label: 'Policies', icon: FileText },
     { id: 'pricing', label: 'Pricing', icon: DollarSign },
-    { id: 'email', label: 'Email', icon: Mail },
+    { id: 'integrations', label: 'Integrations', icon: Mail },
     { id: 'audit', label: 'Audit Log', icon: Shield, adminOnly: true },
     { id: 'backup', label: 'Backup', icon: Database, adminOnly: true },
   ]
@@ -59,7 +59,7 @@ export default function Settings() {
       {activeTab === 'carriers' && <CarriersTab />}
       {activeTab === 'policies' && <PoliciesTab />}
       {activeTab === 'pricing' && <PricingTab />}
-      {activeTab === 'email' && <EmailTab />}
+      {activeTab === 'integrations' && <IntegrationsTab />}
       {activeTab === 'audit' && isAdmin && <AuditLogTab />}
       {activeTab === 'backup' && isAdmin && <BackupTab />}
     </div>
@@ -947,7 +947,7 @@ function PricingTab() {
 }
 
 // ============ EMAIL TAB ============
-function EmailTab() {
+function IntegrationsTab() {
   const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
   const [config, setConfig] = useState({ host: '', port: 25, from_address: '', enabled: false })
@@ -955,9 +955,17 @@ function EmailTab() {
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
+  const [webhookConfig, setWebhookConfig] = useState({ url: '', enabled: false })
+  const [webhookLoaded, setWebhookLoaded] = useState(false)
+
   const { data: setting } = useQuery({
     queryKey: ['settings', 'email_relay'],
     queryFn: () => settingsApi.get('email_relay').catch(() => null),
+  })
+
+  const { data: webhookSetting } = useQuery({
+    queryKey: ['settings', 'sharepoint_webhook'],
+    queryFn: () => settingsApi.get('sharepoint_webhook').catch(() => null),
   })
 
   // Load initial values from setting
@@ -967,9 +975,20 @@ function EmailTab() {
     setLoaded(true)
   }
 
+  if (webhookSetting && !webhookLoaded) {
+    const val = webhookSetting.value as { url?: string; enabled?: boolean }
+    setWebhookConfig({ url: val.url || '', enabled: val.enabled || false })
+    setWebhookLoaded(true)
+  }
+
   const saveMutation = useMutation({
     mutationFn: () => settingsApi.update('email_relay', config),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'email_relay'] }),
+  })
+
+  const saveWebhookMutation = useMutation({
+    mutationFn: () => settingsApi.update('sharepoint_webhook', webhookConfig),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'sharepoint_webhook'] }),
   })
 
   const testMutation = useMutation({
@@ -1046,6 +1065,54 @@ function EmailTab() {
           )}
         </div>
       )}
+
+      {/* SharePoint Webhook */}
+      <div className="pt-4 border-t border-surface-700">
+        <h2 className="text-lg font-semibold text-zinc-100">SharePoint List Webhook</h2>
+        <p className="text-sm text-zinc-500">
+          Configure a Power Automate webhook URL to push completed migration data into a SharePoint list. Used by the
+          "Send to SharePoint" action in Phase 5 (Documentation).
+        </p>
+      </div>
+
+      <div className="card space-y-4">
+        <div>
+          <label className="label">Webhook URL</label>
+          <input
+            type="text"
+            className="input"
+            value={webhookConfig.url}
+            onChange={(e) => setWebhookConfig({ ...webhookConfig, url: e.target.value })}
+            placeholder="https://prod-XX.westus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?..."
+            disabled={!isAdmin}
+          />
+          <p className="text-xs text-zinc-500 mt-1">
+            Treat this URL like a password — anyone with it can POST to your flow.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            className="w-4 h-4 rounded bg-surface-800 border-surface-600 text-primary-500 focus:ring-primary-500"
+            checked={webhookConfig.enabled}
+            onChange={(e) => setWebhookConfig({ ...webhookConfig, enabled: e.target.checked })}
+            disabled={!isAdmin}
+          />
+          <span className="text-zinc-200">Enable SharePoint webhook</span>
+        </div>
+
+        {isAdmin && (
+          <div className="flex gap-2 pt-4 border-t border-surface-600">
+            <button
+              onClick={() => saveWebhookMutation.mutate()}
+              className="btn btn-primary"
+              disabled={saveWebhookMutation.isPending}
+            >
+              {saveWebhookMutation.isPending ? 'Saving...' : 'Save Webhook'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Send to SharePoint list** — new Phase 5 task "Added to Migrated Locations List" with a "Send" action that pushes migration data to a configured Power Automate webhook (creates the SharePoint list item server-side). Falls back to "Copy Details" (tab-separated values for paste) when no webhook is configured. Auto-checks the task on a successful send. Backed by a new SharePoint webhook URL field in Settings > Integrations
+- Settings: renamed **Email** tab to **Integrations**; SMTP settings and the new SharePoint webhook URL both live there
 - **Project History modal** — new "History" button in the project header opens a modal showing the audit log filtered to that project. Available to any authenticated user (not admin-only). Shows action label, details, actor name, and relative timestamp. Backed by a new `GET /api/migrations/:id/history` endpoint
 - **More actions are now logged to the audit trail** so they appear in the History view: estimate updates (with totals + method), estimate link generated, estimate accepted (admin override and customer link), general project updates (lists changed fields), carrier request submitted/complete, LOA submitted, FOC date set, porting complete, magic/questionnaire links generated, customer-submitted questionnaire and user collection, and script generation (Teams, AD, Dial Plan)
 - **Phase 5: Documentation** — new parallel phase (runs alongside Phase 4) for administrative closeout tasks. Default checklist: Phone List Created (SharePoint), Loop Documentation Created. Verizon migrations also get "Location Account Added to Management Accounts" (conditional on carrier)

@@ -5,6 +5,7 @@ import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, WorkflowStage, WORKFLOW_STAGES } from '../types/index.js';
 import { notifySubscribers, notifyAssignment } from '../utils/notifications.js';
 import { logActivity } from '../utils/audit.js';
+import { buildSharePointPayload } from '../utils/sharepoint.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -1020,3 +1021,71 @@ export const remove = async (req: Request, res: Response, next: NextFunction) =>
     next(err);
   }
 };
+
+
+// GET /api/migrations/:id/sharepoint-preview - Preview the SharePoint payload
+export const sharepointPreview = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const migrations = await query<Migration>("SELECT * FROM migrations WHERE id = $1", [id]);
+    if (migrations.length === 0) throw ApiError.notFound("Migration not found");
+
+    const settingRows = await query<{ value: { url?: string; enabled?: boolean } }>(
+      "SELECT value FROM app_settings WHERE key = $1",
+      ["sharepoint_webhook"]
+    );
+    const webhook = settingRows[0]?.value;
+    const webhookConfigured = !!(webhook?.url && webhook?.enabled);
+
+    res.json({
+      payload: buildSharePointPayload(migrations[0]),
+      webhook_configured: webhookConfigured,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/migrations/:id/sharepoint-send - Send the migration to the configured webhook
+export const sharepointSend = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const migrations = await query<Migration>("SELECT * FROM migrations WHERE id = $1", [id]);
+    if (migrations.length === 0) throw ApiError.notFound("Migration not found");
+
+    const settingRows = await query<{ value: { url?: string; enabled?: boolean } }>(
+      "SELECT value FROM app_settings WHERE key = $1",
+      ["sharepoint_webhook"]
+    );
+    const webhook = settingRows[0]?.value;
+    if (!webhook?.url || !webhook?.enabled) {
+      throw ApiError.badRequest("SharePoint webhook is not configured. Configure it in Settings > Integrations.");
+    }
+
+    const payload = buildSharePointPayload(migrations[0]);
+
+    const response = await fetch(webhook.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw ApiError.badRequest(`Webhook returned ${response.status}: ${text.slice(0, 200)}`);
+    }
+
+    logActivity(
+      req.user?.id || null,
+      "migration.sharepoint_sent",
+      `Sent to SharePoint list (${migrations[0].site_country || "Unknown country"})`,
+      id
+    ).catch(() => {});
+
+    res.json({ success: true, payload });
+  } catch (err) {
+    next(err);
+  }
+};
+

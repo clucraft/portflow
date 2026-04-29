@@ -106,6 +106,7 @@ const DEFAULT_PHASE_TASKS: Record<string, PhaseTask[]> = {
   phase_5: [
     { key: 'phone_list_created', label: 'Phone List Created (SharePoint)', done: false },
     { key: 'loop_documentation_created', label: 'Loop Documentation Created', done: false },
+    { key: 'migrated_locations_list', label: 'Added to Migrated Locations List', done: false },
   ],
 }
 
@@ -173,6 +174,7 @@ const HISTORY_ACTION_LABELS: Record<string, string> = {
   'migration.questionnaire_submitted': 'Questionnaire submitted by customer',
   'migration.users_submitted': 'Users submitted by customer',
   'migration.script_generated': 'Script generated',
+  'migration.sharepoint_sent': 'Sent to SharePoint list',
 }
 
 function formatHistoryAction(action: string): string {
@@ -325,6 +327,12 @@ export default function MigrationDetail() {
   // Project history modal
   const [showHistory, setShowHistory] = useState(false)
 
+  // SharePoint sync modal
+  const [showSharepoint, setShowSharepoint] = useState(false)
+  const [sharepointSending, setSharepointSending] = useState(false)
+  const [sharepointResult, setSharepointResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [sharepointCopied, setSharepointCopied] = useState(false)
+
   // Questionnaire state
   const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -396,6 +404,14 @@ export default function MigrationDetail() {
     queryKey: ['migration-history', id],
     queryFn: () => migrationsApi.getHistory(id!),
     enabled: !!id && showHistory,
+    staleTime: 0,
+  })
+
+  // SharePoint preview (only fetched when the modal is open)
+  const { data: sharepointData, isFetching: sharepointPreviewLoading } = useQuery({
+    queryKey: ['migration-sharepoint-preview', id],
+    queryFn: () => migrationsApi.sharepointPreview(id!),
+    enabled: !!id && showSharepoint,
     staleTime: 0,
   })
 
@@ -672,6 +688,46 @@ export default function MigrationDetail() {
       setTimeout(() => setLoopDocCopied(false), 2000)
     } finally {
       document.body.removeChild(container)
+    }
+  }
+
+  const handleSharepointSend = async () => {
+    if (!id) return
+    setSharepointSending(true)
+    setSharepointResult(null)
+    try {
+      await migrationsApi.sharepointSend(id)
+      setSharepointResult({ success: true, message: 'Sent successfully' })
+
+      // Auto-check the migrated_locations_list task
+      const tasks = getPhaseTasks(migration!, 'phase_5')
+      const updatedTasks = tasks.map(t =>
+        t.key === 'migrated_locations_list' ? { ...t, done: true } : t
+      )
+      const allPhaseTasks = { ...(migration!.phase_tasks || {}), phase_5: updatedTasks }
+      updatePhaseTasksMutation.mutate(allPhaseTasks)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err as Error)?.message
+        || 'Send failed'
+      setSharepointResult({ success: false, message: msg })
+    } finally {
+      setSharepointSending(false)
+    }
+  }
+
+  const handleSharepointCopy = async () => {
+    if (!sharepointData?.payload) return
+    // Tab-separated values for easy paste into SharePoint Quick Edit / Excel
+    const headers = Object.keys(sharepointData.payload)
+    const values = Object.values(sharepointData.payload)
+    const tsv = headers.join('\t') + '\n' + values.join('\t')
+    try {
+      await navigator.clipboard.writeText(tsv)
+      setSharepointCopied(true)
+      setTimeout(() => setSharepointCopied(false), 2000)
+    } catch {
+      // ignore
     }
   }
 
@@ -1760,6 +1816,7 @@ export default function MigrationDetail() {
                               <div className="space-y-2">
                                 {tasks.map((task) => {
                                   const isLoopDoc = task.key === 'loop_documentation_created'
+                                  const isMigratedList = task.key === 'migrated_locations_list'
                                   return (
                                     <div key={task.key} className="flex items-center gap-2">
                                       <button
@@ -1790,6 +1847,16 @@ export default function MigrationDetail() {
                                         >
                                           <FileText className="h-3.5 w-3.5" />
                                           Generate
+                                        </button>
+                                      )}
+                                      {isMigratedList && (
+                                        <button
+                                          onClick={() => { setSharepointResult(null); setShowSharepoint(true) }}
+                                          className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2"
+                                          title="Send to SharePoint or copy details"
+                                        >
+                                          <ExternalLink className="h-3.5 w-3.5" />
+                                          Send
                                         </button>
                                       )}
                                     </div>
@@ -2225,6 +2292,90 @@ export default function MigrationDetail() {
 
             <div className="flex items-center justify-end px-6 py-3 border-t border-surface-600">
               <button onClick={() => setShowHistory(false)} className="btn btn-secondary text-sm">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SharePoint Sync Modal */}
+      {showSharepoint && migration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-800 border border-surface-600 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-surface-600">
+              <div className="flex items-center gap-3">
+                <ExternalLink className="h-5 w-5 text-primary-400" />
+                <h3 className="text-lg font-semibold text-zinc-100">Send to SharePoint List</h3>
+              </div>
+              <button onClick={() => setShowSharepoint(false)} className="text-zinc-400 hover:text-zinc-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {sharepointPreviewLoading && !sharepointData && (
+                <div className="text-center py-8 text-zinc-500">Loading preview...</div>
+              )}
+              {sharepointData && (
+                <>
+                  <p className="text-sm text-zinc-400 mb-3">
+                    The following data will be sent to your Migrated Locations SharePoint list. Verify before sending.
+                  </p>
+                  <div className="bg-surface-900/50 border border-surface-600 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {Object.entries(sharepointData.payload).map(([key, val], idx) => (
+                          <tr key={key} className={idx % 2 === 0 ? 'bg-surface-800/30' : ''}>
+                            <td className="py-1.5 px-3 text-zinc-400 font-medium align-top w-1/3">{key}</td>
+                            <td className="py-1.5 px-3 text-zinc-200 font-mono text-xs break-all">
+                              {val || <span className="text-zinc-600 italic">(blank)</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {!sharepointData.webhook_configured && (
+                    <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-400">
+                      No SharePoint webhook is configured. Use "Copy Details" to paste manually, or configure a webhook
+                      URL in Settings &rarr; Integrations.
+                    </div>
+                  )}
+
+                  {sharepointResult && (
+                    <div className={`mt-3 p-3 rounded-lg border text-sm ${
+                      sharepointResult.success
+                        ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                        : 'bg-red-500/10 border-red-500/30 text-red-400'
+                    }`}>
+                      {sharepointResult.message}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-surface-600">
+              <button onClick={() => setShowSharepoint(false)} className="btn btn-secondary text-sm">
+                Close
+              </button>
+              <button
+                onClick={handleSharepointCopy}
+                disabled={!sharepointData}
+                className="btn btn-secondary text-sm flex items-center gap-2"
+                title="Copy as tab-separated values for paste into Excel/SharePoint"
+              >
+                {sharepointCopied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy Details</>}
+              </button>
+              {sharepointData?.webhook_configured && (
+                <button
+                  onClick={handleSharepointSend}
+                  disabled={sharepointSending || sharepointResult?.success}
+                  className="btn btn-primary text-sm flex items-center gap-2"
+                >
+                  {sharepointSending ? 'Sending...' : sharepointResult?.success ? 'Sent' : 'Send to SharePoint'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -389,6 +389,16 @@ export const migrationsApi = {
   update: (id: string, data: Partial<Migration> & { notify_assignee?: boolean }) =>
     api.put<Migration>(`/migrations/${id}`, data).then((r) => r.data),
 
+  // SharePoint integration
+  sharepointPreview: (id: string) => api.get<{
+    payload: Record<string, string>
+    webhook_configured: boolean
+  }>(`/migrations/${id}/sharepoint-preview`).then((r) => r.data),
+  sharepointSend: (id: string) => api.post<{
+    success: boolean
+    payload: Record<string, string>
+  }>(`/migrations/${id}/sharepoint-send`).then((r) => r.data),
+
   // Project audit history
   getHistory: (id: string) => api.get<{ entries: Array<{
     id: string

@@ -28,6 +28,12 @@ router.get('/:id', migrationsController.getById);
 // GET /api/migrations/:id/history - Audit log entries scoped to this migration
 router.get('/:id/history', migrationsController.getHistory);
 
+// GET /api/migrations/:id/sharepoint-preview - Preview the SharePoint payload
+router.get('/:id/sharepoint-preview', migrationsController.sharepointPreview);
+
+// POST /api/migrations/:id/sharepoint-send - Send to configured SharePoint webhook
+router.post('/:id/sharepoint-send', migrationsController.sharepointSend);
+
 // POST /api/migrations - Create new migration
 router.post('/', migrationsController.create);
 
