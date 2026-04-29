@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-29
+
 ### Added
 - **Send to SharePoint list** — new Phase 5 task "Added to Migrated Locations List" with a "Send" action that pushes migration data to a configured Power Automate webhook (creates the SharePoint list item server-side). Falls back to "Copy Details" (tab-separated values for paste) when no webhook is configured. Auto-checks the task on a successful send. Backed by a new SharePoint webhook URL field in Settings > Integrations
 - Settings: renamed **Email** tab to **Integrations**; SMTP settings and the new SharePoint webhook URL both live there
@@ -337,7 +339,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/clucraft/portflow/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/clucraft/portflow/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/clucraft/portflow/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/clucraft/portflow/compare/v0.7.0...v0.8.0
