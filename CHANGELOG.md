@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Assignment email notifications** — "Notify assignee by email" checkbox appears next to the Assignee dropdown on New Migration and project detail edit forms when selecting someone other than yourself. Opts in per-assignment (always resets to unchecked). Sends a notification email via the configured email relay with project name, site, current stage, who assigned them, and a direct link. Silently skipped if the assignee is unchanged, if it's the current user, or if email relay isn't configured
 
 ### Changed
+- Project detail header now uses colored pill badges (matching the dashboard cards) for carrier (red), routing type (cyan), country code (blue), and assignee (cyan with user icon). Site location moved out into a plain subline; created/updated metadata stays subdued
 - "Mark Migration Complete" button moved from Phase 4 to Phase 5 (Documentation is the natural closeout phase). Gating unchanged — still requires number porting to be complete
 - Phase 4 task "Physical Phone Deployment" renamed to "Device configuration (phones, fax, ATA, etc.)"
 - Phase 4 task order: Dial Plan Creation → Test numbers validated working → Holiday Sets → Auto Attendants & Call Queues → Device configuration. Existing migrations now also display in this canonical order (previously kept the order they were first saved in)

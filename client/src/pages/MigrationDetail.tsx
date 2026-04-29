@@ -764,13 +764,32 @@ export default function MigrationDetail() {
             )}
           </div>
           <p className="text-zinc-500 text-sm">
-            {migration.site_name} &bull; <span className="capitalize">{migration.target_carrier}</span> &bull; {formatRoutingType(migration.routing_type)}
-            {migration.country_code && <span> &bull; <span className="font-mono">{migration.country_code}</span></span>}
+            {migration.site_name}
+            {migration.site_city && `, ${migration.site_city}`}
+            {migration.site_state && `, ${migration.site_state}`}
           </p>
-          <p className="text-zinc-600 text-xs mt-0.5">
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-red-500/10 border-red-500/30 text-red-400">
+              {formatCarrierName(migration.target_carrier)}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-primary-500/10 border-primary-500/30 text-primary-400">
+              {formatRoutingType(migration.routing_type)}
+            </span>
+            {migration.country_code && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-blue-500/10 border-blue-500/30 text-blue-400 font-mono">
+                {migration.country_code}
+              </span>
+            )}
+            {migration.assigned_to_name && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-primary-500/10 border-primary-500/30 text-primary-400">
+                <UserCheck className="h-3 w-3" />
+                {migration.assigned_to_name}
+              </span>
+            )}
+          </div>
+          <p className="text-zinc-600 text-xs mt-1.5">
             Created {new Date(migration.created_at).toLocaleDateString()}
             {migration.created_by_name && <span> by {migration.created_by_name}</span>}
-            {migration.assigned_to_name && <span> &bull; Assigned to {migration.assigned_to_name}</span>}
             {' '}&bull; Updated {timeAgo(migration.updated_at)}
           </p>
         </div>
