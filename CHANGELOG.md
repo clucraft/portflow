@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dial plan pre-flight confirmation now shows City, Country, and the resulting Description string; blocks generation if City or Country is missing (server also validates)
 
 ### Fixed
+- Putting a migration on hold no longer auto-completes Phase 1 and 2 or marks Phase 3/4/5 as active. Phase statuses and the workflow progress bar now use the migration's `on_hold_previous_stage` so they reflect where the project was actually paused
 - Survey import now correctly maps the DECT count column — the Excel header "How many cordless phones (DECT) are there?" is now recognized and imported into `dect_count` (used by the cost calculator's DECT Phones field)
 - Emergency numbers in generated dial plan scripts no longer prefix with `+` — 911, 112, etc. now translate to the plain dialed digits (previously produced "+911", "+112" which are invalid for short emergency codes)
 

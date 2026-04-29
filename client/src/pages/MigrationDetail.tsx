@@ -151,6 +151,16 @@ function getPhaseTasks(
   return [...ordered, ...extras]
 }
 
+// When a migration is on hold, fall back to the stage it was paused at so
+// phase statuses and progress reflect where the project actually is, not
+// the 'on_hold' marker.
+function getEffectiveStage(migration: { workflow_stage: WorkflowStage; on_hold_previous_stage: string | null }): WorkflowStage {
+  if (migration.workflow_stage === 'on_hold' && migration.on_hold_previous_stage) {
+    return migration.on_hold_previous_stage as WorkflowStage
+  }
+  return migration.workflow_stage
+}
+
 function getPhaseStatus(phaseId: number, currentStage: WorkflowStage): 'done' | 'active' | 'pending' {
   // Phase 1: done once we move past estimate
   if (phaseId === 1) {
@@ -677,7 +687,8 @@ export default function MigrationDetail() {
   }
 
   const currencySymbol = migration.currency === 'EUR' ? '€' : migration.currency === 'CHF' ? 'CHF ' : '$'
-  const progress = getOverallProgress(migration.workflow_stage)
+  const effectiveStage = getEffectiveStage(migration)
+  const progress = getOverallProgress(effectiveStage)
 
   return (
     <div className="space-y-6">
@@ -1027,7 +1038,7 @@ export default function MigrationDetail() {
         </div>
         <div className="flex gap-2 mb-3">
           {BASE_PHASES.map((phase) => {
-            const status = getPhaseStatus(phase.id, migration.workflow_stage)
+            const status = getPhaseStatus(phase.id, effectiveStage)
             return (
               <div key={phase.id} className="flex items-center gap-1">
                 <span className={`
@@ -1231,7 +1242,7 @@ export default function MigrationDetail() {
       {/* Timeline List */}
       <div className="space-y-0">
         {getPhases(formatCarrierName(migration.target_carrier)).map((phase) => {
-          const status = getPhaseStatus(phase.id, migration.workflow_stage)
+          const status = getPhaseStatus(phase.id, effectiveStage)
           const PhaseIcon = phase.icon
           const isActive = status === 'active'
           const isDone = status === 'done'
