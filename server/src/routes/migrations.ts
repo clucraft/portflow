@@ -25,6 +25,9 @@ router.post('/import', migrationsController.importSurvey);
 // GET /api/migrations/:id - Get single migration
 router.get('/:id', migrationsController.getById);
 
+// GET /api/migrations/:id/history - Audit log entries scoped to this migration
+router.get('/:id/history', migrationsController.getHistory);
+
 // POST /api/migrations - Create new migration
 router.post('/', migrationsController.create);
 

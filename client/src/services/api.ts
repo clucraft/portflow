@@ -389,6 +389,18 @@ export const migrationsApi = {
   update: (id: string, data: Partial<Migration> & { notify_assignee?: boolean }) =>
     api.put<Migration>(`/migrations/${id}`, data).then((r) => r.data),
 
+  // Project audit history
+  getHistory: (id: string) => api.get<{ entries: Array<{
+    id: string
+    team_member_id: string | null
+    action: string
+    details: string | null
+    migration_id: string | null
+    created_at: string
+    actor_name: string | null
+    actor_email: string | null
+  }> }>(`/migrations/${id}/history`).then((r) => r.data),
+
   // Workflow transitions
   updateStage: (id: string, stage: WorkflowStage | 'resume', on_hold_reason?: string) =>
     api.patch<Migration>(`/migrations/${id}/stage`, { stage, on_hold_reason }).then((r) => r.data),

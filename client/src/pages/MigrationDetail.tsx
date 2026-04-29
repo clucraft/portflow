@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle, FileText
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle, FileText, History
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import CostCalculator from '../components/CostCalculator'
@@ -151,6 +151,48 @@ function getPhaseTasks(
   return [...ordered, ...extras]
 }
 
+// Friendly labels for audit log actions in the history modal
+const HISTORY_ACTION_LABELS: Record<string, string> = {
+  'migration.create': 'Project created',
+  'migration.update': 'Project updated',
+  'migration.delete': 'Project deleted',
+  'migration.import': 'Imported from survey',
+  'migration.stage_change': 'Workflow stage changed',
+  'migration.on_hold': 'Put on hold',
+  'migration.estimate_update': 'Estimate updated',
+  'migration.estimate_link_generated': 'Estimate link generated',
+  'migration.estimate_accepted': 'Estimate accepted',
+  'migration.estimate_accepted_public': 'Estimate accepted by customer',
+  'migration.verizon_request_submitted': 'Carrier request submitted',
+  'migration.verizon_setup_complete': 'Carrier setup complete',
+  'migration.loa_submitted': 'LOA submitted',
+  'migration.foc_set': 'FOC date set',
+  'migration.porting_complete': 'Porting complete',
+  'migration.magic_link_generated': 'User collection link generated',
+  'migration.questionnaire_link_generated': 'Questionnaire link generated',
+  'migration.questionnaire_submitted': 'Questionnaire submitted by customer',
+  'migration.users_submitted': 'Users submitted by customer',
+  'migration.script_generated': 'Script generated',
+}
+
+function formatHistoryAction(action: string): string {
+  return HISTORY_ACTION_LABELS[action] || action
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(dateStr).toLocaleDateString()
+}
+
 // When a migration is on hold, fall back to the stage it was paused at so
 // phase statuses and progress reflect where the project actually is, not
 // the 'on_hold' marker.
@@ -280,6 +322,9 @@ export default function MigrationDetail() {
   const [showLoopDoc, setShowLoopDoc] = useState(false)
   const [loopDocCopied, setLoopDocCopied] = useState(false)
 
+  // Project history modal
+  const [showHistory, setShowHistory] = useState(false)
+
   // Questionnaire state
   const [copiedQuestionnaire, setCopiedQuestionnaire] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -344,6 +389,14 @@ export default function MigrationDetail() {
     queryKey: ['migration', id],
     queryFn: () => migrationsApi.get(id!),
     enabled: !!id,
+  })
+
+  // History (only fetched when the modal is open)
+  const { data: historyData, isFetching: historyLoading, refetch: refetchHistory } = useQuery({
+    queryKey: ['migration-history', id],
+    queryFn: () => migrationsApi.getHistory(id!),
+    enabled: !!id && showHistory,
+    staleTime: 0,
   })
 
   // Mutations
@@ -739,6 +792,14 @@ export default function MigrationDetail() {
             <FileCode className="h-4 w-4" />
             Scripts
           </Link>
+          <button
+            onClick={() => setShowHistory(true)}
+            className="btn btn-secondary flex items-center gap-2"
+            title="Project history"
+          >
+            <History className="h-4 w-4" />
+            <span className="text-xs">History</span>
+          </button>
           {canWrite && migration.workflow_stage !== 'on_hold' && migration.workflow_stage !== 'completed' && migration.workflow_stage !== 'cancelled' && (
             <button
               onClick={() => { setOnHoldReason(''); setShowOnHoldDialog(true) }}
@@ -2074,6 +2135,81 @@ export default function MigrationDetail() {
           )
         })}
       </div>
+
+      {/* Project History Modal */}
+      {showHistory && migration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-800 border border-surface-600 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-surface-600">
+              <div className="flex items-center gap-3">
+                <History className="h-5 w-5 text-primary-400" />
+                <h3 className="text-lg font-semibold text-zinc-100">Project History</h3>
+                <span className="text-xs text-zinc-500">
+                  {historyData ? `${historyData.entries.length} ${historyData.entries.length === 1 ? 'entry' : 'entries'}` : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => refetchHistory()}
+                  disabled={historyLoading}
+                  className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors px-2 py-1"
+                  title="Refresh"
+                >
+                  {historyLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button onClick={() => setShowHistory(false)} className="text-zinc-400 hover:text-zinc-200">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {historyLoading && !historyData && (
+                <div className="text-center py-8 text-zinc-500">Loading history...</div>
+              )}
+              {historyData && historyData.entries.length === 0 && (
+                <div className="text-center py-8 text-zinc-500">No history entries yet</div>
+              )}
+              {historyData && historyData.entries.length > 0 && (
+                <div className="space-y-1">
+                  {historyData.entries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-start gap-3 p-3 bg-surface-700/30 border border-surface-600/50 rounded-lg hover:bg-surface-700/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-zinc-200">{formatHistoryAction(entry.action)}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">{entry.action}</span>
+                        </div>
+                        {entry.details && (
+                          <p className="text-sm text-zinc-400 mt-0.5 break-words">{entry.details}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500">
+                          <span>{entry.actor_name || 'System'}</span>
+                          {entry.actor_email && <span className="text-zinc-600">{entry.actor_email}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs text-zinc-400" title={new Date(entry.created_at).toLocaleString()}>
+                          {formatRelativeTime(entry.created_at)}
+                        </div>
+                        <div className="text-[10px] text-zinc-600 font-mono">
+                          {new Date(entry.created_at).toLocaleDateString()} {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end px-6 py-3 border-t border-surface-600">
+              <button onClick={() => setShowHistory(false)} className="btn btn-secondary text-sm">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loop Documentation Preview Modal */}
       {showLoopDoc && migration && (() => {

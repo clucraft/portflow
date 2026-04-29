@@ -5,6 +5,7 @@ import { ApiError } from '../middleware/errorHandler.js';
 import { Migration, EndUser } from '../types/index.js';
 import { validatePhoneNumber } from '../utils/phoneValidation.js';
 import { notifySubscribers } from '../utils/notifications.js';
+import { logActivity } from '../utils/audit.js';
 
 const router = Router();
 
@@ -99,6 +100,8 @@ router.post('/estimate/:token/accept', async (req: Request, res: Response, next:
       WHERE id = $2`,
       [accepted_by || 'Customer (via link)', migration.id]
     );
+
+    logActivity(null, 'migration.estimate_accepted_public', `Accepted by ${accepted_by || 'Customer (via link)'}`, migration.id).catch(() => {});
 
     res.json({ success: true, message: 'Estimate accepted successfully' });
   } catch (err) {
@@ -267,6 +270,7 @@ router.post('/collect/:token/users', async (req: Request, res: Response, next: N
         'User Data Submitted',
         `${results.success} user${results.success === 1 ? '' : 's'} submitted via customer collection link.`
       ).catch(() => {});
+      logActivity(null, 'migration.users_submitted', `${results.success} user${results.success === 1 ? '' : 's'} submitted via customer link`, migration.id).catch(() => {});
     }
 
     res.json(results);
@@ -340,6 +344,7 @@ router.post('/questionnaire/:token/submit', async (req: Request, res: Response, 
         `UPDATE migrations SET site_questionnaire = $1, questionnaire_submitted_at = NOW() WHERE id = $2`,
         [JSON.stringify(data), migration.id]
       );
+      logActivity(null, 'migration.questionnaire_submitted', 'Questionnaire submitted via customer link', migration.id).catch(() => {});
     } else {
       await query(
         `UPDATE migrations SET site_questionnaire = $1 WHERE id = $2`,

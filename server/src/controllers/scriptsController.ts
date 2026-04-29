@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
+import { logActivity } from '../utils/audit.js';
 import { EndUser, PhoneNumber, ResourceAccount, AutoAttendant, CallQueue, Migration } from '../types/index.js';
 
 interface GeneratedScript {
@@ -187,6 +188,8 @@ if ($errors.Count -gt 0) {
         script,
       ]
     );
+
+    logActivity(req.user?.id || null, 'migration.script_generated', `Teams User Assignment script (${usersWithNumbers.length} users)`, migration_id).catch(() => {});
 
     res.status(201).json(savedScripts[0]);
   } catch (err) {
@@ -675,6 +678,8 @@ if ($errors.Count -gt 0) {
       ]
     );
 
+    logActivity(req.user?.id || null, 'migration.script_generated', `AD Phone Numbers script (${usersWithNumbers.length} users)`, migration_id).catch(() => {});
+
     res.status(201).json(savedScripts[0]);
   } catch (err) {
     next(err);
@@ -903,6 +908,8 @@ Write-Host "  Grant-CsTenantDialPlan -Identity <user@domain.com> -PolicyName \\"
         script,
       ]
     );
+
+    logActivity(req.user?.id || null, 'migration.script_generated', `Dial Plan script (${dialPlanIdentity}, ${rules.length} rules)`, migration_id).catch(() => {});
 
     res.status(201).json(savedScripts[0]);
   } catch (err) {

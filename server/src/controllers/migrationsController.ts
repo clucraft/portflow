@@ -206,6 +206,12 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
       throw ApiError.notFound('Migration not found');
     }
 
+    const calcMethod = (cost_calculator && typeof cost_calculator === 'object')
+      ? (cost_calculator as Record<string, unknown>).selected_method : null;
+    const detail = `Monthly: ${total_monthly?.toFixed?.(2) || 0}, One-time: ${total_onetime?.toFixed?.(2) || 0}` +
+      (calcMethod ? ` (Method ${calcMethod})` : '');
+    logActivity(req.user?.id || null, 'migration.estimate_update', detail, id).catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -236,6 +242,8 @@ export const generateEstimateLink = async (req: Request, res: Response, next: Ne
       throw ApiError.notFound('Migration not found');
     }
 
+    logActivity(req.user?.id || null, 'migration.estimate_link_generated', `Estimate link generated (expires ${expiresAt.toLocaleDateString()})`, id).catch(() => {});
+
     res.json({
       ...migrations[0],
       estimate_link_url: `/estimate/${token}`,
@@ -264,6 +272,7 @@ export const acceptEstimate = async (req: Request, res: Response, next: NextFunc
     }
 
     notifySubscribers(id, migrations[0].name, 'Estimate Accepted', 'The cost estimate has been accepted.', req.user?.display_name).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.estimate_accepted', 'Estimate accepted (admin override)', id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -334,6 +343,7 @@ export const submitVerizonRequest = async (req: Request, res: Response, next: Ne
     }
 
     notifySubscribers(id, migrations[0].name, 'Carrier Request Submitted', `Request submitted to ${email_sent_to}`, req.user?.display_name).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.verizon_request_submitted', `Submitted to ${email_sent_to}`, id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -362,6 +372,7 @@ export const completeVerizonSetup = async (req: Request, res: Response, next: Ne
     }
 
     notifySubscribers(id, migrations[0].name, 'Carrier Setup Complete', 'Carrier site setup has been completed.', req.user?.display_name).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.verizon_setup_complete', verizon_site_id ? `Site ID: ${verizon_site_id}` : 'Carrier setup complete', id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -423,6 +434,8 @@ export const submitLoa = async (req: Request, res: Response, next: NextFunction)
       throw ApiError.notFound('Migration not found');
     }
 
+    logActivity(req.user?.id || null, 'migration.loa_submitted', loa_submitted_to ? `LOA submitted to ${loa_submitted_to}` : 'LOA submitted', id).catch(() => {});
+
     res.json(migrations[0]);
   } catch (err) {
     next(err);
@@ -448,6 +461,8 @@ export const setFocDate = async (req: Request, res: Response, next: NextFunction
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
+
+    logActivity(req.user?.id || null, 'migration.foc_set', `FOC: ${foc_date || 'unset'}, Port: ${scheduled_port_date || 'unset'}`, id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -480,6 +495,7 @@ export const completePorting = async (req: Request, res: Response, next: NextFun
     );
 
     notifySubscribers(id, migrations[0].name, 'Porting Complete', 'Number porting has been completed.', req.user?.display_name).catch(() => {});
+    logActivity(req.user?.id || null, 'migration.porting_complete', 'All numbers ported', id).catch(() => {});
 
     res.json(migrations[0]);
   } catch (err) {
@@ -510,6 +526,8 @@ export const generateMagicLink = async (req: Request, res: Response, next: NextF
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
+
+    logActivity(req.user?.id || null, 'migration.magic_link_generated', `User collection link generated (expires ${expiresAt.toLocaleDateString()})`, id).catch(() => {});
 
     res.json({
       ...migrations[0],
@@ -543,6 +561,8 @@ export const generateQuestionnaireLink = async (req: Request, res: Response, nex
     if (migrations.length === 0) {
       throw ApiError.notFound('Migration not found');
     }
+
+    logActivity(req.user?.id || null, 'migration.questionnaire_link_generated', `Questionnaire link generated (expires ${expiresAt.toLocaleDateString()})`, id).catch(() => {});
 
     res.json({
       ...migrations[0],
@@ -743,7 +763,47 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       ).catch(() => {});
     }
 
+    // Audit log: list which fields changed (limit detail length)
+    const changedFields = allowedFields.filter(f => body[f] !== undefined);
+    if (changedFields.length > 0) {
+      const detail = `Updated: ${changedFields.join(', ')}`.slice(0, 500);
+      logActivity(req.user?.id || null, 'migration.update', detail, id).catch(() => {});
+    }
+
     res.json(migrations[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/migrations/:id/history - Project-scoped audit log (any authed user)
+export const getHistory = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+
+    const entries = await query<{
+      id: string;
+      team_member_id: string | null;
+      action: string;
+      details: string | null;
+      migration_id: string | null;
+      created_at: Date;
+      actor_name: string | null;
+      actor_email: string | null;
+    }>(
+      `SELECT
+        al.id, al.team_member_id, al.action, al.details, al.migration_id, al.created_at,
+        tm.display_name as actor_name, tm.email as actor_email
+      FROM activity_log al
+      LEFT JOIN team_members tm ON tm.id = al.team_member_id
+      WHERE al.migration_id = $1
+      ORDER BY al.created_at DESC
+      LIMIT $2`,
+      [id, limit]
+    );
+
+    res.json({ entries });
   } catch (err) {
     next(err);
   }
