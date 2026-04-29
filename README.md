@@ -262,6 +262,101 @@ portflow/
 
 ---
 
+## Integrations
+
+### SharePoint Migrated Locations List (via Power Automate)
+
+PortFlow can push completed migration data into a SharePoint list using a Power Automate webhook. The "Send to SharePoint" button on each project (Phase 5 → Documentation) POSTs the migration data to a Power Automate flow, which creates the list item.
+
+#### Step 1 — Create the SharePoint list
+
+Create (or identify) a SharePoint list with these columns. Names must match exactly:
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `Title` | Single line of text | Country name |
+| `Location VOIP Name` | Single line of text | City |
+| `Customer Site Address` | Single line of text | Street address |
+| `Customer Legal Entity` | Single line of text | Same as address (per workflow) |
+| `Local Contact` | Single line of text | Requestor email |
+| `Correct Billing Address` | Single line of text | Requestor email |
+| `Billing Contact` | Single line of text | Requestor email |
+| `BAN` | Single line of text | Left blank by PortFlow |
+| `Location ID` | Single line of text | Left blank by PortFlow |
+| `Enterprise ID` | Single line of text | `124613326` for Verizon, blank otherwise |
+| `Design ID` | Single line of text | `120406` for Verizon, blank otherwise |
+| `Customer Status` | Single line of text or Choice | `Completed` |
+| `VEC` | Single line of text or Yes/No | `yes` |
+| `Location VOIP Name (Original)` | Single line of text | `<Country abbr> / <City>` |
+| `Voice Provider` | Single line of text | Carrier display name |
+
+#### Step 2 — Create the Power Automate flow
+
+1. Go to [make.powerautomate.com](https://make.powerautomate.com) → **Create** → **Instant cloud flow**
+2. Trigger: select **When an HTTP request is received**
+3. Click **Use sample payload to generate schema** and paste this:
+
+   ```json
+   {
+     "Title": "Germany",
+     "Location VOIP Name": "Schopfheim",
+     "Customer Site Address": "Hohe Flum Strasse 22",
+     "Customer Legal Entity": "Hohe Flum Strasse 22",
+     "Local Contact": "user@example.com",
+     "Correct Billing Address": "user@example.com",
+     "Billing Contact": "user@example.com",
+     "BAN": "",
+     "Location ID": "",
+     "Enterprise ID": "124613326",
+     "Design ID": "120406",
+     "Customer Status": "Completed",
+     "VEC": "yes",
+     "Location VOIP Name (Original)": "DE / Schopfheim",
+     "Voice Provider": "Verizon"
+   }
+   ```
+
+4. Click **+ New step** → search **"Create item"** under **SharePoint**
+5. Configure:
+   - **Site Address**: your SharePoint site URL
+   - **List Name**: the list created in Step 1
+6. For each column in the form, click in the field and pick the matching JSON property from the **Dynamic content** panel
+7. **Save** the flow
+8. Re-open the HTTP trigger step and copy the **HTTP POST URL** — it'll look like `https://prod-XX.westus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...`
+
+> **Treat this URL like a password.** Anyone with it can POST to your flow.
+
+#### Step 3 — Configure PortFlow
+
+1. Sign in as an admin → **Settings → Integrations**
+2. Paste the URL into **Webhook URL**
+3. Check **Enable SharePoint webhook**
+4. Click **Save Webhook**
+
+#### Step 4 — Send a project
+
+1. Open any migration project → scroll to **Phase 5: Documentation**
+2. Click **Send** next to "Added to Migrated Locations List"
+3. The preview modal shows exactly what will be POSTed — verify, then click **Send to SharePoint**
+4. The task auto-checks on success; the action is logged in the project's **History** as `migration.sharepoint_sent`
+
+#### Troubleshooting
+
+- **"Webhook returned 4xx"** — Open the flow's run history in Power Automate. Common issues: column names don't match, required SharePoint field left blank, or column type mismatch (e.g. trying to write text into a Choice field that doesn't have that option).
+- **No flow run appears** — The URL might be wrong. Test the URL with `curl -X POST -H "Content-Type: application/json" -d '{}' "<URL>"` — you should get a 202 response.
+- **"Copy Details" instead of "Send to SharePoint"** — the webhook isn't configured or isn't enabled in Settings → Integrations.
+
+### Email Notifications (SMTP Relay)
+
+PortFlow can send email notifications for assignments and stage transitions via any SMTP relay (no auth required — designed for internal anonymous relays).
+
+1. **Settings → Integrations → Email Relay Configuration**
+2. Enter SMTP host, port, and from-address
+3. Enable email notifications
+4. Use **Send Test** to verify
+
+---
+
 ## API Reference
 
 <details>
