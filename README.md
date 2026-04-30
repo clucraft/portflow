@@ -342,9 +342,11 @@ Create (or identify) a SharePoint list with these columns. Names must match exac
 
 #### Troubleshooting
 
+- **"Webhook returned 401: DirectApiAuthorizationRequired"** — The flow's HTTP trigger is requiring OAuth. Open the flow in Power Automate, edit the **"When an HTTP request is received"** trigger, find **"Who Can Trigger The Flow?"** (in the trigger settings or the **⋯ → Settings** menu), and set it to **"Anyone"**. Save the flow, copy the URL again (it may have changed), and paste it back into PortFlow.
 - **"Webhook returned 4xx"** — Open the flow's run history in Power Automate. Common issues: column names don't match, required SharePoint field left blank, or column type mismatch (e.g. trying to write text into a Choice field that doesn't have that option).
 - **No flow run appears** — The URL might be wrong. Test the URL with `curl -X POST -H "Content-Type: application/json" -d '{}' "<URL>"` — you should get a 202 response.
 - **"Copy Details" instead of "Send to SharePoint"** — the webhook isn't configured or isn't enabled in Settings → Integrations.
+- **Tenant blocks anonymous flow triggers** — Some Power Platform DLP policies disallow "Anyone" triggers entirely. In that case, ask your tenant admin to whitelist the flow, or use a Logic App with shared key auth as the receiver instead of Power Automate.
 
 ### Email Notifications (SMTP Relay)
 
