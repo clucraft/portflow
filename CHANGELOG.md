@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Locations master list** — new sidebar page tracking the global Teams EV rollout. Each entry has a unique site code, location name, region, country, company, planned/historical dates, complexity, priority, contacts, notes, and a status (Planned / In Progress / Completed / On Hold / Cancelled / Out of Scope). Optionally links to a PortFlow migration project (1:1) — when linked, status auto-derives from the project's workflow stage so the two can't drift
+- **Excel import for locations** — bulk-import the master list from .xlsx with auto-match against existing PortFlow projects (matches site code to project name). Preview dialog shows what will be created and which entries will auto-link, with per-row checkboxes to opt out of linking
+- **Create Project from a Location** — unlinked locations have a "Create Project" button that pre-fills New Migration with site code, city, country, and region, then automatically links the new project back to the location on save
+- **Linked location pill** in the migration detail header — green badge with the site code that opens the location page
+- **Locations Coverage** card on the Reports page — overall progress (Completed / In Progress / Planned / On Hold) with stacked progress bar, plus a per-region breakdown
+- New `locations` table (migration: `docs/migration_add_locations.sql`); included in the database backup
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_locations.sql
+-- Adds the locations table with indexes and trigger
+```
+
 ## [0.11.0] - 2026-04-29
 
 ### Added

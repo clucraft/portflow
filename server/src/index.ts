@@ -18,6 +18,7 @@ import callQueuesRouter from './routes/callQueues.js';
 import resourceAccountsRouter from './routes/resourceAccounts.js';
 import scriptsRouter from './routes/scripts.js';
 import teamRouter from './routes/team.js';
+import locationsRouter from './routes/locations.js';
 import publicRouter from './routes/public.js';
 import * as notificationsController from './controllers/notificationsController.js';
 
@@ -63,6 +64,7 @@ app.use('/api/call-queues', callQueuesRouter);
 app.use('/api/resource-accounts', resourceAccountsRouter);
 app.use('/api/scripts', scriptsRouter);
 app.use('/api/team', teamRouter);
+app.use('/api/locations', locationsRouter);
 app.get('/api/notifications/my-subscriptions', notificationsController.getMySubscriptions);
 
 // Error handling

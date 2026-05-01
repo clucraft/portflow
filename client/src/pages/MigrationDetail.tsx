@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Users, FileCode, Copy, Check, Download,
   DollarSign, Building, Phone, UserCheck, Link2, ExternalLink, Trash2, ChevronDown, Pencil, X,
-  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle, FileText, History
+  CheckSquare, Square, AlertCircle, CheckCircle, Bell, BellOff, ClipboardList, Loader2, PauseCircle, PlayCircle, FileText, History, MapPin
 } from 'lucide-react'
-import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
+import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, locationsApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import CostCalculator from '../components/CostCalculator'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
@@ -405,6 +405,13 @@ export default function MigrationDetail() {
     queryFn: () => migrationsApi.getHistory(id!),
     enabled: !!id && showHistory,
     staleTime: 0,
+  })
+
+  // Linked location (if any)
+  const { data: linkedLocation } = useQuery({
+    queryKey: ['migration-linked-location', id],
+    queryFn: () => locationsApi.getByMigration(id!),
+    enabled: !!id,
   })
 
   // SharePoint preview (only fetched when the modal is open)
@@ -841,6 +848,16 @@ export default function MigrationDetail() {
                 <UserCheck className="h-3 w-3" />
                 {migration.assigned_to_name}
               </span>
+            )}
+            {linkedLocation && (
+              <Link
+                to={`/locations/${linkedLocation.id}`}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors"
+                title="View linked location"
+              >
+                <MapPin className="h-3 w-3" />
+                {linkedLocation.site_code}
+              </Link>
             )}
           </div>
           <p className="text-zinc-600 text-xs mt-1.5">

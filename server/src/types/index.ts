@@ -293,3 +293,36 @@ export interface GeneratedScript {
 export interface MigrationDashboard extends Migration {
   stage_number: number;
 }
+
+export type LocationStatus = 'planned' | 'in_progress' | 'completed' | 'on_hold' | 'cancelled' | 'out_of_scope';
+
+export interface Location {
+  id: string;
+  site_code: string;
+  location_name: string;
+  region: string | null;
+  country: string | null;
+  company: string | null;
+  estimated_users: number;
+  priority: string | null;
+  complexity: string | null;
+  complexity_reasons: string | null;
+  assigned_engineer: string | null;
+  local_it_contact: string | null;
+  planned_start_date: Date | null;
+  planned_end_date: Date | null;
+  verizon_request_submitted_date: Date | null;
+  setup_complete_date: Date | null;
+  kickoff_with_it_date: Date | null;
+  kickoff_complete_date: Date | null;
+  port_scheduling_submitted_date: Date | null;
+  port_complete_date: Date | null;
+  hypercare_start_date: Date | null;
+  hypercare_end_date: Date | null;
+  notes: string | null;
+  status: LocationStatus;
+  migration_id: string | null;
+  created_by: string | null;
+  created_at: Date;
+  updated_at: Date;
+}

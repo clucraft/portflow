@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle } from 'lucide-react'
-import { migrationsApi, teamApi, formatRoutingType } from '../services/api'
+import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle, MapPin } from 'lucide-react'
+import { migrationsApi, teamApi, locationsApi, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
@@ -33,6 +33,11 @@ export default function Reports() {
   const { data: questionnaires } = useQuery({
     queryKey: ['migrations', 'questionnaires'],
     queryFn: migrationsApi.listQuestionnaires,
+  })
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: locationsApi.list,
   })
 
   const [exportingAll, setExportingAll] = useState(false)
@@ -470,6 +475,80 @@ export default function Reports() {
             </div>
           </div>
         </div>
+
+        {/* Locations Coverage */}
+        {locations.length > 0 && (() => {
+          const total = locations.length
+          const completed = locations.filter(l => l.status === 'completed').length
+          const inProgress = locations.filter(l => l.status === 'in_progress').length
+          const planned = locations.filter(l => l.status === 'planned').length
+          const onHold = locations.filter(l => l.status === 'on_hold').length
+          const completedPct = total > 0 ? (completed / total) * 100 : 0
+
+          // Region breakdown
+          const byRegion: Record<string, { total: number; completed: number }> = {}
+          locations.forEach(l => {
+            const r = l.region || 'Unspecified'
+            if (!byRegion[r]) byRegion[r] = { total: 0, completed: 0 }
+            byRegion[r].total++
+            if (l.status === 'completed') byRegion[r].completed++
+          })
+
+          return (
+            <div className="card lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary-400" />
+                  <h2 className="text-lg font-semibold text-zinc-100">Locations Coverage</h2>
+                </div>
+                <a href="/locations" className="text-xs text-primary-400 hover:text-primary-300">View all locations →</a>
+              </div>
+
+              {/* Overall progress */}
+              <div className="mb-5">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-zinc-300">{completed} of {total} sites completed</span>
+                  <span className="text-primary-400 font-mono">{completedPct.toFixed(0)}%</span>
+                </div>
+                <div className="h-3 bg-surface-700 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${completedPct}%` }} />
+                  <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${(inProgress / total) * 100}%` }} />
+                  <div className="h-full bg-zinc-500 transition-all duration-500" style={{ width: `${(planned / total) * 100}%` }} />
+                  <div className="h-full bg-zinc-600 transition-all duration-500" style={{ width: `${(onHold / total) * 100}%` }} />
+                </div>
+                <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" /><span className="text-zinc-400">Completed {completed}</span></span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-zinc-400">In Progress {inProgress}</span></span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-500" /><span className="text-zinc-400">Planned {planned}</span></span>
+                  {onHold > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-600" /><span className="text-zinc-400">On Hold {onHold}</span></span>}
+                </div>
+              </div>
+
+              {/* By region */}
+              {Object.keys(byRegion).length > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">By Region</h3>
+                  <div className="space-y-2">
+                    {Object.entries(byRegion).sort().map(([region, stats]) => {
+                      const pct = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+                      return (
+                        <div key={region}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-zinc-300 font-medium">{region}</span>
+                            <span className="text-zinc-500 font-mono">{stats.completed}/{stats.total} · {pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-1.5 bg-surface-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

@@ -437,6 +437,46 @@ CREATE TABLE generated_scripts (
 CREATE INDEX idx_generated_scripts_migration ON generated_scripts(migration_id);
 
 -- ============================================================================
+-- LOCATIONS (master list of all sites in the global rollout)
+-- ============================================================================
+
+CREATE TABLE locations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    site_code TEXT UNIQUE NOT NULL,
+    location_name TEXT NOT NULL,
+    region TEXT,
+    country TEXT,
+    company TEXT,
+    estimated_users INTEGER DEFAULT 0,
+    priority TEXT,
+    complexity TEXT,
+    complexity_reasons TEXT,
+    assigned_engineer TEXT,
+    local_it_contact TEXT,
+    planned_start_date DATE,
+    planned_end_date DATE,
+    verizon_request_submitted_date DATE,
+    setup_complete_date DATE,
+    kickoff_with_it_date DATE,
+    kickoff_complete_date DATE,
+    port_scheduling_submitted_date DATE,
+    port_complete_date DATE,
+    hypercare_start_date DATE,
+    hypercare_end_date DATE,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'planned',
+    migration_id UUID REFERENCES migrations(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES team_members(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_locations_site_code ON locations(site_code);
+CREATE INDEX idx_locations_status ON locations(status);
+CREATE INDEX idx_locations_region ON locations(region);
+CREATE INDEX idx_locations_migration ON locations(migration_id);
+
+-- ============================================================================
 -- ACTIVITY LOG
 -- ============================================================================
 
@@ -485,6 +525,7 @@ CREATE TRIGGER update_phone_numbers_updated_at BEFORE UPDATE ON phone_numbers FO
 CREATE TRIGGER update_resource_accounts_updated_at BEFORE UPDATE ON resource_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_auto_attendants_updated_at BEFORE UPDATE ON auto_attendants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_call_queues_updated_at BEFORE UPDATE ON call_queues FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON locations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to update migration summary counts
 CREATE OR REPLACE FUNCTION update_migration_counts()

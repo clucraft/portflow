@@ -1,28 +1,32 @@
-import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Navigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, teamApi, type Carrier } from '../services/api'
+import { migrationsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, teamApi, locationsApi, type Carrier, type Location } from '../services/api'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function NewMigration() {
   const navigate = useNavigate()
+  const routerLocation = useLocation()
   const { canWrite, user } = useAuth()
 
   if (!canWrite) {
     return <Navigate to="/" replace />
   }
   const [step, setStep] = useState(1)
+  // Pre-fill from a location if navigated here via "Create Project" on Locations page
+  const fromLocation = (routerLocation.state as { fromLocation?: Location } | null)?.fromLocation || null
+
   const [formData, setFormData] = useState({
     // Site info
-    name: '',
-    site_name: '',
+    name: fromLocation?.site_code || '',
+    site_name: fromLocation?.location_name || '',
     site_address: '',
-    site_city: '',
+    site_city: fromLocation?.location_name || '',
     site_state: '',
-    site_country: 'United States',
+    site_country: fromLocation?.country || 'United States',
 
     // Config
     target_carrier: 'verizon',
@@ -30,12 +34,19 @@ export default function NewMigration() {
     voice_routing_policy: '',
     dial_plan: '',
     country_code: '+1',
-    region: 'AMER',
-    location_code: '',
+    region: fromLocation?.region || 'AMER',
+    location_code: fromLocation?.site_code || '',
     currency: 'USD',
     assigned_to: user?.id || '',
   })
   const [notifyAssignee, setNotifyAssignee] = useState(false)
+  const [linkLocationId] = useState<string | null>(fromLocation?.id || null)
+
+  // After successful create, link the new project to the originating location
+  useEffect(() => {
+    if (!fromLocation) return
+    // Only run once on mount when arriving from a location
+  }, [fromLocation])
 
   const { data: carriers } = useQuery({ queryKey: ['carriers'], queryFn: carriersApi.list })
   const { data: vrps } = useQuery({ queryKey: ['voice-routing-policies'], queryFn: voiceRoutingPoliciesApi.list })
@@ -44,7 +55,11 @@ export default function NewMigration() {
 
   const createMutation = useMutation({
     mutationFn: migrationsApi.create,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // If we came from a location, link the new project back to it
+      if (linkLocationId) {
+        try { await locationsApi.link(linkLocationId, data.id) } catch { /* non-fatal */ }
+      }
       navigate(`/migrations/${data.id}`)
     },
   })
