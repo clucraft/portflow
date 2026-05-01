@@ -41,24 +41,47 @@ const COLUMN_MAP: Record<string, keyof Location> = {
   'Planned End': 'planned_end_date',
 }
 
-// Excel stores dates as serial numbers (days since 1900). Convert if needed.
+// Convert a cell value (Date object, serial number, or formatted string) to YYYY-MM-DD.
 function excelDateToISO(value: unknown): string | null {
   if (value == null || value === '') return null
-  if (typeof value === 'number') {
-    // Excel epoch: Jan 1 1900, but with the leap-year bug. Use SheetJS conversion.
-    const date = XLSX.SSF.parse_date_code(value)
-    if (!date) return null
-    const yyyy = String(date.y).padStart(4, '0')
-    const mm = String(date.m).padStart(2, '0')
-    const dd = String(date.d).padStart(2, '0')
+
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return null
+    // Use local date components to avoid timezone shift (e.g. midnight UTC -> previous day)
+    const yyyy = value.getFullYear()
+    const mm = String(value.getMonth() + 1).padStart(2, '0')
+    const dd = String(value.getDate()).padStart(2, '0')
     return `${yyyy}-${mm}-${dd}`
   }
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10)
+
+  if (typeof value === 'number') {
+    const date = XLSX.SSF.parse_date_code(value)
+    if (!date) return null
+    return `${String(date.y).padStart(4, '0')}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`
   }
-  // Try parsing string
-  const d = new Date(String(value))
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+
+  const s = String(value).trim()
+  if (!s) return null
+
+  // Already ISO?
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+
+  // Try common formats: M/D/YYYY, MM/DD/YYYY, D-M-YYYY, etc.
+  const slash = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
+  if (slash) {
+    let [, m, d, y] = slash
+    if (y.length === 2) y = (parseInt(y) > 50 ? '19' : '20') + y
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+
+  // Last-resort Date parse
+  const d = new Date(s)
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
   return null
 }
 
@@ -83,16 +106,30 @@ const DATE_FIELDS = new Set([
   'hypercare_start_date', 'hypercare_end_date',
 ])
 
+// Pre-normalize the COLUMN_MAP keys once for fast fuzzy matching.
+// Normalize: lowercase + collapse all whitespace (including \r\n) to single spaces.
+function norm(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+const NORMALIZED_MAP: Record<string, keyof Location> = Object.fromEntries(
+  Object.entries(COLUMN_MAP).map(([k, v]) => [norm(k), v])
+)
+
 function mapRow(raw: Record<string, unknown>): Partial<Location> {
   const out: Record<string, unknown> = {}
   for (const [excelCol, val] of Object.entries(raw)) {
     let field = COLUMN_MAP[excelCol]
     if (!field) {
-      const lower = excelCol.toLowerCase().replace(/\s+/g, ' ').trim()
-      for (const [k, v] of Object.entries(COLUMN_MAP)) {
-        if (lower.startsWith(k.toLowerCase())) {
-          field = v
-          break
+      const normalized = norm(excelCol)
+      // Exact normalized match first
+      field = NORMALIZED_MAP[normalized]
+      // Then fuzzy: check if normalized header starts with any normalized key
+      if (!field) {
+        for (const [k, v] of Object.entries(NORMALIZED_MAP)) {
+          if (normalized.startsWith(k)) {
+            field = v
+            break
+          }
         }
       }
     }
@@ -152,9 +189,9 @@ export default function ImportLocationsDialog({ open, onClose, onComplete }: Pro
 
     try {
       const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data, { type: 'array' })
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true })
       const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
+      const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, dateNF: 'yyyy-mm-dd' })
 
       if (jsonRows.length === 0) {
         setError('No data rows found in the spreadsheet.')
