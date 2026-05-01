@@ -135,3 +135,85 @@ body {
 .stage-user_config { @apply bg-purple-500; }
 .stage-completed { @apply bg-green-500; }
 .stage-on_hold { @apply bg-zinc-600; }
+
+/* Print styles for the Project Status Report */
+@media print {
+  /* Reset page chrome */
+  body {
+    background: white !important;
+    color: #000 !important;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  }
+  /* Hide everything by default, then show only the report */
+  body > div > div:first-child > div:nth-child(1),  /* sidebar */
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  /* Force the report card to look clean on paper */
+  #status-report {
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    color: #111 !important;
+  }
+  #status-report * {
+    color: #111 !important;
+    background: transparent !important;
+  }
+  #status-report h2 {
+    font-size: 18pt !important;
+    color: #000 !important;
+  }
+  #status-report .max-h-\[28rem\] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* Section header bars */
+  #status-report .bg-green-500\/15 {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+  }
+  #status-report .bg-amber-500\/15 {
+    background: #fef3c7 !important;
+    color: #78350f !important;
+  }
+  #status-report .bg-zinc-500\/15 {
+    background: #f4f4f5 !important;
+    color: #27272a !important;
+  }
+  #status-report .text-green-300,
+  #status-report .text-amber-300,
+  #status-report .text-zinc-300 {
+    color: #111 !important;
+  }
+  #status-report .border-green-500\/20,
+  #status-report .border-amber-500\/20,
+  #status-report .border-zinc-500\/30 {
+    border-color: #d1d5db !important;
+  }
+  #status-report .text-primary-400 {
+    color: #0369a1 !important;
+  }
+  #status-report .text-zinc-500,
+  #status-report .text-zinc-600 {
+    color: #6b7280 !important;
+  }
+  #status-report .text-amber-300 {
+    background: #fef3c7 !important;
+    color: #78350f !important;
+  }
+  /* Force three columns side-by-side on print, not stacked */
+  #status-report .lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  /* Hide everything else on the Reports page */
+  main > div > div:not(#status-report):not(.print-header) {
+    display: none !important;
+  }
+}
