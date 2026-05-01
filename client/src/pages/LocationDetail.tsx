@@ -35,7 +35,25 @@ export default function LocationDetail() {
   })
 
   useEffect(() => {
-    if (location) setForm(location)
+    if (location) {
+      // Date columns come back as ISO timestamps ("2027-05-17T00:00:00.000Z")
+      // but <input type="date"> needs bare YYYY-MM-DD. Truncate them here.
+      const dateFields: (keyof Location)[] = [
+        'planned_start_date', 'planned_end_date',
+        'verizon_request_submitted_date', 'setup_complete_date',
+        'kickoff_with_it_date', 'kickoff_complete_date',
+        'port_scheduling_submitted_date', 'port_complete_date',
+        'hypercare_start_date', 'hypercare_end_date',
+      ]
+      const normalized = { ...location } as Partial<Location>
+      for (const f of dateFields) {
+        const v = normalized[f]
+        if (typeof v === 'string' && v.length >= 10) {
+          (normalized[f] as string) = v.slice(0, 10)
+        }
+      }
+      setForm(normalized)
+    }
   }, [location])
 
   const updateMutation = useMutation({
