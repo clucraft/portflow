@@ -298,21 +298,21 @@ Create (or identify) a SharePoint list with these columns. Names must match exac
 
    ```json
    {
-     "Title": "Germany",
-     "Location VOIP Name": "Schopfheim",
-     "Customer Site Address": "Hohe Flum Strasse 22",
-     "Customer Legal Entity": "Hohe Flum Strasse 22",
-     "Local Contact": "user@example.com",
-     "Correct Billing Address": "user@example.com",
-     "Billing Contact": "user@example.com",
+     "Title": "Country Name",
+     "Location VOIP Name": "City Name",
+     "Customer Site Address": "123 Sample Street",
+     "Customer Legal Entity": "123 Sample Street",
+     "Local Contact": "contact@example.com",
+     "Correct Billing Address": "contact@example.com",
+     "Billing Contact": "contact@example.com",
      "BAN": "",
      "Location ID": "",
-     "Enterprise ID": "124613326",
-     "Design ID": "120406",
+     "Enterprise ID": "000000000",
+     "Design ID": "000000",
      "Customer Status": "Completed",
      "VEC": "yes",
-     "Location VOIP Name (Original)": "DE / Schopfheim",
-     "Voice Provider": "Verizon"
+     "Location VOIP Name (Original)": "XX / City Name",
+     "Voice Provider": "Carrier Name"
    }
    ```
 
