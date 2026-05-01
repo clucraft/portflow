@@ -417,6 +417,8 @@ export const locationsApi = {
   create: (data: Partial<Location>) => api.post<Location>('/locations', data).then((r) => r.data),
   update: (id: string, data: Partial<Location>) => api.put<Location>(`/locations/${id}`, data).then((r) => r.data),
   remove: (id: string) => api.delete(`/locations/${id}`),
+  bulkRemove: (ids: string[]) =>
+    api.post<{ deleted: number }>('/locations/bulk-delete', { ids }).then((r) => r.data),
   link: (id: string, migration_id: string) =>
     api.post<Location>(`/locations/${id}/link`, { migration_id }).then((r) => r.data),
   unlink: (id: string) => api.post<Location>(`/locations/${id}/unlink`).then((r) => r.data),

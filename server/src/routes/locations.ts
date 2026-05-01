@@ -8,6 +8,7 @@ router.get('/by-migration/:migration_id', locationsController.getByMigration);
 router.post('/', locationsController.create);
 router.post('/import/preview', locationsController.importPreview);
 router.post('/import', locationsController.importLocations);
+router.post('/bulk-delete', locationsController.bulkRemove);
 router.get('/:id', locationsController.getById);
 router.put('/:id', locationsController.update);
 router.delete('/:id', locationsController.remove);

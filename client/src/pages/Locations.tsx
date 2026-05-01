@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { MapPin, Plus, Upload, Search, Link2, ExternalLink } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X } from 'lucide-react'
 import { locationsApi, type Location, type LocationStatus } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportLocationsDialog from '../components/ImportLocationsDialog'
@@ -32,16 +32,28 @@ function formatDate(d: string | null): string {
 
 export default function Locations() {
   const { canWrite } = useAuth()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LocationStatus | ''>('')
   const [regionFilter, setRegionFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showNew, setShowNew] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const { data: locations = [], isLoading, refetch } = useQuery({
     queryKey: ['locations'],
     queryFn: locationsApi.list,
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => locationsApi.bulkRemove(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] })
+      setSelected(new Set())
+      setShowBulkConfirm(false)
+    },
   })
 
   const filterOptions = useMemo(() => {
@@ -70,6 +82,25 @@ export default function Locations() {
     planned: locations.filter(l => l.status === 'planned').length,
     on_hold: locations.filter(l => l.status === 'on_hold').length,
   }), [locations])
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selected.size === filtered.length && filtered.length > 0) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map(l => l.id)))
+    }
+  }
+
+  const selectedLocations = locations.filter(l => selected.has(l.id))
 
   if (isLoading) {
     return <div className="text-center py-12 text-zinc-500">Loading locations...</div>
@@ -107,6 +138,29 @@ export default function Locations() {
         <StatCard label="Planned" value={stats.planned} color="zinc" />
         <StatCard label="On Hold" value={stats.on_hold} color="zinc" />
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && canWrite && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-primary-300 font-medium">{selected.size} selected</span>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          </div>
+          <button
+            onClick={() => setShowBulkConfirm(true)}
+            className="btn btn-secondary text-sm flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Selected
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -153,6 +207,20 @@ export default function Locations() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-700/50 border-b border-surface-600">
+                {canWrite && (
+                  <th className="px-3 py-2 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selected.size > 0 && selected.size < filtered.length
+                      }}
+                      onChange={toggleAll}
+                      className="rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500"
+                      title="Select all visible"
+                    />
+                  </th>
+                )}
                 <th className="px-3 py-2 text-left text-zinc-400 font-medium">Code</th>
                 <th className="px-3 py-2 text-left text-zinc-400 font-medium">Location</th>
                 <th className="px-3 py-2 text-left text-zinc-400 font-medium">Region</th>
@@ -164,7 +232,13 @@ export default function Locations() {
             </thead>
             <tbody>
               {filtered.map((l) => (
-                <LocationRow key={l.id} location={l} />
+                <LocationRow
+                  key={l.id}
+                  location={l}
+                  selectable={canWrite}
+                  selected={selected.has(l.id)}
+                  onToggle={() => toggleOne(l.id)}
+                />
               ))}
             </tbody>
           </table>
@@ -173,6 +247,52 @@ export default function Locations() {
 
       {/* Hidden file input is handled inside ImportLocationsDialog */}
       <input ref={importInputRef} type="file" className="hidden" />
+
+      {/* Bulk Delete Confirmation */}
+      {showBulkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-800 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-surface-600 flex items-center gap-3">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              <h3 className="text-lg font-semibold text-zinc-100">Delete {selected.size} {selected.size === 1 ? 'Location' : 'Locations'}?</h3>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <p className="text-sm text-zinc-400">
+                The following {selected.size === 1 ? 'location' : 'locations'} will be permanently deleted.
+                Linked migration projects are <strong>not</strong> affected.
+              </p>
+              <div className="max-h-48 overflow-auto p-2 bg-surface-900/50 border border-surface-600 rounded text-xs font-mono space-y-0.5">
+                {selectedLocations.map(l => (
+                  <div key={l.id} className="text-zinc-300">
+                    <span className="text-primary-400">{l.site_code}</span>
+                    <span className="text-zinc-500 ml-2">{l.location_name}</span>
+                  </div>
+                ))}
+              </div>
+              {bulkDeleteMutation.isError && (
+                <p className="text-sm text-red-400">Delete failed. Please try again.</p>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-surface-600 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowBulkConfirm(false)}
+                disabled={bulkDeleteMutation.isPending}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => bulkDeleteMutation.mutate(Array.from(selected))}
+                disabled={bulkDeleteMutation.isPending}
+                className="btn btn-primary bg-red-600 hover:bg-red-500 border-red-500 flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selected.size}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showImport && (
         <ImportLocationsDialog
@@ -208,7 +328,12 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   )
 }
 
-function LocationRow({ location: l }: { location: Location }) {
+function LocationRow({ location: l, selectable, selected, onToggle }: {
+  location: Location
+  selectable: boolean
+  selected: boolean
+  onToggle: () => void
+}) {
   const planned = [l.planned_start_date, l.planned_end_date].filter(Boolean) as string[]
   const plannedDisplay = planned.length === 2
     ? `${formatDate(planned[0])} → ${formatDate(planned[1])}`
@@ -217,7 +342,17 @@ function LocationRow({ location: l }: { location: Location }) {
     : '—'
 
   return (
-    <tr className="border-b border-surface-700 hover:bg-surface-700/30 transition-colors">
+    <tr className={`border-b border-surface-700 hover:bg-surface-700/30 transition-colors ${selected ? 'bg-primary-500/5' : ''}`}>
+      {selectable && (
+        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500"
+          />
+        </td>
+      )}
       <td className="px-3 py-2">
         <Link to={`/locations/${l.id}`} className="font-mono font-semibold text-primary-400 hover:text-primary-300">
           {l.site_code}

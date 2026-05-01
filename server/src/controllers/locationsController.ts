@@ -193,6 +193,39 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// POST /api/locations/bulk-delete
+export const bulkRemove = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw ApiError.badRequest('ids array is required');
+    }
+
+    // Get site codes for logging
+    const existing = await query<{ id: string; site_code: string }>(
+      `SELECT id, site_code FROM locations WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+
+    const found = existing.length;
+    if (found === 0) {
+      res.json({ deleted: 0 });
+      return;
+    }
+
+    await query(`DELETE FROM locations WHERE id = ANY($1::uuid[])`, [ids]);
+
+    // Log per location for clean History trail
+    for (const loc of existing) {
+      logActivity(req.user?.id || null, 'location.delete', `Deleted location ${loc.site_code} (bulk)`).catch(() => {});
+    }
+
+    res.json({ deleted: found });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /api/locations/:id
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
