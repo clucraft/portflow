@@ -586,6 +586,9 @@ SELECT
     -- Phase tasks
     m.phase_tasks,
 
+    -- Cost calculator (needed for effectiveUserCount fallback)
+    m.cost_calculator,
+
     -- On hold info
     m.on_hold_previous_stage,
     m.on_hold_reason,

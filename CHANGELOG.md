@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-05-04
+
+### Fixed
+- `migration_dashboard` view now includes `cost_calculator` so the v0.12.1 user-count fallback actually works on the dashboard (the dashboard fetches via the view, which previously didn't expose this column). **DB migration required**: `docs/migration_dashboard_view_cost_calculator.sql`
+
+### Database Migration Required
+```sql
+-- Recreates migration_dashboard view to include cost_calculator
+-- See docs/migration_dashboard_view_cost_calculator.sql
+```
+
 ## [0.12.1] - 2026-05-04
 
 ### Fixed
@@ -365,7 +376,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/clucraft/portflow/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/clucraft/portflow/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/clucraft/portflow/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/clucraft/portflow/compare/v0.10.0...v0.11.0
