@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-04
+
+### Added
+- **Locations master list** — new sidebar page tracking the global Teams EV rollout. Each entry has a unique site code, location name, region, country, company, planned/historical dates, complexity, priority, contacts, notes, and a status (Planned / In Progress / Completed / On Hold / Cancelled / Out of Scope). Optionally links to a PortFlow migration project (1:1) — when linked, status auto-derives from the project's workflow stage so the two can't drift
+- **Excel import for locations** — bulk-import the master list from .xlsx with auto-match against existing PortFlow projects (matches site code to project name). Preview dialog shows what will be created and which entries will auto-link, with per-row checkboxes to opt out of linking. Robust header normalization handles multi-line headers and various date formats
+- **Bulk delete on Locations list** — checkbox column with select-all in the header; action bar appears when 1+ rows are selected with a confirmation dialog listing the codes about to be deleted. Linked migration projects are not affected
+- **Create Project from a Location** — unlinked locations have a "Create Project" button that pre-fills New Migration with site code, city, country, and region, then automatically links the new project back to the location on save
+- **Linked location pill** in the migration detail header — green badge with the site code that opens the location page
+- **Locations Coverage** card on the Reports page — overall progress (Completed / In Progress / Planned / On Hold) with stacked progress bar, plus a per-region breakdown
+- **Project Status Report** on the Reports page — executive snapshot with three side-by-side sections: Completed (with completion date, users, carrier), In Progress (with phase, key date, assignee), and On Hold (with reason highlighted in amber, prior stage, and date paused). Three actions: **Print Report** (PDF-friendly print stylesheet that hides the sidebar/nav), **Copy for Email** (rich HTML with inline styles — pastes cleanly into Outlook/Gmail), and **Copy as Text** (markdown-style fallback for any email client)
+- New `locations` table (migration: `docs/migration_add_locations.sql`); included in the database backup
+
+### Fixed
+- Location detail page now correctly displays imported dates — PostgreSQL returns DATE columns as ISO timestamps with time, but `<input type="date">` requires bare `YYYY-MM-DD`. Truncates dates when populating the form
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_locations.sql
+-- Adds the locations table with indexes and trigger
+```
+
 ## [0.11.0] - 2026-04-29
 
 ### Added
@@ -339,7 +360,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/clucraft/portflow/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/clucraft/portflow/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/clucraft/portflow/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/clucraft/portflow/compare/v0.8.0...v0.9.0

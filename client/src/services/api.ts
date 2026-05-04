@@ -281,6 +281,41 @@ export interface DialPlan {
   updated_at: string
 }
 
+export type LocationStatus = 'planned' | 'in_progress' | 'completed' | 'on_hold' | 'cancelled' | 'out_of_scope'
+
+export interface Location {
+  id: string
+  site_code: string
+  location_name: string
+  region: string | null
+  country: string | null
+  company: string | null
+  estimated_users: number
+  priority: string | null
+  complexity: string | null
+  complexity_reasons: string | null
+  assigned_engineer: string | null
+  local_it_contact: string | null
+  planned_start_date: string | null
+  planned_end_date: string | null
+  verizon_request_submitted_date: string | null
+  setup_complete_date: string | null
+  kickoff_with_it_date: string | null
+  kickoff_complete_date: string | null
+  port_scheduling_submitted_date: string | null
+  port_complete_date: string | null
+  hypercare_start_date: string | null
+  hypercare_end_date: string | null
+  notes: string | null
+  status: LocationStatus
+  migration_id: string | null
+  migration_name?: string | null
+  migration_workflow_stage?: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AppSetting {
   key: string
   value: unknown
@@ -372,6 +407,30 @@ export const notificationsApi = {
     api.delete(`/migrations/${migrationId}/subscribe`).then((r) => r.data),
   getMySubscriptions: () =>
     api.get<string[]>('/notifications/my-subscriptions').then((r) => r.data),
+}
+
+export const locationsApi = {
+  list: () => api.get<Location[]>('/locations').then((r) => r.data),
+  get: (id: string) => api.get<Location>(`/locations/${id}`).then((r) => r.data),
+  getByMigration: (migration_id: string) =>
+    api.get<Location | null>(`/locations/by-migration/${migration_id}`).then((r) => r.data),
+  create: (data: Partial<Location>) => api.post<Location>('/locations', data).then((r) => r.data),
+  update: (id: string, data: Partial<Location>) => api.put<Location>(`/locations/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/locations/${id}`),
+  bulkRemove: (ids: string[]) =>
+    api.post<{ deleted: number }>('/locations/bulk-delete', { ids }).then((r) => r.data),
+  link: (id: string, migration_id: string) =>
+    api.post<Location>(`/locations/${id}/link`, { migration_id }).then((r) => r.data),
+  unlink: (id: string) => api.post<Location>(`/locations/${id}/unlink`).then((r) => r.data),
+  importPreview: (rows: Partial<Location>[]) =>
+    api.post<{
+      to_create: Array<{ site_code: string; location_name: string; matched_migration: { id: string; name: string; workflow_stage: string } | null }>
+      already_exists: Array<{ site_code: string; location_name: string }>
+    }>('/locations/import/preview', { rows }).then((r) => r.data),
+  importLocations: (rows: Partial<Location>[], auto_link_overrides?: Record<string, boolean>) =>
+    api.post<{ created: number; linked: number; skipped: number; errors: { site_code: string; error: string }[] }>(
+      '/locations/import', { rows, auto_link_overrides }
+    ).then((r) => r.data),
 }
 
 export const auditApi = {

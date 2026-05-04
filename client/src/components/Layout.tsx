@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, FileCode, Phone, Zap, BarChart3, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, FileCode, Phone, Zap, BarChart3, Settings, LogOut, MapPin } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ParticleBackground from './ParticleBackground'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Locations', href: '/locations', icon: MapPin },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Scripts', href: '/scripts', icon: FileCode },
   { name: 'Settings', href: '/settings', icon: Settings },

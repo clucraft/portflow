@@ -16,6 +16,7 @@ const BACKUP_TABLES = [
   'voice_routing_policies',
   'dial_plans',
   'migrations',
+  'locations',
   'end_users',
   'phone_numbers',
   'resource_accounts',

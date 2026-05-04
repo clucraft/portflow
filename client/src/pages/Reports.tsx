@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle } from 'lucide-react'
-import { migrationsApi, teamApi, formatRoutingType } from '../services/api'
+import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle, MapPin, Printer, Copy, FileText, Check } from 'lucide-react'
+import { migrationsApi, teamApi, locationsApi, formatRoutingType } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
@@ -35,7 +35,13 @@ export default function Reports() {
     queryFn: migrationsApi.listQuestionnaires,
   })
 
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: locationsApi.list,
+  })
+
   const [exportingAll, setExportingAll] = useState(false)
+  const [statusReportCopied, setStatusReportCopied] = useState<'html' | 'text' | null>(null)
 
   if (isLoading) {
     return <div className="text-center py-12 text-zinc-500">Loading...</div>
@@ -70,6 +76,190 @@ export default function Reports() {
   // Total users across active migrations
   const totalActiveUsers = activeMigrations.reduce((sum, m) => sum + m.telephone_users, 0)
   const totalCompletedUsers = completedMigrations.reduce((sum, m) => sum + m.telephone_users, 0)
+
+  // === Project Status Report data ===
+  const onHoldMigrations = migrations?.filter(m => m.workflow_stage === 'on_hold') || []
+
+  // Sort: completed by completion date (newest first), in-progress by stage_number,
+  // on-hold by on_hold_at (newest first)
+  const completedSorted = [...completedMigrations].sort((a, b) => {
+    const ad = a.completed_at ? new Date(a.completed_at).getTime() : 0
+    const bd = b.completed_at ? new Date(b.completed_at).getTime() : 0
+    return bd - ad
+  })
+  const inProgressSorted = [...activeMigrations].sort((a, b) => (b.stage_number || 0) - (a.stage_number || 0))
+  const onHoldSorted = [...onHoldMigrations].sort((a, b) => {
+    const ad = a.on_hold_at ? new Date(a.on_hold_at).getTime() : 0
+    const bd = b.on_hold_at ? new Date(b.on_hold_at).getTime() : 0
+    return bd - ad
+  })
+
+  const reportDate = new Date().toLocaleDateString()
+  const totalProjects = completedMigrations.length + activeMigrations.length + onHoldMigrations.length
+  const completedPct = totalProjects > 0 ? Math.round((completedMigrations.length / totalProjects) * 100) : 0
+
+  const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString() : ''
+  const niceStage = (s: string | null | undefined) => (s || '').replace(/_/g, ' ')
+
+  // Build the rich-HTML version of the status report (used by Copy for Email).
+  // Uses inline styles only — Outlook/Gmail strip class names but keep these.
+  const buildStatusReportHTML = (): string => {
+    const baseFont = 'font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
+    const sectionStyle = `${baseFont}margin:0 0 24px 0;`
+    const h1Style = `${baseFont}font-size:18px;font-weight:600;margin:0 0 4px 0;color:#111;`
+    const subStyle = `${baseFont}font-size:12px;color:#666;margin:0 0 16px 0;`
+    const sectionHeadGreen = `${baseFont}background:#10b981;color:#fff;font-weight:600;padding:6px 10px;font-size:13px;`
+    const sectionHeadAmber = `${baseFont}background:#f59e0b;color:#fff;font-weight:600;padding:6px 10px;font-size:13px;`
+    const sectionHeadGrey = `${baseFont}background:#71717a;color:#fff;font-weight:600;padding:6px 10px;font-size:13px;`
+    const itemStyle = `${baseFont}padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;color:#222;`
+    const codeStyle = 'font-weight:600;color:#0369a1;font-family:Consolas,Menlo,monospace;'
+    const reasonStyle = 'background:#fef3c7;color:#78350f;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:4px;font-style:italic;'
+
+    const completedRows = completedSorted.map(m => `
+      <div style="${itemStyle}">
+        <span style="${codeStyle}">${m.name}</span>
+        <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
+        <div style="font-size:12px;color:#666;margin-top:2px">
+          ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' &middot; ' : ''}${m.telephone_users} users &middot; ${formatCarrierName(m.target_carrier)}
+        </div>
+      </div>`).join('')
+
+    const inProgressRows = inProgressSorted.map(m => {
+      const dateLine = m.scheduled_port_date ? `Port: ${fmtDate(m.scheduled_port_date)}`
+        : m.foc_date ? `FOC: ${fmtDate(m.foc_date)}`
+        : m.verizon_request_submitted_at ? `Submitted: ${fmtDate(m.verizon_request_submitted_at)}`
+        : ''
+      return `
+      <div style="${itemStyle}">
+        <span style="${codeStyle}">${m.name}</span>
+        <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
+        <div style="font-size:12px;color:#666;margin-top:2px">
+          ${getPhaseFromStage(m.workflow_stage)} (${niceStage(m.workflow_stage)}) &middot; ${m.telephone_users} users
+          ${dateLine ? ' &middot; ' + dateLine : ''}
+          ${m.assigned_to_name ? ' &middot; ' + m.assigned_to_name : ''}
+        </div>
+      </div>`
+    }).join('')
+
+    const onHoldRows = onHoldSorted.map(m => {
+      const reason = m.on_hold_reason
+      const since = m.on_hold_at
+      const prev = m.on_hold_previous_stage
+      return `
+      <div style="${itemStyle}">
+        <span style="${codeStyle}">${m.name}</span>
+        <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
+        <div style="font-size:12px;color:#666;margin-top:2px">
+          ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' &middot; Was in ' + niceStage(prev) : ''} &middot; ${m.telephone_users} users
+        </div>
+        ${reason ? `<div style="margin-top:4px"><span style="${reasonStyle}">Reason: ${reason}</span></div>` : ''}
+      </div>`
+    }).join('')
+
+    return `<div style="${baseFont}max-width:760px;color:#222;">
+      <h1 style="${h1Style}">Project Status Report</h1>
+      <p style="${subStyle}">${reportDate} &middot; ${totalProjects} total projects (${completedPct}% complete)</p>
+
+      <div style="${sectionStyle}border:1px solid #e5e5e5;">
+        <div style="${sectionHeadGreen}">Completed (${completedSorted.length})</div>
+        ${completedRows || `<div style="${itemStyle}color:#888;">No completed projects.</div>`}
+      </div>
+
+      <div style="${sectionStyle}border:1px solid #e5e5e5;">
+        <div style="${sectionHeadAmber}">In Progress (${inProgressSorted.length})</div>
+        ${inProgressRows || `<div style="${itemStyle}color:#888;">No projects in progress.</div>`}
+      </div>
+
+      <div style="${sectionStyle}border:1px solid #e5e5e5;">
+        <div style="${sectionHeadGrey}">On Hold (${onHoldSorted.length})</div>
+        ${onHoldRows || `<div style="${itemStyle}color:#888;">No projects on hold.</div>`}
+      </div>
+    </div>`
+  }
+
+  // Plain-text fallback
+  const buildStatusReportPlainText = (): string => {
+    const sep = '-'.repeat(60)
+    const lines: string[] = []
+    lines.push(`PROJECT STATUS REPORT — ${reportDate}`)
+    lines.push(`${totalProjects} total projects · ${completedPct}% complete`)
+    lines.push('')
+    lines.push(`COMPLETED (${completedSorted.length})`)
+    lines.push(sep)
+    if (completedSorted.length === 0) lines.push('  (none)')
+    completedSorted.forEach(m => {
+      lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
+      lines.push(`    ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' · ' : ''}${m.telephone_users} users · ${formatCarrierName(m.target_carrier)}`)
+    })
+    lines.push('')
+    lines.push(`IN PROGRESS (${inProgressSorted.length})`)
+    lines.push(sep)
+    if (inProgressSorted.length === 0) lines.push('  (none)')
+    inProgressSorted.forEach(m => {
+      const dateLine = m.scheduled_port_date ? `Port: ${fmtDate(m.scheduled_port_date)}`
+        : m.foc_date ? `FOC: ${fmtDate(m.foc_date)}`
+        : m.verizon_request_submitted_at ? `Submitted: ${fmtDate(m.verizon_request_submitted_at)}`
+        : ''
+      lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
+      const meta = [
+        `${getPhaseFromStage(m.workflow_stage)} (${niceStage(m.workflow_stage)})`,
+        `${m.telephone_users} users`,
+        dateLine,
+        m.assigned_to_name || '',
+      ].filter(Boolean).join(' · ')
+      lines.push(`    ${meta}`)
+    })
+    lines.push('')
+    lines.push(`ON HOLD (${onHoldSorted.length})`)
+    lines.push(sep)
+    if (onHoldSorted.length === 0) lines.push('  (none)')
+    onHoldSorted.forEach(m => {
+      const reason = m.on_hold_reason
+      const since = m.on_hold_at
+      const prev = m.on_hold_previous_stage
+      lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
+      lines.push(`    ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' · Was in ' + niceStage(prev) : ''} · ${m.telephone_users} users`)
+      if (reason) lines.push(`    Reason: ${reason}`)
+    })
+    return lines.join('\n')
+  }
+
+  const handleCopyForEmail = async () => {
+    const html = buildStatusReportHTML()
+    const container = document.createElement('div')
+    container.contentEditable = 'true'
+    container.innerHTML = html
+    container.style.position = 'fixed'
+    container.style.top = '0'
+    container.style.left = '-99999px'
+    container.style.opacity = '0'
+    document.body.appendChild(container)
+    try {
+      const range = document.createRange()
+      range.selectNodeContents(container)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+      document.execCommand('copy')
+      sel?.removeAllRanges()
+      setStatusReportCopied('html')
+      setTimeout(() => setStatusReportCopied(null), 2000)
+    } finally {
+      document.body.removeChild(container)
+    }
+  }
+
+  const handleCopyAsText = async () => {
+    try {
+      await navigator.clipboard.writeText(buildStatusReportPlainText())
+      setStatusReportCopied('text')
+      setTimeout(() => setStatusReportCopied(null), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const handlePrintReport = () => {
+    window.print()
+  }
 
   // Export functions
   const exportActiveMigrations = () => {
@@ -372,6 +562,129 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Project Status Report (executive snapshot) */}
+      <div className="card status-report" id="status-report">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4 no-print">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary-400" />
+            <h2 className="text-lg font-semibold text-zinc-100">Project Status Report</h2>
+            <span className="text-xs text-zinc-500">{reportDate}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleCopyForEmail} className="btn btn-secondary text-sm flex items-center gap-2">
+              {statusReportCopied === 'html' ? <><Check className="h-4 w-4 text-green-400" /> Copied</> : <><Copy className="h-4 w-4" /> Copy for Email</>}
+            </button>
+            <button onClick={handleCopyAsText} className="btn btn-secondary text-sm flex items-center gap-2">
+              {statusReportCopied === 'text' ? <><Check className="h-4 w-4 text-green-400" /> Copied</> : <><Copy className="h-4 w-4" /> Copy as Text</>}
+            </button>
+            <button onClick={handlePrintReport} className="btn btn-secondary text-sm flex items-center gap-2">
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+          </div>
+        </div>
+
+        <div className="text-xs text-zinc-500 mb-4 print-only" style={{ display: 'none' }}>
+          Generated {reportDate} · {totalProjects} total projects · {completedPct}% complete
+        </div>
+        <div className="text-sm text-zinc-400 mb-4 no-print">
+          {totalProjects} total projects · <span className="text-green-400">{completedMigrations.length} completed ({completedPct}%)</span> · <span className="text-amber-400">{activeMigrations.length} in progress</span> · <span className="text-zinc-300">{onHoldMigrations.length} on hold</span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Completed */}
+          <div className="border border-green-500/20 rounded-lg overflow-hidden">
+            <div className="bg-green-500/15 border-b border-green-500/20 px-3 py-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-green-300 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" /> Completed
+              </span>
+              <span className="text-xs text-green-400 font-mono">{completedSorted.length}</span>
+            </div>
+            <div className="divide-y divide-surface-700 max-h-[28rem] overflow-auto">
+              {completedSorted.length === 0 && <div className="px-3 py-3 text-xs text-zinc-500">No completed projects.</div>}
+              {completedSorted.map(m => (
+                <div key={m.id} className="px-3 py-2.5 text-sm">
+                  <div>
+                    <span className="font-mono font-semibold text-primary-400">{m.name}</span>
+                    <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    {m.completed_at && <>Completed {fmtDate(m.completed_at)} · </>}
+                    {m.telephone_users} users · {formatCarrierName(m.target_carrier)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* In Progress */}
+          <div className="border border-amber-500/20 rounded-lg overflow-hidden">
+            <div className="bg-amber-500/15 border-b border-amber-500/20 px-3 py-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-amber-300 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" /> In Progress
+              </span>
+              <span className="text-xs text-amber-400 font-mono">{inProgressSorted.length}</span>
+            </div>
+            <div className="divide-y divide-surface-700 max-h-[28rem] overflow-auto">
+              {inProgressSorted.length === 0 && <div className="px-3 py-3 text-xs text-zinc-500">No projects in progress.</div>}
+              {inProgressSorted.map(m => {
+                const dateLine = m.scheduled_port_date ? `Port: ${fmtDate(m.scheduled_port_date)}`
+                  : m.foc_date ? `FOC: ${fmtDate(m.foc_date)}`
+                  : m.verizon_request_submitted_at ? `Submitted: ${fmtDate(m.verizon_request_submitted_at)}`
+                  : ''
+                return (
+                  <div key={m.id} className="px-3 py-2.5 text-sm">
+                    <div>
+                      <span className="font-mono font-semibold text-primary-400">{m.name}</span>
+                      <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      {getPhaseFromStage(m.workflow_stage)} <span className="text-zinc-600">({niceStage(m.workflow_stage)})</span> · {m.telephone_users} users
+                      {dateLine && <> · {dateLine}</>}
+                      {m.assigned_to_name && <> · {m.assigned_to_name}</>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* On Hold */}
+          <div className="border border-zinc-500/30 rounded-lg overflow-hidden">
+            <div className="bg-zinc-500/15 border-b border-zinc-500/30 px-3 py-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+                <PauseCircle className="h-4 w-4" /> On Hold
+              </span>
+              <span className="text-xs text-zinc-400 font-mono">{onHoldSorted.length}</span>
+            </div>
+            <div className="divide-y divide-surface-700 max-h-[28rem] overflow-auto">
+              {onHoldSorted.length === 0 && <div className="px-3 py-3 text-xs text-zinc-500">No projects on hold.</div>}
+              {onHoldSorted.map(m => {
+                const reason = m.on_hold_reason
+                const since = m.on_hold_at
+                const prev = m.on_hold_previous_stage
+                return (
+                  <div key={m.id} className="px-3 py-2.5 text-sm">
+                    <div>
+                      <span className="font-mono font-semibold text-primary-400">{m.name}</span>
+                      <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      {since ? `On hold since ${fmtDate(since)}` : 'On hold'}{prev && ` · Was in ${niceStage(prev)}`} · {m.telephone_users} users
+                    </div>
+                    {reason && (
+                      <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 mt-1.5 italic">
+                        Reason: {reason}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* By Phase */}
         <div className="card">
@@ -470,6 +783,80 @@ export default function Reports() {
             </div>
           </div>
         </div>
+
+        {/* Locations Coverage */}
+        {locations.length > 0 && (() => {
+          const total = locations.length
+          const completed = locations.filter(l => l.status === 'completed').length
+          const inProgress = locations.filter(l => l.status === 'in_progress').length
+          const planned = locations.filter(l => l.status === 'planned').length
+          const onHold = locations.filter(l => l.status === 'on_hold').length
+          const completedPct = total > 0 ? (completed / total) * 100 : 0
+
+          // Region breakdown
+          const byRegion: Record<string, { total: number; completed: number }> = {}
+          locations.forEach(l => {
+            const r = l.region || 'Unspecified'
+            if (!byRegion[r]) byRegion[r] = { total: 0, completed: 0 }
+            byRegion[r].total++
+            if (l.status === 'completed') byRegion[r].completed++
+          })
+
+          return (
+            <div className="card lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary-400" />
+                  <h2 className="text-lg font-semibold text-zinc-100">Locations Coverage</h2>
+                </div>
+                <a href="/locations" className="text-xs text-primary-400 hover:text-primary-300">View all locations →</a>
+              </div>
+
+              {/* Overall progress */}
+              <div className="mb-5">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-zinc-300">{completed} of {total} sites completed</span>
+                  <span className="text-primary-400 font-mono">{completedPct.toFixed(0)}%</span>
+                </div>
+                <div className="h-3 bg-surface-700 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${completedPct}%` }} />
+                  <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${(inProgress / total) * 100}%` }} />
+                  <div className="h-full bg-zinc-500 transition-all duration-500" style={{ width: `${(planned / total) * 100}%` }} />
+                  <div className="h-full bg-zinc-600 transition-all duration-500" style={{ width: `${(onHold / total) * 100}%` }} />
+                </div>
+                <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" /><span className="text-zinc-400">Completed {completed}</span></span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-zinc-400">In Progress {inProgress}</span></span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-500" /><span className="text-zinc-400">Planned {planned}</span></span>
+                  {onHold > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-600" /><span className="text-zinc-400">On Hold {onHold}</span></span>}
+                </div>
+              </div>
+
+              {/* By region */}
+              {Object.keys(byRegion).length > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">By Region</h3>
+                  <div className="space-y-2">
+                    {Object.entries(byRegion).sort().map(([region, stats]) => {
+                      const pct = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+                      return (
+                        <div key={region}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-zinc-300 font-medium">{region}</span>
+                            <span className="text-zinc-500 font-mono">{stats.completed}/{stats.total} · {pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-1.5 bg-surface-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

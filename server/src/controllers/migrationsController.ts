@@ -6,6 +6,7 @@ import { Migration, WorkflowStage, WORKFLOW_STAGES } from '../types/index.js';
 import { notifySubscribers, notifyAssignment } from '../utils/notifications.js';
 import { logActivity } from '../utils/audit.js';
 import { buildSharePointPayload } from '../utils/sharepoint.js';
+import { deriveStatusFromMigrationStage } from './locationsController.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -691,6 +692,22 @@ export const updateStage = async (req: Request, res: Response, next: NextFunctio
     const stageLabel = isResuming ? `Resumed from on hold (back to ${targetStage})` : `Stage changed to ${targetStage}`;
     notifySubscribers(id, migrations[0].name, stageLabel, undefined, req.user?.display_name).catch(() => {});
     logActivity(req.user?.id || null, 'migration.stage_change', stageLabel, id).catch(() => {});
+
+    // Auto-sync linked location status when migration stage changes
+    try {
+      const linkedLoc = await query<{ id: string; status: string }>(
+        'SELECT id, status FROM locations WHERE migration_id = $1',
+        [id]
+      );
+      if (linkedLoc.length > 0) {
+        const newStatus = deriveStatusFromMigrationStage(targetStage, linkedLoc[0].status);
+        if (newStatus !== linkedLoc[0].status) {
+          await query('UPDATE locations SET status = $1 WHERE id = $2', [newStatus, linkedLoc[0].id]);
+        }
+      }
+    } catch {
+      // Don't fail the stage change if location sync errors
+    }
 
     res.json(migrations[0]);
   } catch (err) {

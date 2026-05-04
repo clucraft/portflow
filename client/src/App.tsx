@@ -8,6 +8,8 @@ import MigrationDetail from './pages/MigrationDetail'
 import Users from './pages/Users'
 import Scripts from './pages/Scripts'
 import Reports from './pages/Reports'
+import Locations from './pages/Locations'
+import LocationDetail from './pages/LocationDetail'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
@@ -40,6 +42,8 @@ function App() {
           <Route path="migrations/:id" element={<MigrationDetail />} />
           <Route path="migrations/:id/users" element={<Users />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="locations" element={<Locations />} />
+          <Route path="locations/:id" element={<LocationDetail />} />
           <Route path="scripts" element={<Scripts />} />
           <Route path="settings" element={<Settings />} />
         </Route>
