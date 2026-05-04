@@ -263,6 +263,25 @@ export function formatCarrierType(carrierType: string | undefined | null): strin
   }
 }
 
+/**
+ * Best-available user count for at-a-glance displays (dashboard cards,
+ * report rows, status snapshots). Falls back to the Cost Calculator's
+ * Total Users when the end_users list hasn't been populated yet.
+ *
+ *   1. total_users (auto-calculated from end_users table) — preferred when populated
+ *   2. cost_calculator.total_users (entered during the estimate) — fallback
+ *   3. telephone_users (legacy/manual field) — last resort
+ *
+ * Use migration.total_users directly (not this helper) anywhere the value
+ * specifically represents "rows in the user list" — e.g. "X of Y configured".
+ */
+export function effectiveUserCount(m: Pick<Migration, 'total_users' | 'cost_calculator' | 'telephone_users'>): number {
+  if (m.total_users && m.total_users > 0) return m.total_users
+  const calc = m.cost_calculator as { total_users?: number } | null
+  if (calc && typeof calc.total_users === 'number' && calc.total_users > 0) return calc.total_users
+  return m.telephone_users || 0
+}
+
 export interface VoiceRoutingPolicy {
   id: string
   name: string

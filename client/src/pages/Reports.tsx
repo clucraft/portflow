@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle, MapPin, Printer, Copy, FileText, Check } from 'lucide-react'
-import { migrationsApi, teamApi, locationsApi, formatRoutingType } from '../services/api'
+import { migrationsApi, teamApi, locationsApi, formatRoutingType, effectiveUserCount } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 
 // Format carrier name for display
@@ -74,8 +74,8 @@ export default function Reports() {
     .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
 
   // Total users across active migrations
-  const totalActiveUsers = activeMigrations.reduce((sum, m) => sum + m.telephone_users, 0)
-  const totalCompletedUsers = completedMigrations.reduce((sum, m) => sum + m.telephone_users, 0)
+  const totalActiveUsers = activeMigrations.reduce((sum, m) => sum + effectiveUserCount(m), 0)
+  const totalCompletedUsers = completedMigrations.reduce((sum, m) => sum + effectiveUserCount(m), 0)
 
   // === Project Status Report data ===
   const onHoldMigrations = migrations?.filter(m => m.workflow_stage === 'on_hold') || []
@@ -120,7 +120,7 @@ export default function Reports() {
         <span style="${codeStyle}">${m.name}</span>
         <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
         <div style="font-size:12px;color:#666;margin-top:2px">
-          ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' &middot; ' : ''}${m.telephone_users} users &middot; ${formatCarrierName(m.target_carrier)}
+          ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' &middot; ' : ''}${effectiveUserCount(m)} users &middot; ${formatCarrierName(m.target_carrier)}
         </div>
       </div>`).join('')
 
@@ -134,7 +134,7 @@ export default function Reports() {
         <span style="${codeStyle}">${m.name}</span>
         <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
         <div style="font-size:12px;color:#666;margin-top:2px">
-          ${getPhaseFromStage(m.workflow_stage)} (${niceStage(m.workflow_stage)}) &middot; ${m.telephone_users} users
+          ${getPhaseFromStage(m.workflow_stage)} (${niceStage(m.workflow_stage)}) &middot; ${effectiveUserCount(m)} users
           ${dateLine ? ' &middot; ' + dateLine : ''}
           ${m.assigned_to_name ? ' &middot; ' + m.assigned_to_name : ''}
         </div>
@@ -150,7 +150,7 @@ export default function Reports() {
         <span style="${codeStyle}">${m.name}</span>
         <span style="color:#666"> — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}</span>
         <div style="font-size:12px;color:#666;margin-top:2px">
-          ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' &middot; Was in ' + niceStage(prev) : ''} &middot; ${m.telephone_users} users
+          ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' &middot; Was in ' + niceStage(prev) : ''} &middot; ${effectiveUserCount(m)} users
         </div>
         ${reason ? `<div style="margin-top:4px"><span style="${reasonStyle}">Reason: ${reason}</span></div>` : ''}
       </div>`
@@ -189,7 +189,7 @@ export default function Reports() {
     if (completedSorted.length === 0) lines.push('  (none)')
     completedSorted.forEach(m => {
       lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
-      lines.push(`    ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' · ' : ''}${m.telephone_users} users · ${formatCarrierName(m.target_carrier)}`)
+      lines.push(`    ${m.completed_at ? 'Completed ' + fmtDate(m.completed_at) + ' · ' : ''}${effectiveUserCount(m)} users · ${formatCarrierName(m.target_carrier)}`)
     })
     lines.push('')
     lines.push(`IN PROGRESS (${inProgressSorted.length})`)
@@ -203,7 +203,7 @@ export default function Reports() {
       lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
       const meta = [
         `${getPhaseFromStage(m.workflow_stage)} (${niceStage(m.workflow_stage)})`,
-        `${m.telephone_users} users`,
+        `${effectiveUserCount(m)} users`,
         dateLine,
         m.assigned_to_name || '',
       ].filter(Boolean).join(' · ')
@@ -218,7 +218,7 @@ export default function Reports() {
       const since = m.on_hold_at
       const prev = m.on_hold_previous_stage
       lines.push(`• ${m.name} — ${m.site_name}${m.site_city ? ', ' + m.site_city : ''}${m.site_country ? ', ' + m.site_country : ''}`)
-      lines.push(`    ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' · Was in ' + niceStage(prev) : ''} · ${m.telephone_users} users`)
+      lines.push(`    ${since ? 'On hold since ' + fmtDate(since) : 'On hold'}${prev ? ' · Was in ' + niceStage(prev) : ''} · ${effectiveUserCount(m)} users`)
       if (reason) lines.push(`    Reason: ${reason}`)
     })
     return lines.join('\n')
@@ -271,7 +271,7 @@ export default function Reports() {
       formatRoutingType(m.routing_type),
       getPhaseFromStage(m.workflow_stage),
       m.workflow_stage.replace('_', ' '),
-      m.telephone_users,
+      effectiveUserCount(m),
       m.verizon_request_submitted_at ? new Date(m.verizon_request_submitted_at).toLocaleDateString() : '',
       m.foc_date ? new Date(m.foc_date).toLocaleDateString() : '',
       m.scheduled_port_date ? new Date(m.scheduled_port_date).toLocaleDateString() : '',
@@ -287,7 +287,7 @@ export default function Reports() {
       m.site_name,
       formatCarrierName(m.target_carrier),
       formatRoutingType(m.routing_type),
-      m.telephone_users,
+      effectiveUserCount(m),
       new Date(m.created_at).toLocaleDateString(),
       m.completed_at ? new Date(m.completed_at).toLocaleDateString() : '',
     ])
@@ -610,7 +610,7 @@ export default function Reports() {
                   </div>
                   <div className="text-xs text-zinc-500 mt-0.5">
                     {m.completed_at && <>Completed {fmtDate(m.completed_at)} · </>}
-                    {m.telephone_users} users · {formatCarrierName(m.target_carrier)}
+                    {effectiveUserCount(m)} users · {formatCarrierName(m.target_carrier)}
                   </div>
                 </div>
               ))}
@@ -639,7 +639,7 @@ export default function Reports() {
                       <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
                     </div>
                     <div className="text-xs text-zinc-500 mt-0.5">
-                      {getPhaseFromStage(m.workflow_stage)} <span className="text-zinc-600">({niceStage(m.workflow_stage)})</span> · {m.telephone_users} users
+                      {getPhaseFromStage(m.workflow_stage)} <span className="text-zinc-600">({niceStage(m.workflow_stage)})</span> · {effectiveUserCount(m)} users
                       {dateLine && <> · {dateLine}</>}
                       {m.assigned_to_name && <> · {m.assigned_to_name}</>}
                     </div>
@@ -670,7 +670,7 @@ export default function Reports() {
                       <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
                     </div>
                     <div className="text-xs text-zinc-500 mt-0.5">
-                      {since ? `On hold since ${fmtDate(since)}` : 'On hold'}{prev && ` · Was in ${niceStage(prev)}`} · {m.telephone_users} users
+                      {since ? `On hold since ${fmtDate(since)}` : 'On hold'}{prev && ` · Was in ${niceStage(prev)}`} · {effectiveUserCount(m)} users
                     </div>
                     {reason && (
                       <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 mt-1.5 italic">
@@ -720,7 +720,7 @@ export default function Reports() {
                     <p className="text-amber-400 font-mono text-sm">
                       {new Date(m.scheduled_port_date!).toLocaleDateString()}
                     </p>
-                    <p className="text-zinc-500 text-xs">{m.telephone_users} users</p>
+                    <p className="text-zinc-500 text-xs">{effectiveUserCount(m)} users</p>
                   </div>
                 </div>
               ))}
@@ -751,7 +751,7 @@ export default function Reports() {
                     <p className="text-green-400 font-mono text-sm">
                       {m.completed_at && new Date(m.completed_at).toLocaleDateString()}
                     </p>
-                    <p className="text-zinc-500 text-xs">{m.telephone_users} users</p>
+                    <p className="text-zinc-500 text-xs">{effectiveUserCount(m)} users</p>
                   </div>
                 </div>
               ))}

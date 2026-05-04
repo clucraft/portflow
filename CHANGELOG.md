@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-05-04
+
+### Fixed
+- User counts in dashboard cards, Project Status Report, Reports totals, and CSV exports now fall back to the Cost Calculator's "Total Users" when the end_users list is empty. New `effectiveUserCount()` helper returns: `total_users` (auto-counted from end_users) → `cost_calculator.total_users` (from estimate) → `telephone_users` (legacy field). The "X of Y configured" indicator on Phase 4 still uses the raw end_users count since it specifically reflects the user list
+
 ## [0.12.0] - 2026-05-04
 
 ### Added
@@ -360,7 +365,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/clucraft/portflow/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/clucraft/portflow/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/clucraft/portflow/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/clucraft/portflow/compare/v0.9.0...v0.10.0

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload, PauseCircle } from 'lucide-react'
-import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, type WorkflowStage, type Migration } from '../services/api'
+import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, effectiveUserCount, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportSurveyDialog from '../components/ImportSurveyDialog'
 
@@ -171,7 +171,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [migrations, searchQuery, sortBy, filterCreator, filterAssignee, filterCarrier, filterCountry]
   )
-  const totalUsers = migrations?.reduce((sum, m) => sum + m.telephone_users, 0) || 0
+  const totalUsers = migrations?.reduce((sum, m) => sum + effectiveUserCount(m), 0) || 0
 
   if (isLoading) {
     return (
@@ -416,7 +416,7 @@ export default function Dashboard() {
                       {carrierName}
                     </span>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-purple-500/10 border-purple-500/30 text-purple-400">
-                      {migration.telephone_users} users
+                      {effectiveUserCount(migration)} users
                     </span>
                     {migration.scheduled_port_date && (
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${
