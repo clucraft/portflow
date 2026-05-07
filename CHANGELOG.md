@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-04
+
+### Added
+- **Completion celebration** — clicking "Mark Migration Complete" now triggers a cinematic sequence: page dim, animated checkmark with green pulse ring, multiple confetti bursts in PortFlow brand colors (cyan/green/white), and a celebration card showing project name, site, and stats (users migrated, total days from estimate to completion, carrier) plus the project's start → end date range. **Share button** copies a celebratory message to the clipboard for pasting into Teams/email. Esc or backdrop click dismisses. Respects `prefers-reduced-motion` (skips the bursts and animations for users with motion-sensitivity OS preferences). Only triggers on the final completion click, not when reverting/restoring stages
+- New `canvas-confetti` dependency (~3KB)
+
 ## [0.12.2] - 2026-05-04
 
 ### Fixed
@@ -376,7 +382,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/clucraft/portflow/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/clucraft/portflow/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/clucraft/portflow/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/clucraft/portflow/compare/v0.11.0...v0.12.0

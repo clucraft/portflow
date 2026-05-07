@@ -1,6 +1,6 @@
 {
   "name": "portflow-server",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "PortFlow API Server - Enterprise Voice Migration Management",
   "main": "dist/index.js",
   "scripts": {

@@ -136,6 +136,61 @@ body {
 .stage-completed { @apply bg-green-500; }
 .stage-on_hold { @apply bg-zinc-600; }
 
+/* Completion celebration animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 200ms ease-out;
+}
+
+@keyframes celebrate-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-celebrate-pop {
+  animation: celebrate-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes celebrate-check {
+  0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+  50%  { transform: scale(0) rotate(-15deg); opacity: 0; }
+  75%  { transform: scale(1.3) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-celebrate-check {
+  animation: celebrate-check 800ms ease-out;
+}
+
+@keyframes celebrate-ring {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.animate-celebrate-ring {
+  animation: celebrate-ring 1000ms ease-out 400ms;
+}
+
+@keyframes celebrate-card {
+  0%   { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-celebrate-card {
+  animation: celebrate-card 500ms ease-out 800ms backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-celebrate-pop,
+  .animate-celebrate-check,
+  .animate-celebrate-ring,
+  .animate-celebrate-card {
+    animation: none !important;
+  }
+}
+
 /* Print styles for the Project Status Report */
 @media print {
   /* Reset page chrome */

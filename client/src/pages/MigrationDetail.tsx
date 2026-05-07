@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { migrationsApi, scriptsApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, notificationsApi, settingsApi, teamApi, locationsApi, type Migration, type WorkflowStage, type PhaseTask, type Carrier, formatRoutingType } from '../services/api'
 import CostCalculator from '../components/CostCalculator'
+import CompletionCelebration from '../components/CompletionCelebration'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import ComboBox from '../components/ComboBox'
@@ -326,6 +327,9 @@ export default function MigrationDetail() {
 
   // Project history modal
   const [showHistory, setShowHistory] = useState(false)
+
+  // Completion celebration
+  const [showCelebration, setShowCelebration] = useState(false)
 
   // SharePoint sync modal
   const [showSharepoint, setShowSharepoint] = useState(false)
@@ -1896,7 +1900,9 @@ export default function MigrationDetail() {
                                   </p>
                                 )}
                                 <button
-                                  onClick={() => updateStageMutation.mutate('completed')}
+                                  onClick={() => updateStageMutation.mutate('completed', {
+                                    onSuccess: () => setShowCelebration(true),
+                                  })}
                                   className="btn btn-primary"
                                   disabled={!isPortingComplete(migration.workflow_stage)}
                                 >
@@ -2238,6 +2244,14 @@ export default function MigrationDetail() {
           )
         })}
       </div>
+
+      {/* Completion Celebration */}
+      {showCelebration && migration && (
+        <CompletionCelebration
+          migration={migration}
+          onClose={() => setShowCelebration(false)}
+        />
+      )}
 
       {/* Project History Modal */}
       {showHistory && migration && (
