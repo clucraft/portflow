@@ -122,12 +122,39 @@ export default function CompletionCelebration({ migration, onClose }: Props) {
       lines.push(`Site: ${migration.site_name}, ${migration.site_country}`)
     }
     const text = lines.join('\n')
+
+    // Try modern Clipboard API first (HTTPS / localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+        return
+      } catch {
+        // Fall through to execCommand fallback
+      }
+    }
+
+    // Fallback for plain HTTP contexts: hidden textarea + execCommand
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.top = '0'
+    ta.style.left = '-99999px'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    let ok = false
     try {
-      await navigator.clipboard.writeText(text)
+      ok = document.execCommand('copy')
+    } catch {
+      ok = false
+    }
+    document.body.removeChild(ta)
+    if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard unavailable — silently fail
     }
   }
 

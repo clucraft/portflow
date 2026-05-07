@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-05-04
+
+### Fixed
+- Completion celebration's **Share** button now works on plain HTTP deployments. The modern `navigator.clipboard` API only works on HTTPS or localhost; falls back to a hidden textarea + `document.execCommand('copy')` so the share message copies in any environment
+
 ## [0.13.0] - 2026-05-04
 
 ### Added
@@ -382,7 +387,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/clucraft/portflow/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/clucraft/portflow/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/clucraft/portflow/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/clucraft/portflow/compare/v0.12.0...v0.12.1
