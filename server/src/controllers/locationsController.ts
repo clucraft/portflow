@@ -3,6 +3,8 @@ import { query } from '../utils/db.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { logActivity } from '../utils/audit.js';
 import { Location } from '../types/index.js';
+import { sendEmail } from '../utils/email.js';
+import { renderKickoff, type KickoffTemplate } from '../utils/kickoffEmail.js';
 
 const ALLOWED_FIELDS = [
   'site_code', 'location_name', 'region', 'country', 'company',
@@ -456,6 +458,117 @@ export const importLocations = async (req: Request, res: Response, next: NextFun
     ).catch(() => {});
 
     res.json({ created, linked, skipped, errors });
+  } catch (err) {
+    next(err);
+  }
+};
+
+async function getKickoffTemplate(): Promise<KickoffTemplate> {
+  try {
+    const rows = await query<{ value: KickoffTemplate }>(
+      "SELECT value FROM app_settings WHERE key = 'kickoff_email_template'"
+    );
+    return rows[0]?.value || {};
+  } catch {
+    return {};
+  }
+}
+
+// POST /api/locations/kickoff/preview - Render kickoff emails for selected locations
+export const kickoffPreview = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, subject_override, body_override, from_address_override, from_name_override } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw ApiError.badRequest('ids array is required');
+    }
+
+    const locs = await query<Location>(
+      `SELECT * FROM locations WHERE id = ANY($1::uuid[])`, [ids]
+    );
+
+    const template = await getKickoffTemplate();
+    const effectiveTemplate: KickoffTemplate = {
+      ...template,
+      subject: subject_override ?? template.subject,
+      body: body_override ?? template.body,
+      from_address: from_address_override ?? template.from_address,
+      from_name: from_name_override ?? template.from_name,
+    };
+    const senderName = req.user?.display_name || '';
+
+    const rendered = locs.map(loc => {
+      const r = renderKickoff(effectiveTemplate, loc, senderName);
+      return {
+        id: loc.id,
+        site_code: loc.site_code,
+        location_name: loc.location_name,
+        to: r.to,
+        subject: r.subject,
+        body: r.body,
+        body_html: r.bodyHtml,
+        valid: !!r.to && /\S+@\S+\.\S+/.test(r.to),
+      };
+    });
+
+    res.json({
+      from_address: effectiveTemplate.from_address || null,
+      from_name: effectiveTemplate.from_name || null,
+      emails: rendered,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/locations/kickoff/send - Actually send kickoff emails
+export const kickoffSend = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, subject_override, body_override, from_address_override, from_name_override } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw ApiError.badRequest('ids array is required');
+    }
+
+    const locs = await query<Location>(
+      `SELECT * FROM locations WHERE id = ANY($1::uuid[])`, [ids]
+    );
+
+    const template = await getKickoffTemplate();
+    const effectiveTemplate: KickoffTemplate = {
+      ...template,
+      subject: subject_override ?? template.subject,
+      body: body_override ?? template.body,
+      from_address: from_address_override ?? template.from_address,
+      from_name: from_name_override ?? template.from_name,
+    };
+    const senderName = req.user?.display_name || '';
+
+    let sent = 0;
+    let skipped = 0;
+    const errors: { site_code: string; error: string }[] = [];
+
+    for (const loc of locs) {
+      const r = renderKickoff(effectiveTemplate, loc, senderName);
+      if (!r.to || !/\S+@\S+\.\S+/.test(r.to)) {
+        skipped++;
+        continue;
+      }
+      try {
+        await sendEmail(r.to, r.subject, r.bodyHtml, {
+          from: effectiveTemplate.from_address || undefined,
+          fromName: effectiveTemplate.from_name || senderName || undefined,
+        });
+        sent++;
+        logActivity(
+          req.user?.id || null,
+          'location.kickoff_email_sent',
+          `Sent kick-off email to ${r.to} (${loc.site_code})`
+        ).catch(() => {});
+      } catch (err) {
+        errors.push({ site_code: loc.site_code, error: (err as Error).message });
+      }
+    }
+
+    res.json({ sent, skipped, errors });
   } catch (err) {
     next(err);
   }

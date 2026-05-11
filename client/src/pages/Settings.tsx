@@ -958,6 +958,34 @@ function IntegrationsTab() {
   const [webhookConfig, setWebhookConfig] = useState({ url: '', enabled: false })
   const [webhookLoaded, setWebhookLoaded] = useState(false)
 
+  const DEFAULT_KICKOFF_SUBJECT = 'Teams EV Migration Kick-off — {location_name} ({site_code})'
+  const DEFAULT_KICKOFF_BODY = `Hi,
+
+We're scheduling the kick-off for the Teams Enterprise Voice migration at your location ({location_name}, {country}).
+
+  Planned kick-off date: {kickoff_with_it_date}
+  Migration window:      {planned_start_date} to {planned_end_date}
+  Assigned engineer:     {assigned_engineer}
+
+The kick-off call will cover:
+  - Project timeline and milestones
+  - Network and infrastructure requirements
+  - User device migration plan
+  - Communication and support during cutover
+
+Please reply with your availability so we can schedule.
+
+Thanks,
+{sender_display_name}`
+
+  const [kickoffConfig, setKickoffConfig] = useState({
+    from_address: '',
+    from_name: '',
+    subject: DEFAULT_KICKOFF_SUBJECT,
+    body: DEFAULT_KICKOFF_BODY,
+  })
+  const [kickoffLoaded, setKickoffLoaded] = useState(false)
+
   const { data: setting } = useQuery({
     queryKey: ['settings', 'email_relay'],
     queryFn: () => settingsApi.get('email_relay').catch(() => null),
@@ -966,6 +994,11 @@ function IntegrationsTab() {
   const { data: webhookSetting } = useQuery({
     queryKey: ['settings', 'sharepoint_webhook'],
     queryFn: () => settingsApi.get('sharepoint_webhook').catch(() => null),
+  })
+
+  const { data: kickoffSetting } = useQuery({
+    queryKey: ['settings', 'kickoff_email_template'],
+    queryFn: () => settingsApi.get('kickoff_email_template').catch(() => null),
   })
 
   // Load initial values from setting
@@ -981,6 +1014,17 @@ function IntegrationsTab() {
     setWebhookLoaded(true)
   }
 
+  if (kickoffSetting && !kickoffLoaded) {
+    const val = kickoffSetting.value as { from_address?: string; from_name?: string; subject?: string; body?: string }
+    setKickoffConfig({
+      from_address: val.from_address || '',
+      from_name: val.from_name || '',
+      subject: val.subject || DEFAULT_KICKOFF_SUBJECT,
+      body: val.body || DEFAULT_KICKOFF_BODY,
+    })
+    setKickoffLoaded(true)
+  }
+
   const saveMutation = useMutation({
     mutationFn: () => settingsApi.update('email_relay', config),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'email_relay'] }),
@@ -989,6 +1033,11 @@ function IntegrationsTab() {
   const saveWebhookMutation = useMutation({
     mutationFn: () => settingsApi.update('sharepoint_webhook', webhookConfig),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'sharepoint_webhook'] }),
+  })
+
+  const saveKickoffMutation = useMutation({
+    mutationFn: () => settingsApi.update('kickoff_email_template', kickoffConfig),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings', 'kickoff_email_template'] }),
   })
 
   const testMutation = useMutation({
@@ -1109,6 +1158,89 @@ function IntegrationsTab() {
               disabled={saveWebhookMutation.isPending}
             >
               {saveWebhookMutation.isPending ? 'Saving...' : 'Save Webhook'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Kick-off Email Template */}
+      <div className="pt-4 border-t border-surface-700">
+        <h2 className="text-lg font-semibold text-zinc-100">Kick-off Email Template</h2>
+        <p className="text-sm text-zinc-500">
+          Template used when sending kick-off emails to local IT contacts from the Locations page.
+          Supports placeholders like <code className="text-primary-400">{'{site_code}'}</code>, <code className="text-primary-400">{'{location_name}'}</code>, <code className="text-primary-400">{'{country}'}</code>, <code className="text-primary-400">{'{kickoff_with_it_date}'}</code>, <code className="text-primary-400">{'{planned_start_date}'}</code>, <code className="text-primary-400">{'{planned_end_date}'}</code>, <code className="text-primary-400">{'{assigned_engineer}'}</code>, <code className="text-primary-400">{'{sender_display_name}'}</code>.
+        </p>
+      </div>
+
+      <div className="card space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">From email address</label>
+            <input
+              type="email"
+              className="input"
+              value={kickoffConfig.from_address}
+              onChange={(e) => setKickoffConfig({ ...kickoffConfig, from_address: e.target.value })}
+              placeholder="teams-ev@yourcompany.com"
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              Defaults to the SMTP relay's From address if blank.
+            </p>
+          </div>
+          <div>
+            <label className="label">From display name</label>
+            <input
+              type="text"
+              className="input"
+              value={kickoffConfig.from_name}
+              onChange={(e) => setKickoffConfig({ ...kickoffConfig, from_name: e.target.value })}
+              placeholder="Teams EV Team"
+              disabled={!isAdmin}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Subject</label>
+          <input
+            type="text"
+            className="input"
+            value={kickoffConfig.subject}
+            onChange={(e) => setKickoffConfig({ ...kickoffConfig, subject: e.target.value })}
+            disabled={!isAdmin}
+          />
+        </div>
+
+        <div>
+          <label className="label">Body</label>
+          <textarea
+            className="input min-h-[280px] font-mono text-sm"
+            value={kickoffConfig.body}
+            onChange={(e) => setKickoffConfig({ ...kickoffConfig, body: e.target.value })}
+            disabled={!isAdmin}
+          />
+        </div>
+
+        {isAdmin && (
+          <div className="flex gap-2 pt-4 border-t border-surface-600">
+            <button
+              onClick={() => saveKickoffMutation.mutate()}
+              className="btn btn-primary"
+              disabled={saveKickoffMutation.isPending}
+            >
+              {saveKickoffMutation.isPending ? 'Saving...' : 'Save Template'}
+            </button>
+            <button
+              onClick={() => setKickoffConfig({
+                from_address: kickoffConfig.from_address,
+                from_name: kickoffConfig.from_name,
+                subject: DEFAULT_KICKOFF_SUBJECT,
+                body: DEFAULT_KICKOFF_BODY,
+              })}
+              className="btn btn-secondary"
+            >
+              Reset to default
             </button>
           </div>
         )}

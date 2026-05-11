@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X } from 'lucide-react'
+import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
 import { locationsApi, type Location, type LocationStatus } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportLocationsDialog from '../components/ImportLocationsDialog'
 import NewLocationDialog from '../components/NewLocationDialog'
+import SendKickoffEmailDialog from '../components/SendKickoffEmailDialog'
 
 const STATUS_LABELS: Record<LocationStatus, string> = {
   planned: 'Planned',
@@ -25,10 +26,33 @@ const STATUS_BADGES: Record<LocationStatus, string> = {
   out_of_scope: 'bg-zinc-600/20 text-zinc-500 border-zinc-600/30',
 }
 
+const STATUS_ORDER: Record<LocationStatus, number> = {
+  planned: 1, in_progress: 2, completed: 3, on_hold: 4, cancelled: 5, out_of_scope: 6,
+}
+
+const LEVEL_ORDER: Record<string, number> = {
+  high: 1, medium: 2, low: 3, '': 4,
+}
+
+function levelKey(v: string | null): number {
+  return LEVEL_ORDER[(v || '').toLowerCase()] ?? 5
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: 'text-red-400',
+  medium: 'text-amber-400',
+  low: 'text-zinc-400',
+}
+
 function formatDate(d: string | null): string {
   if (!d) return ''
   return new Date(d).toLocaleDateString()
 }
+
+type SortKey =
+  | 'site_code' | 'location_name' | 'region' | 'status'
+  | 'priority' | 'complexity' | 'planned' | 'users' | 'project'
+type SortDir = 'asc' | 'desc'
 
 export default function Locations() {
   const { canWrite } = useAuth()
@@ -38,8 +62,11 @@ export default function Locations() {
   const [regionFilter, setRegionFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showNew, setShowNew] = useState(false)
+  const [showKickoff, setShowKickoff] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('site_code')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const { data: locations = [], isLoading, refetch } = useQuery({
@@ -64,7 +91,7 @@ export default function Locations() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return locations.filter(l => {
+    const matches = locations.filter(l => {
       if (statusFilter && l.status !== statusFilter) return false
       if (regionFilter && l.region !== regionFilter) return false
       if (q) {
@@ -73,7 +100,30 @@ export default function Locations() {
       }
       return true
     })
-  }, [locations, search, statusFilter, regionFilter])
+
+    const compare = (a: Location, b: Location): number => {
+      let av: string | number = ''
+      let bv: string | number = ''
+      switch (sortKey) {
+        case 'site_code': av = a.site_code.toLowerCase(); bv = b.site_code.toLowerCase(); break
+        case 'location_name': av = a.location_name.toLowerCase(); bv = b.location_name.toLowerCase(); break
+        case 'region': av = (a.region || '').toLowerCase(); bv = (b.region || '').toLowerCase(); break
+        case 'status': av = STATUS_ORDER[a.status] || 99; bv = STATUS_ORDER[b.status] || 99; break
+        case 'priority': av = levelKey(a.priority); bv = levelKey(b.priority); break
+        case 'complexity': av = levelKey(a.complexity); bv = levelKey(b.complexity); break
+        case 'planned':
+          av = a.planned_start_date ? new Date(a.planned_start_date).getTime() : 0
+          bv = b.planned_start_date ? new Date(b.planned_start_date).getTime() : 0
+          break
+        case 'users': av = a.estimated_users || 0; bv = b.estimated_users || 0; break
+        case 'project': av = a.migration_id ? 0 : 1; bv = b.migration_id ? 0 : 1; break
+      }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return a.site_code.localeCompare(b.site_code)
+    }
+    return [...matches].sort(compare)
+  }, [locations, search, statusFilter, regionFilter, sortKey, sortDir])
 
   const stats = useMemo(() => ({
     total: locations.length,
@@ -82,6 +132,15 @@ export default function Locations() {
     planned: locations.filter(l => l.status === 'planned').length,
     on_hold: locations.filter(l => l.status === 'on_hold').length,
   }), [locations])
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   const toggleOne = (id: string) => {
     setSelected(prev => {
@@ -152,13 +211,23 @@ export default function Locations() {
               Clear
             </button>
           </div>
-          <button
-            onClick={() => setShowBulkConfirm(true)}
-            className="btn btn-secondary text-sm flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete Selected
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowKickoff(true)}
+              className="btn btn-secondary text-sm flex items-center gap-2 text-primary-400 hover:text-primary-300 hover:border-primary-500/50"
+              title="Send kick-off email to local IT contacts"
+            >
+              <Mail className="h-4 w-4" />
+              Send Kick-off Email
+            </button>
+            <button
+              onClick={() => setShowBulkConfirm(true)}
+              className="btn btn-secondary text-sm flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Selected
+            </button>
+          </div>
         </div>
       )}
 
@@ -203,7 +272,7 @@ export default function Locations() {
           )}
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
+        <div className="card p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-700/50 border-b border-surface-600">
@@ -221,13 +290,15 @@ export default function Locations() {
                     />
                   </th>
                 )}
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Code</th>
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Location</th>
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Region</th>
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Status</th>
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Planned</th>
-                <th className="px-3 py-2 text-right text-zinc-400 font-medium">Users</th>
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Project</th>
+                <SortHeader label="Code" sortKey="site_code" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Location" sortKey="location_name" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Region" sortKey="region" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Status" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Priority" sortKey="priority" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Complexity" sortKey="complexity" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Planned" sortKey="planned" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Users" sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
+                <SortHeader label="Project" sortKey="project" current={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody>
@@ -245,7 +316,6 @@ export default function Locations() {
         </div>
       )}
 
-      {/* Hidden file input is handled inside ImportLocationsDialog */}
       <input ref={importInputRef} type="file" className="hidden" />
 
       {/* Bulk Delete Confirmation */}
@@ -309,7 +379,42 @@ export default function Locations() {
           onComplete={() => { refetch(); setShowNew(false) }}
         />
       )}
+
+      {showKickoff && (
+        <SendKickoffEmailDialog
+          open={showKickoff}
+          ids={Array.from(selected)}
+          onClose={() => setShowKickoff(false)}
+          onSent={() => { refetch() }}
+        />
+      )}
     </div>
+  )
+}
+
+function SortHeader({ label, sortKey, current, dir, onSort, align }: {
+  label: string
+  sortKey: SortKey
+  current: SortKey
+  dir: SortDir
+  onSort: (k: SortKey) => void
+  align?: 'left' | 'right'
+}) {
+  const isActive = current === sortKey
+  return (
+    <th className={`px-3 py-2 text-${align || 'left'} text-zinc-400 font-medium`}>
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-zinc-200 transition-colors ${isActive ? 'text-zinc-200' : ''}`}
+      >
+        {label}
+        {isActive ? (
+          dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    </th>
   )
 }
 
@@ -341,6 +446,9 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
     ? formatDate(planned[0])
     : '—'
 
+  const priorityClass = PRIORITY_COLORS[(l.priority || '').toLowerCase()] || 'text-zinc-500'
+  const complexityClass = PRIORITY_COLORS[(l.complexity || '').toLowerCase()] || 'text-zinc-500'
+
   return (
     <tr className={`border-b border-surface-700 hover:bg-surface-700/30 transition-colors ${selected ? 'bg-primary-500/5' : ''}`}>
       {selectable && (
@@ -368,6 +476,8 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
           {STATUS_LABELS[l.status]}
         </span>
       </td>
+      <td className={`px-3 py-2 text-sm ${priorityClass}`}>{l.priority || '—'}</td>
+      <td className={`px-3 py-2 text-sm ${complexityClass}`}>{l.complexity || '—'}</td>
       <td className="px-3 py-2 text-zinc-400 text-xs">{plannedDisplay}</td>
       <td className="px-3 py-2 text-zinc-300 text-right font-mono">{l.estimated_users || '—'}</td>
       <td className="px-3 py-2">

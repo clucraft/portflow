@@ -438,6 +438,29 @@ export const locationsApi = {
   remove: (id: string) => api.delete(`/locations/${id}`),
   bulkRemove: (ids: string[]) =>
     api.post<{ deleted: number }>('/locations/bulk-delete', { ids }).then((r) => r.data),
+  kickoffPreview: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string }) =>
+    api.post<{
+      from_address: string | null
+      from_name: string | null
+      emails: Array<{ id: string; site_code: string; location_name: string; to: string; subject: string; body: string; body_html: string; valid: boolean }>
+    }>('/locations/kickoff/preview', {
+      ids,
+      subject_override: overrides?.subject,
+      body_override: overrides?.body,
+      from_address_override: overrides?.from_address,
+      from_name_override: overrides?.from_name,
+    }).then((r) => r.data),
+  kickoffSend: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string }) =>
+    api.post<{ sent: number; skipped: number; errors: { site_code: string; error: string }[] }>(
+      '/locations/kickoff/send',
+      {
+        ids,
+        subject_override: overrides?.subject,
+        body_override: overrides?.body,
+        from_address_override: overrides?.from_address,
+        from_name_override: overrides?.from_name,
+      }
+    ).then((r) => r.data),
   link: (id: string, migration_id: string) =>
     api.post<Location>(`/locations/${id}/link`, { migration_id }).then((r) => r.data),
   unlink: (id: string) => api.post<Location>(`/locations/${id}/unlink`).then((r) => r.data),

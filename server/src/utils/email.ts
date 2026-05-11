@@ -22,7 +22,12 @@ export const getEmailConfig = async (): Promise<EmailConfig | null> => {
   }
 };
 
-export const sendEmail = async (to: string, subject: string, html: string): Promise<void> => {
+export const sendEmail = async (
+  to: string,
+  subject: string,
+  html: string,
+  options?: { from?: string; fromName?: string }
+): Promise<void> => {
   const config = await getEmailConfig();
   if (!config) return;
 
@@ -33,8 +38,12 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
     tls: { rejectUnauthorized: false },
   });
 
+  // Custom from address overrides config.from_address; with friendly name if provided
+  const fromAddr = options?.from || config.from_address;
+  const from = options?.fromName ? `"${options.fromName}" <${fromAddr}>` : fromAddr;
+
   await transport.sendMail({
-    from: config.from_address,
+    from,
     to,
     subject,
     html,

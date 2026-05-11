@@ -9,6 +9,8 @@ router.post('/', locationsController.create);
 router.post('/import/preview', locationsController.importPreview);
 router.post('/import', locationsController.importLocations);
 router.post('/bulk-delete', locationsController.bulkRemove);
+router.post('/kickoff/preview', locationsController.kickoffPreview);
+router.post('/kickoff/send', locationsController.kickoffSend);
 router.get('/:id', locationsController.getById);
 router.put('/:id', locationsController.update);
 router.delete('/:id', locationsController.remove);

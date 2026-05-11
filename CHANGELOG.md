@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-11
+
+### Added
+- **Priority and Complexity columns** on the Locations table, color-coded (High = red, Medium = amber, Low = zinc)
+- **Sortable columns** on the Locations table — click any header to sort ascending, click again for descending. Custom orderings for non-alphabetic fields: Status (Planned → In Progress → Completed → On Hold → Cancelled → Out of Scope), Priority/Complexity (High → Medium → Low → empty)
+- **Send Kick-off Email** — bulk action on the Locations page. Select 1+ locations → "Send Kick-off Email" appears in the action bar → preview modal shows recipients with valid/invalid email counts, paginated email preview, inline subject/body edit, "Copy Current" to clipboard fallback, and "Send" via the existing SMTP relay. Each location's local_it_contact gets a personalized email with placeholders replaced (site code, location, dates, assigned engineer, etc.)
+- **Kick-off Email Template** in Settings → Integrations — editable subject and body with placeholders: `{site_code}`, `{location_name}`, `{country}`, `{region}`, `{company}`, `{priority}`, `{complexity}`, `{assigned_engineer}`, `{local_it_contact}`, `{kickoff_with_it_date}`, `{planned_start_date}`, `{planned_end_date}`, `{estimated_users}`, `{sender_display_name}`
+- **Configurable From address and display name** for kick-off emails (e.g. `teams-ev@yourcompany.com` / "Teams EV Team"). Defaults to the SMTP relay's From address if left blank
+- New audit log action `location.kickoff_email_sent` (one per recipient)
+
 ## [0.13.1] - 2026-05-04
 
 ### Fixed
@@ -387,7 +397,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/clucraft/portflow/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/clucraft/portflow/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/clucraft/portflow/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/clucraft/portflow/compare/v0.12.1...v0.12.2
