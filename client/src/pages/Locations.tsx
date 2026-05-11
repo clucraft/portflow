@@ -30,12 +30,18 @@ const STATUS_ORDER: Record<LocationStatus, number> = {
   planned: 1, in_progress: 2, completed: 3, on_hold: 4, cancelled: 5, out_of_scope: 6,
 }
 
-const LEVEL_ORDER: Record<string, number> = {
-  high: 1, medium: 2, low: 3, '': 4,
-}
-
-function levelKey(v: string | null): number {
-  return LEVEL_ORDER[(v || '').toLowerCase()] ?? 5
+// Sort key for Priority/Complexity:
+//  - Known levels (high/medium/low) sort first in priority order
+//  - Unknown non-empty values sort alphabetically among themselves
+//  - Empty values sort last
+// Returns a string so React's sort comparator gives stable, readable ordering.
+function levelKey(v: string | null): string {
+  const t = (v || '').toLowerCase().trim()
+  if (!t) return 'z9'                       // empty last
+  if (t === 'high' || t === 'critical') return '1'
+  if (t === 'medium' || t === 'med' || t === 'normal') return '2'
+  if (t === 'low' || t === 'minor') return '3'
+  return `5_${t}`                           // unknowns: stable alpha, between known and empty
 }
 
 const PRIORITY_COLORS: Record<string, string> = {

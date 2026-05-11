@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-05-11
+
+### Fixed
+- Complexity column sort now actually moves rows when clicked. The previous implementation assigned a fixed rank only to `high`/`medium`/`low` values — anything else (custom labels, blank, capitalization variations) all got the same fallback rank, so the sort had no visible effect. Sort key now: known levels (incl. `critical`/`med`/`normal`/`minor` aliases) first in priority order, unknown non-empty values alphabetically among themselves, empty values last. Same fix applies to Priority
+
 ## [0.14.0] - 2026-05-11
 
 ### Added
@@ -397,7 +402,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/clucraft/portflow/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/clucraft/portflow/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/clucraft/portflow/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/clucraft/portflow/compare/v0.12.2...v0.13.0
