@@ -176,6 +176,20 @@ export default function SendKickoffEmailDialog({ open, ids, onClose, onSent }: P
 
               {current && (
                 <div className="border border-surface-600 rounded-lg overflow-hidden">
+                  {current.previously_sent_at && (
+                    <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Kick-off was previously sent on {new Date(current.previously_sent_at).toLocaleDateString()}
+                        {current.previously_sent_to && current.previously_sent_to !== current.to && (
+                          <> to <span className="font-mono">{current.previously_sent_to}</span> (different from current contact)</>
+                        )}
+                        {current.previously_sent_to && current.previously_sent_to === current.to && (
+                          <>. Re-sending will go to the same address.</>
+                        )}
+                      </span>
+                    </div>
+                  )}
                   <div className="px-4 py-2 bg-surface-700/50 border-b border-surface-600 flex items-center justify-between text-xs">
                     <div>
                       <span className="text-zinc-400">To: </span>

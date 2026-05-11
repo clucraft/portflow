@@ -176,6 +176,8 @@ const HISTORY_ACTION_LABELS: Record<string, string> = {
   'migration.users_submitted': 'Users submitted by customer',
   'migration.script_generated': 'Script generated',
   'migration.sharepoint_sent': 'Sent to SharePoint list',
+  'location.kickoff_email_sent': 'Kick-off email sent',
+  'location.kickoff_email_marked_sent': 'Kick-off marked as sent (manual)',
 }
 
 function formatHistoryAction(action: string): string {

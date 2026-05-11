@@ -1,12 +1,13 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
+import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown, MailCheck } from 'lucide-react'
 import { locationsApi, type Location, type LocationStatus } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportLocationsDialog from '../components/ImportLocationsDialog'
 import NewLocationDialog from '../components/NewLocationDialog'
 import SendKickoffEmailDialog from '../components/SendKickoffEmailDialog'
+import MarkKickoffSentDialog from '../components/MarkKickoffSentDialog'
 
 const STATUS_LABELS: Record<LocationStatus, string> = {
   planned: 'Planned',
@@ -58,6 +59,7 @@ function formatDate(d: string | null): string {
 type SortKey =
   | 'site_code' | 'location_name' | 'region' | 'status'
   | 'priority' | 'complexity' | 'planned' | 'users' | 'project'
+  | 'kickoff_sent'
 type SortDir = 'asc' | 'desc'
 
 export default function Locations() {
@@ -69,6 +71,7 @@ export default function Locations() {
   const [showImport, setShowImport] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showKickoff, setShowKickoff] = useState(false)
+  const [showMarkKickoff, setShowMarkKickoff] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('site_code')
@@ -123,6 +126,10 @@ export default function Locations() {
           break
         case 'users': av = a.estimated_users || 0; bv = b.estimated_users || 0; break
         case 'project': av = a.migration_id ? 0 : 1; bv = b.migration_id ? 0 : 1; break
+        case 'kickoff_sent':
+          av = a.kickoff_email_sent_at ? new Date(a.kickoff_email_sent_at).getTime() : 0
+          bv = b.kickoff_email_sent_at ? new Date(b.kickoff_email_sent_at).getTime() : 0
+          break
       }
       if (av < bv) return sortDir === 'asc' ? -1 : 1
       if (av > bv) return sortDir === 'asc' ? 1 : -1
@@ -227,6 +234,14 @@ export default function Locations() {
               Send Kick-off Email
             </button>
             <button
+              onClick={() => setShowMarkKickoff(true)}
+              className="btn btn-secondary text-sm flex items-center gap-2 text-green-400 hover:text-green-300 hover:border-green-500/50"
+              title="Mark as kick-off sent without actually emailing (for backfilling manual outreach)"
+            >
+              <MailCheck className="h-4 w-4" />
+              Mark Kick-off Sent
+            </button>
+            <button
               onClick={() => setShowBulkConfirm(true)}
               className="btn btn-secondary text-sm flex items-center gap-2 text-red-400 hover:text-red-300 hover:border-red-500/50"
             >
@@ -304,6 +319,7 @@ export default function Locations() {
                 <SortHeader label="Complexity" sortKey="complexity" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Planned" sortKey="planned" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Users" sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
+                <SortHeader label="Kick-off" sortKey="kickoff_sent" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Project" sortKey="project" current={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
@@ -392,6 +408,15 @@ export default function Locations() {
           ids={Array.from(selected)}
           onClose={() => setShowKickoff(false)}
           onSent={() => { refetch() }}
+        />
+      )}
+
+      {showMarkKickoff && (
+        <MarkKickoffSentDialog
+          open={showMarkKickoff}
+          selectedLocations={selectedLocations}
+          onClose={() => setShowMarkKickoff(false)}
+          onComplete={() => { refetch() }}
         />
       )}
     </div>
@@ -486,6 +511,19 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
       <td className={`px-3 py-2 text-sm ${complexityClass}`}>{l.complexity || '—'}</td>
       <td className="px-3 py-2 text-zinc-400 text-xs">{plannedDisplay}</td>
       <td className="px-3 py-2 text-zinc-300 text-right font-mono">{l.estimated_users || '—'}</td>
+      <td className="px-3 py-2">
+        {l.kickoff_email_sent_at ? (
+          <span
+            className="inline-flex items-center gap-1.5 text-xs text-green-400"
+            title={l.kickoff_email_sent_to ? `Sent to ${l.kickoff_email_sent_to}` : 'Kick-off marked as sent'}
+          >
+            <MailCheck className="h-3.5 w-3.5" />
+            {formatDate(l.kickoff_email_sent_at)}
+          </span>
+        ) : (
+          <span className="text-xs text-zinc-600">—</span>
+        )}
+      </td>
       <td className="px-3 py-2">
         {l.migration_id ? (
           <Link to={`/migrations/${l.migration_id}`} className="inline-flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300">

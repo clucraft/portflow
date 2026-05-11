@@ -44,6 +44,7 @@ export default function LocationDetail() {
         'kickoff_with_it_date', 'kickoff_complete_date',
         'port_scheduling_submitted_date', 'port_complete_date',
         'hypercare_start_date', 'hypercare_end_date',
+        'kickoff_email_sent_at',
       ]
       const normalized = { ...location } as Partial<Location>
       for (const f of dateFields) {
@@ -275,6 +276,31 @@ export default function LocationDetail() {
           <Field label="Hypercare Start" type="date" value={form.hypercare_start_date || ''} onChange={(v) => updateField('hypercare_start_date', v)} disabled={!canWrite} />
           <Field label="Hypercare End (Ops)" type="date" value={form.hypercare_end_date || ''} onChange={(v) => updateField('hypercare_end_date', v)} disabled={!canWrite} />
         </div>
+      </div>
+
+      {/* Kick-off Email tracking */}
+      <div className="card space-y-4">
+        <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Kick-off Email</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Sent date"
+            type="date"
+            value={form.kickoff_email_sent_at || ''}
+            onChange={(v) => updateField('kickoff_email_sent_at', v || null)}
+            disabled={!canWrite}
+          />
+          <Field
+            label="Sent to (email)"
+            type="text"
+            value={form.kickoff_email_sent_to || ''}
+            onChange={(v) => updateField('kickoff_email_sent_to', v || null)}
+            placeholder="Auto-filled when sent through PortFlow"
+            disabled={!canWrite}
+          />
+        </div>
+        <p className="text-xs text-zinc-500">
+          Auto-populated when you send a kick-off email through the Locations page. Edit manually here if you sent it outside PortFlow.
+        </p>
       </div>
 
       {/* Notes */}

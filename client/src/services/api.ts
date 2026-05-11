@@ -327,6 +327,8 @@ export interface Location {
   hypercare_end_date: string | null
   notes: string | null
   status: LocationStatus
+  kickoff_email_sent_at: string | null
+  kickoff_email_sent_to: string | null
   migration_id: string | null
   migration_name?: string | null
   migration_workflow_stage?: string | null
@@ -442,7 +444,11 @@ export const locationsApi = {
     api.post<{
       from_address: string | null
       from_name: string | null
-      emails: Array<{ id: string; site_code: string; location_name: string; to: string; subject: string; body: string; body_html: string; valid: boolean }>
+      emails: Array<{
+        id: string; site_code: string; location_name: string
+        to: string; subject: string; body: string; body_html: string; valid: boolean
+        previously_sent_at: string | null; previously_sent_to: string | null
+      }>
     }>('/locations/kickoff/preview', {
       ids,
       subject_override: overrides?.subject,
@@ -450,6 +456,8 @@ export const locationsApi = {
       from_address_override: overrides?.from_address,
       from_name_override: overrides?.from_name,
     }).then((r) => r.data),
+  markKickoffSent: (ids: string[], sent_at?: string) =>
+    api.post<{ updated: number }>('/locations/kickoff/mark-sent', { ids, sent_at }).then((r) => r.data),
   kickoffSend: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string }) =>
     api.post<{ sent: number; skipped: number; errors: { site_code: string; error: string }[] }>(
       '/locations/kickoff/send',

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-11
+
+### Added
+- **Kick-off email sent tracking** — locations now record when (and to whom) a kick-off email was sent. Visible as a "Kick-off" column on the Locations table (sortable; shows date with a green ✉✓ icon, or — if not sent yet). Hover the date for the recipient address
+- **Bulk "Mark Kick-off Sent" action** — select locations on the table, click "Mark Kick-off Sent" in the action bar to mark them as already-sent without actually emailing. Pick a date (defaults to today, supports backdating). Useful for backfilling outreach you've already done outside PortFlow
+- **Editable kick-off sent fields on Location detail** — new "Kick-off Email" section with editable sent-date and recipient-address fields. Auto-populated when sent through PortFlow; can be edited manually for ad-hoc fixes or to record outreach done outside PortFlow
+- **Previously-sent warning in Send Kick-off Email dialog** — per-recipient banner shows the prior send date and flags when the recipient address has changed since last send
+
+### Changed
+- `POST /api/locations/kickoff/send` now updates `kickoff_email_sent_at` and `kickoff_email_sent_to` on each location after successful delivery
+- New audit log action `location.kickoff_email_marked_sent` distinguishes manual overrides from real sends
+
+### Database Migration Required
+```sql
+-- Run docs/migration_locations_kickoff_sent.sql
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS kickoff_email_sent_at TIMESTAMPTZ;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS kickoff_email_sent_to TEXT;
+```
+
 ## [0.14.1] - 2026-05-11
 
 ### Fixed
@@ -402,7 +421,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/clucraft/portflow/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/clucraft/portflow/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/clucraft/portflow/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/clucraft/portflow/compare/v0.13.0...v0.13.1

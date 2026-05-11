@@ -321,6 +321,8 @@ export interface Location {
   hypercare_end_date: Date | null;
   notes: string | null;
   status: LocationStatus;
+  kickoff_email_sent_at: Date | null;
+  kickoff_email_sent_to: string | null;
   migration_id: string | null;
   created_by: string | null;
   created_at: Date;

@@ -15,6 +15,7 @@ const ALLOWED_FIELDS = [
   'kickoff_with_it_date', 'kickoff_complete_date',
   'port_scheduling_submitted_date', 'port_complete_date',
   'hypercare_start_date', 'hypercare_end_date',
+  'kickoff_email_sent_at', 'kickoff_email_sent_to',
   'notes', 'status', 'migration_id',
 ];
 
@@ -507,6 +508,8 @@ export const kickoffPreview = async (req: Request, res: Response, next: NextFunc
         body: r.body,
         body_html: r.bodyHtml,
         valid: !!r.to && /\S+@\S+\.\S+/.test(r.to),
+        previously_sent_at: loc.kickoff_email_sent_at,
+        previously_sent_to: loc.kickoff_email_sent_to,
       };
     });
 
@@ -558,6 +561,11 @@ export const kickoffSend = async (req: Request, res: Response, next: NextFunctio
           fromName: effectiveTemplate.from_name || senderName || undefined,
         });
         sent++;
+        // Record the timestamp + recipient on the location
+        await query(
+          `UPDATE locations SET kickoff_email_sent_at = NOW(), kickoff_email_sent_to = $1 WHERE id = $2`,
+          [r.to, loc.id]
+        ).catch(() => {});
         logActivity(
           req.user?.id || null,
           'location.kickoff_email_sent',
@@ -569,6 +577,55 @@ export const kickoffSend = async (req: Request, res: Response, next: NextFunctio
     }
 
     res.json({ sent, skipped, errors });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/locations/bulk-mark-kickoff-sent - Mark locations as kickoff-sent
+// without actually sending email (for backfilling existing manual outreach)
+export const bulkMarkKickoffSent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, sent_at } = req.body as { ids?: string[]; sent_at?: string };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw ApiError.badRequest('ids array is required');
+    }
+
+    // Validate the date if provided, default to now
+    let timestamp: Date;
+    if (sent_at) {
+      const d = new Date(sent_at);
+      if (isNaN(d.getTime())) throw ApiError.badRequest('Invalid sent_at date');
+      timestamp = d;
+    } else {
+      timestamp = new Date();
+    }
+
+    // Set kickoff_email_sent_at on every selected location, and capture the
+    // current local_it_contact as the recipient (for reference)
+    const locs = await query<Location>(
+      `SELECT id, site_code, local_it_contact FROM locations WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+
+    let updated = 0;
+    for (const loc of locs) {
+      await query(
+        `UPDATE locations
+         SET kickoff_email_sent_at = $1,
+             kickoff_email_sent_to = $2
+         WHERE id = $3`,
+        [timestamp, loc.local_it_contact || null, loc.id]
+      );
+      updated++;
+      logActivity(
+        req.user?.id || null,
+        'location.kickoff_email_marked_sent',
+        `Manually marked kick-off sent (${loc.site_code}${loc.local_it_contact ? ` to ${loc.local_it_contact}` : ''})`
+      ).catch(() => {});
+    }
+
+    res.json({ updated });
   } catch (err) {
     next(err);
   }

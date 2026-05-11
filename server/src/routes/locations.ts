@@ -11,6 +11,7 @@ router.post('/import', locationsController.importLocations);
 router.post('/bulk-delete', locationsController.bulkRemove);
 router.post('/kickoff/preview', locationsController.kickoffPreview);
 router.post('/kickoff/send', locationsController.kickoffSend);
+router.post('/kickoff/mark-sent', locationsController.bulkMarkKickoffSent);
 router.get('/:id', locationsController.getById);
 router.put('/:id', locationsController.update);
 router.delete('/:id', locationsController.remove);

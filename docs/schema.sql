@@ -465,6 +465,8 @@ CREATE TABLE locations (
     hypercare_end_date DATE,
     notes TEXT,
     status TEXT NOT NULL DEFAULT 'planned',
+    kickoff_email_sent_at TIMESTAMPTZ,
+    kickoff_email_sent_to TEXT,
     migration_id UUID REFERENCES migrations(id) ON DELETE SET NULL,
     created_by UUID REFERENCES team_members(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
