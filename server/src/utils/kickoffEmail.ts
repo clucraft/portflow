@@ -69,10 +69,49 @@ export function renderKickoff(
   const subject = substitute(template.subject || DEFAULT_KICKOFF_SUBJECT);
   const body = substitute(template.body || DEFAULT_KICKOFF_BODY);
 
-  // Convert plain-text body to HTML (preserve line breaks, escape HTML)
-  const escapeHtml = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const bodyHtml = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#222;white-space:pre-wrap;line-height:1.5;">${escapeHtml(body)}</div>`;
+  // Convert plain-text body to HTML: escape HTML special chars, preserve
+  // whitespace via white-space:pre-wrap, then auto-linkify URLs and emails
+  // so links are clickable in the recipient's inbox.
+  const bodyHtml = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#222;white-space:pre-wrap;line-height:1.5;">${plainTextToHtml(body)}</div>`;
 
   return { subject, body, bodyHtml, to: loc.local_it_contact || '' };
+}
+
+/**
+ * Convert a plain-text string to safe HTML with auto-linked URLs and emails.
+ *
+ * 1. Escape HTML special chars (&, <, >).
+ * 2. Wrap http(s) URLs in <a href="...">.
+ * 3. Wrap bare email addresses in <a href="mailto:...">.
+ *
+ * URLs may contain query strings (with `&` already escaped to `&amp;`), so
+ * the URL regex matches up to whitespace, angle brackets, or trailing punctuation.
+ */
+function plainTextToHtml(text: string): string {
+  // 1. Escape HTML
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 2. Linkify URLs. Match http:// or https:// followed by non-whitespace,
+  // but trim common trailing punctuation that's almost certainly not part of the URL.
+  const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+  html = html.replace(urlRegex, (match) => {
+    // Strip trailing punctuation that's likely a sentence terminator, not URL syntax
+    let trailing = '';
+    while (match.length > 0 && /[.,;:!?)\]]/.test(match[match.length - 1])) {
+      trailing = match[match.length - 1] + trailing;
+      match = match.slice(0, -1);
+    }
+    return `<a href="${match}" style="color:#06b6d4;text-decoration:underline;" target="_blank" rel="noopener">${match}</a>${trailing}`;
+  });
+
+  // 3. Linkify bare email addresses (avoid double-linking ones already in an href)
+  const emailRegex = /(?<!href=["']mailto:|["'>])\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b(?!["'])/g;
+  html = html.replace(emailRegex, (_match, email) => {
+    return `<a href="mailto:${email}" style="color:#06b6d4;text-decoration:underline;">${email}</a>`;
+  });
+
+  return html;
 }

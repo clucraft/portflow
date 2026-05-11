@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-05-07
+
+### Fixed
+- URLs (`http://`, `https://`) and bare email addresses in the kick-off email body are now rendered as clickable links in the recipient's inbox. Previously the HTML body was plain-text-escaped, so links appeared as text the recipient had to copy/paste. URLs open in a new tab with `rel="noopener"`; email addresses become `mailto:` links. Trailing sentence punctuation is preserved outside the link
+
 ## [0.15.0] - 2026-05-11
 
 ### Added
@@ -421,7 +426,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/clucraft/portflow/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/clucraft/portflow/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/clucraft/portflow/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/clucraft/portflow/compare/v0.13.1...v0.14.0
