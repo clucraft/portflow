@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-05-11
+
+### Fixed
+- Line breaks and indentation in the kick-off email body are now preserved when received in Outlook desktop. The previous version relied on `white-space: pre-wrap`, which Outlook ignores (it renders email via Word, not a real browser), so multi-paragraph custom messages arrived as one run-on block. Newlines are now converted to explicit `<br>` tags, and runs of 2+ spaces become `&nbsp;` so indented bullet lists still line up
+
 ## [0.15.1] - 2026-05-07
 
 ### Fixed
@@ -426,7 +431,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.2...HEAD
+[0.15.2]: https://github.com/clucraft/portflow/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/clucraft/portflow/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/clucraft/portflow/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/clucraft/portflow/compare/v0.14.0...v0.14.1

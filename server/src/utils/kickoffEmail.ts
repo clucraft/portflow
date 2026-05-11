@@ -69,10 +69,11 @@ export function renderKickoff(
   const subject = substitute(template.subject || DEFAULT_KICKOFF_SUBJECT);
   const body = substitute(template.body || DEFAULT_KICKOFF_BODY);
 
-  // Convert plain-text body to HTML: escape HTML special chars, preserve
-  // whitespace via white-space:pre-wrap, then auto-linkify URLs and emails
-  // so links are clickable in the recipient's inbox.
-  const bodyHtml = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#222;white-space:pre-wrap;line-height:1.5;">${plainTextToHtml(body)}</div>`;
+  // Convert plain-text body to HTML: escape HTML special chars, convert
+  // newlines to <br>, preserve indentation with &nbsp;, and auto-linkify
+  // URLs and emails. <br>/&nbsp; are used instead of CSS white-space:pre-wrap
+  // because Outlook desktop ignores that CSS property.
+  const bodyHtml = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#222;line-height:1.5;">${plainTextToHtml(body)}</div>`;
 
   return { subject, body, bodyHtml, to: loc.local_it_contact || '' };
 }
@@ -80,12 +81,10 @@ export function renderKickoff(
 /**
  * Convert a plain-text string to safe HTML with auto-linked URLs and emails.
  *
- * 1. Escape HTML special chars (&, <, >).
- * 2. Wrap http(s) URLs in <a href="...">.
- * 3. Wrap bare email addresses in <a href="mailto:...">.
- *
- * URLs may contain query strings (with `&` already escaped to `&amp;`), so
- * the URL regex matches up to whitespace, angle brackets, or trailing punctuation.
+ * Outlook desktop ignores `white-space: pre-wrap` (it renders via Word, not a
+ * real browser), so newlines are converted to explicit <br> tags to guarantee
+ * line breaks survive in every client. Runs of spaces are converted to
+ * non-breaking spaces so indentation is preserved too.
  */
 function plainTextToHtml(text: string): string {
   // 1. Escape HTML
@@ -112,6 +111,14 @@ function plainTextToHtml(text: string): string {
   html = html.replace(emailRegex, (_match, email) => {
     return `<a href="mailto:${email}" style="color:#06b6d4;text-decoration:underline;">${email}</a>`;
   });
+
+  // 4. Preserve indentation: convert runs of 2+ spaces to non-breaking spaces.
+  // Keep single spaces as regular spaces so the browser can wrap normally.
+  html = html.replace(/  +/g, (match) => '&nbsp;'.repeat(match.length));
+
+  // 5. Convert newlines to <br> so Outlook (which ignores white-space:pre-wrap)
+  // still renders line breaks. Normalize CRLF first.
+  html = html.replace(/\r\n?/g, '\n').replace(/\n/g, '<br>\n');
 
   return html;
 }
