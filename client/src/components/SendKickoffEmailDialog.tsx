@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { X, Mail, Send, Copy, Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { locationsApi } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
+
+const BCC_ME_STORAGE_KEY = 'portflow.kickoff.bccMe'
 
 interface Props {
   open: boolean
@@ -11,11 +14,15 @@ interface Props {
 }
 
 export default function SendKickoffEmailDialog({ open, ids, onClose, onSent }: Props) {
+  const { user } = useAuth()
   const [activeIdx, setActiveIdx] = useState(0)
   const [subjectOverride, setSubjectOverride] = useState('')
   const [bodyOverride, setBodyOverride] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [bccMe, setBccMe] = useState<boolean>(() => {
+    try { return localStorage.getItem(BCC_ME_STORAGE_KEY) === '1' } catch { return false }
+  })
   const [result, setResult] = useState<{ sent: number; skipped: number; errors: { site_code: string; error: string }[] } | null>(null)
 
   const { data: preview, isFetching, refetch } = useQuery({
@@ -31,12 +38,18 @@ export default function SendKickoffEmailDialog({ open, ids, onClose, onSent }: P
     mutationFn: () => locationsApi.kickoffSend(ids, {
       subject: editMode ? subjectOverride : undefined,
       body: editMode ? bodyOverride : undefined,
+      bcc: bccMe && user?.email ? [user.email] : undefined,
     }),
     onSuccess: (data) => {
       setResult(data)
       if (data.sent > 0) onSent?.()
     },
   })
+
+  // Persist the BCC-me preference across sessions
+  useEffect(() => {
+    try { localStorage.setItem(BCC_ME_STORAGE_KEY, bccMe ? '1' : '0') } catch { /* ignore */ }
+  }, [bccMe])
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -272,33 +285,53 @@ export default function SendKickoffEmailDialog({ open, ids, onClose, onSent }: P
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-surface-600">
-          {result ? (
-            <button onClick={onClose} className="btn btn-primary">Close</button>
-          ) : (
-            <>
-              <button onClick={onClose} className="btn btn-secondary">Cancel</button>
-              <button
-                onClick={handleCopy}
-                disabled={!current}
-                className="btn btn-secondary flex items-center gap-2"
-              >
-                {copied ? <><Check className="h-4 w-4 text-green-400" /> Copied</> : <><Copy className="h-4 w-4" /> Copy Current</>}
-              </button>
-              <button
-                onClick={() => sendMutation.mutate()}
-                disabled={validCount === 0 || sendMutation.isPending}
-                className="btn btn-primary flex items-center gap-2"
-                title={validCount === 0 ? 'No valid recipients' : ''}
-              >
-                {sendMutation.isPending ? (
-                  <>Sending...</>
-                ) : (
-                  <><Send className="h-4 w-4" /> Send {validCount} {validCount === 1 ? 'Email' : 'Emails'}</>
+        <div className="flex items-center justify-between gap-2 px-6 py-3 border-t border-surface-600">
+          <div className="flex-1 min-w-0">
+            {!result && user?.email && (
+              <label className="inline-flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={bccMe}
+                  onChange={(e) => setBccMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-0"
+                />
+                <span>
+                  BCC me <span className="text-zinc-500">({user.email})</span>
+                </span>
+                {bccMe && validCount > 1 && (
+                  <span className="text-amber-400/80 text-[11px]">— you'll receive {validCount} copies</span>
                 )}
-              </button>
-            </>
-          )}
+              </label>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {result ? (
+              <button onClick={onClose} className="btn btn-primary">Close</button>
+            ) : (
+              <>
+                <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+                <button
+                  onClick={handleCopy}
+                  disabled={!current}
+                  className="btn btn-secondary flex items-center gap-2"
+                >
+                  {copied ? <><Check className="h-4 w-4 text-green-400" /> Copied</> : <><Copy className="h-4 w-4" /> Copy Current</>}
+                </button>
+                <button
+                  onClick={() => sendMutation.mutate()}
+                  disabled={validCount === 0 || sendMutation.isPending}
+                  className="btn btn-primary flex items-center gap-2"
+                  title={validCount === 0 ? 'No valid recipients' : ''}
+                >
+                  {sendMutation.isPending ? (
+                    <>Sending...</>
+                  ) : (
+                    <><Send className="h-4 w-4" /> Send {validCount} {validCount === 1 ? 'Email' : 'Emails'}</>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

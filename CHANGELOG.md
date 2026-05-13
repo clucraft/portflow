@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-05-13
+
+### Added
+- **BCC me** option in the Send Kick-off Email dialog. Checkbox in the footer adds your logged-in email as BCC to every message in the batch, so you get proof-of-send copies in your inbox. Preference is sticky across sessions (localStorage). Shows a heads-up when sending to multiple locations ("you'll receive N copies"). BCC recipients see the original `To:` in their copy, so each one is identifiable. Audit log entries note the BCC addresses
+
+### Changed
+- `sendEmail()` now accepts an optional `bcc` array; addresses are validated and deduped, and the BCC list is capped at 10 per send to prevent abuse via the API
+
 ## [0.15.2] - 2026-05-11
 
 ### Fixed
@@ -431,7 +439,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.2...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.3...HEAD
+[0.15.3]: https://github.com/clucraft/portflow/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/clucraft/portflow/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/clucraft/portflow/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/clucraft/portflow/compare/v0.14.1...v0.15.0

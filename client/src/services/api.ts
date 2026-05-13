@@ -458,7 +458,7 @@ export const locationsApi = {
     }).then((r) => r.data),
   markKickoffSent: (ids: string[], sent_at?: string) =>
     api.post<{ updated: number }>('/locations/kickoff/mark-sent', { ids, sent_at }).then((r) => r.data),
-  kickoffSend: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string }) =>
+  kickoffSend: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string; bcc?: string[] }) =>
     api.post<{ sent: number; skipped: number; errors: { site_code: string; error: string }[] }>(
       '/locations/kickoff/send',
       {
@@ -467,6 +467,7 @@ export const locationsApi = {
         body_override: overrides?.body,
         from_address_override: overrides?.from_address,
         from_name_override: overrides?.from_name,
+        bcc: overrides?.bcc,
       }
     ).then((r) => r.data),
   link: (id: string, migration_id: string) =>

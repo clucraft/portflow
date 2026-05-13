@@ -26,7 +26,7 @@ export const sendEmail = async (
   to: string,
   subject: string,
   html: string,
-  options?: { from?: string; fromName?: string }
+  options?: { from?: string; fromName?: string; bcc?: string[] }
 ): Promise<void> => {
   const config = await getEmailConfig();
   if (!config) return;
@@ -42,11 +42,14 @@ export const sendEmail = async (
   const fromAddr = options?.from || config.from_address;
   const from = options?.fromName ? `"${options.fromName}" <${fromAddr}>` : fromAddr;
 
+  const bcc = options?.bcc?.filter((addr) => addr && /\S+@\S+\.\S+/.test(addr));
+
   await transport.sendMail({
     from,
     to,
     subject,
     html,
+    ...(bcc && bcc.length > 0 ? { bcc } : {}),
   });
 };
 

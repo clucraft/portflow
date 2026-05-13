@@ -526,10 +526,22 @@ export const kickoffPreview = async (req: Request, res: Response, next: NextFunc
 // POST /api/locations/kickoff/send - Actually send kickoff emails
 export const kickoffSend = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { ids, subject_override, body_override, from_address_override, from_name_override } = req.body;
+    const { ids, subject_override, body_override, from_address_override, from_name_override, bcc } = req.body as {
+      ids?: string[];
+      subject_override?: string;
+      body_override?: string;
+      from_address_override?: string;
+      from_name_override?: string;
+      bcc?: string[];
+    };
     if (!Array.isArray(ids) || ids.length === 0) {
       throw ApiError.badRequest('ids array is required');
     }
+
+    // Sanitize BCC: keep only well-formed addresses, dedupe, cap to a reasonable size
+    const bccList = Array.isArray(bcc)
+      ? Array.from(new Set(bcc.filter((a) => typeof a === 'string' && /\S+@\S+\.\S+/.test(a)))).slice(0, 10)
+      : [];
 
     const locs = await query<Location>(
       `SELECT * FROM locations WHERE id = ANY($1::uuid[])`, [ids]
@@ -559,6 +571,7 @@ export const kickoffSend = async (req: Request, res: Response, next: NextFunctio
         await sendEmail(r.to, r.subject, r.bodyHtml, {
           from: effectiveTemplate.from_address || undefined,
           fromName: effectiveTemplate.from_name || senderName || undefined,
+          bcc: bccList.length > 0 ? bccList : undefined,
         });
         sent++;
         // Record the timestamp + recipient on the location
@@ -566,10 +579,11 @@ export const kickoffSend = async (req: Request, res: Response, next: NextFunctio
           `UPDATE locations SET kickoff_email_sent_at = NOW(), kickoff_email_sent_to = $1 WHERE id = $2`,
           [r.to, loc.id]
         ).catch(() => {});
+        const bccSuffix = bccList.length > 0 ? ` (bcc: ${bccList.join(', ')})` : '';
         logActivity(
           req.user?.id || null,
           'location.kickoff_email_sent',
-          `Sent kick-off email to ${r.to} (${loc.site_code})`
+          `Sent kick-off email to ${r.to} (${loc.site_code})${bccSuffix}`
         ).catch(() => {});
       } catch (err) {
         errors.push({ site_code: loc.site_code, error: (err as Error).message });
