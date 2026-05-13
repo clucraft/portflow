@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-05-13
+
+### Changed
+- Renamed the **Dashboard** sidebar item to **Migrations** with a new `Workflow` icon. The page is a list of migration projects (not a metrics overview), and "Migrations" pairs more naturally with the sibling "Locations" item. Route remains `/`
+
 ## [0.16.0] - 2026-05-13
 
 ### Added
@@ -451,7 +456,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/clucraft/portflow/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/clucraft/portflow/compare/v0.15.3...v0.16.0
 [0.15.3]: https://github.com/clucraft/portflow/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/clucraft/portflow/compare/v0.15.1...v0.15.2
