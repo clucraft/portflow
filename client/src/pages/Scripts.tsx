@@ -109,7 +109,10 @@ export default function Scripts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Generated Scripts</h1>
+          <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-3">
+            <FileCode className="h-6 w-6 text-primary-400" />
+            Generated Scripts
+          </h1>
           <p className="text-zinc-500">PowerShell scripts for Teams configuration</p>
         </div>
         <div className="relative">

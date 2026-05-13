@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-05-13
+
+### Changed
+- Page headers on Migrations, Reports, and Scripts now show their matching sidebar icon (Workflow, BarChart3, FileCode), bringing them in line with Locations and Settings
+- Migrations page header title shortened from "EV Migrations Dashboard" to "Migrations" to match the sidebar item (subtitle still describes the page)
+
 ## [0.16.1] - 2026-05-13
 
 ### Changed
@@ -456,7 +462,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.16.2...HEAD
+[0.16.2]: https://github.com/clucraft/portflow/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/clucraft/portflow/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/clucraft/portflow/compare/v0.15.3...v0.16.0
 [0.15.3]: https://github.com/clucraft/portflow/compare/v0.15.2...v0.15.3

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload, PauseCircle } from 'lucide-react'
+import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, ArrowUpDown, X, Upload, PauseCircle, Workflow } from 'lucide-react'
 import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, effectiveUserCount, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportSurveyDialog from '../components/ImportSurveyDialog'
@@ -188,7 +188,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">EV Migrations Dashboard</h1>
+          <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-3">
+            <Workflow className="h-6 w-6 text-primary-400" />
+            Migrations
+          </h1>
           <p className="text-zinc-500">Track enterprise voice migration projects</p>
         </div>
         <div className="flex items-center gap-3">

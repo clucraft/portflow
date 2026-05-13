@@ -460,7 +460,10 @@ export default function Reports() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Reports</h1>
+          <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-3">
+            <BarChart3 className="h-6 w-6 text-primary-400" />
+            Reports
+          </h1>
           <p className="text-zinc-500">Migration status summary and exports</p>
         </div>
         <div className="flex gap-2">
