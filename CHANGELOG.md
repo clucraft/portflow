@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-13
+
+### Added
+- **Local IT Contact column** on the Locations table — shows the contact email, clickable as a `mailto:` link, truncated with a hover tooltip for long addresses. Sortable (empty contacts sort last)
+- **Notes column** on the Locations table — truncated preview with a note icon; hover the row to see the full text via tooltip
+- **Local IT Contact filter** — new dropdown to filter by a specific contact email or by "Missing contact" (locations where the field is blank — useful for finding gaps before sending kick-offs)
+- **Free-text search** now also matches IT contact and notes content
+- **Filter and sort persistence across navigation** — all filters (search, status, region, IT contact) and sort state on the Locations page are now stored in the URL. Clicking into a location and hitting back restores the exact view you left. A "Clear filters" button appears when any filter is active
+
+### Changed
+- Locations page search placeholder updated to reflect the wider field coverage ("Search site, city, company, contact, notes…")
+
 ## [0.15.3] - 2026-05-13
 
 ### Added
@@ -439,7 +451,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.15.3...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/clucraft/portflow/compare/v0.15.3...v0.16.0
 [0.15.3]: https://github.com/clucraft/portflow/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/clucraft/portflow/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/clucraft/portflow/compare/v0.15.0...v0.15.1

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown, MailCheck } from 'lucide-react'
+import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown, MailCheck, StickyNote } from 'lucide-react'
 import { locationsApi, type Location, type LocationStatus } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportLocationsDialog from '../components/ImportLocationsDialog'
@@ -59,23 +59,51 @@ function formatDate(d: string | null): string {
 type SortKey =
   | 'site_code' | 'location_name' | 'region' | 'status'
   | 'priority' | 'complexity' | 'planned' | 'users' | 'project'
-  | 'kickoff_sent'
+  | 'kickoff_sent' | 'local_it_contact'
 type SortDir = 'asc' | 'desc'
+
+const VALID_SORT_KEYS: SortKey[] = [
+  'site_code', 'location_name', 'region', 'status',
+  'priority', 'complexity', 'planned', 'users', 'project',
+  'kickoff_sent', 'local_it_contact',
+]
 
 export default function Locations() {
   const { canWrite } = useAuth()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<LocationStatus | ''>('')
-  const [regionFilter, setRegionFilter] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Filter/sort state backed by URL params so navigating to a location and
+  // hitting back restores the exact view (search, filters, sort, page state).
+  const search = searchParams.get('q') || ''
+  const statusFilter = (searchParams.get('status') || '') as LocationStatus | ''
+  const regionFilter = searchParams.get('region') || ''
+  const itContactFilter = searchParams.get('it_contact') || ''
+  const sortKey: SortKey = (VALID_SORT_KEYS as string[]).includes(searchParams.get('sort') || '')
+    ? (searchParams.get('sort') as SortKey)
+    : 'site_code'
+  const sortDir: SortDir = searchParams.get('dir') === 'desc' ? 'desc' : 'asc'
+
+  const setParam = (key: string, value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      return next
+    }, { replace: true })
+  }
+
+  const setSearch = (v: string) => setParam('q', v)
+  const setStatusFilter = (v: LocationStatus | '') => setParam('status', v)
+  const setRegionFilter = (v: string) => setParam('region', v)
+  const setItContactFilter = (v: string) => setParam('it_contact', v)
+
   const [showImport, setShowImport] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showKickoff, setShowKickoff] = useState(false)
   const [showMarkKickoff, setShowMarkKickoff] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
-  const [sortKey, setSortKey] = useState<SortKey>('site_code')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const { data: locations = [], isLoading, refetch } = useQuery({
@@ -94,8 +122,15 @@ export default function Locations() {
 
   const filterOptions = useMemo(() => {
     const regions = new Set<string>()
-    locations.forEach(l => { if (l.region) regions.add(l.region) })
-    return { regions: Array.from(regions).sort() }
+    const itContacts = new Set<string>()
+    locations.forEach(l => {
+      if (l.region) regions.add(l.region)
+      if (l.local_it_contact) itContacts.add(l.local_it_contact)
+    })
+    return {
+      regions: Array.from(regions).sort(),
+      itContacts: Array.from(itContacts).sort((a, b) => a.localeCompare(b)),
+    }
   }, [locations])
 
   const filtered = useMemo(() => {
@@ -103,8 +138,15 @@ export default function Locations() {
     const matches = locations.filter(l => {
       if (statusFilter && l.status !== statusFilter) return false
       if (regionFilter && l.region !== regionFilter) return false
+      if (itContactFilter) {
+        if (itContactFilter === '__missing__') {
+          if (l.local_it_contact && l.local_it_contact.trim()) return false
+        } else if (l.local_it_contact !== itContactFilter) {
+          return false
+        }
+      }
       if (q) {
-        const hay = `${l.site_code} ${l.location_name} ${l.country || ''} ${l.company || ''} ${l.assigned_engineer || ''}`.toLowerCase()
+        const hay = `${l.site_code} ${l.location_name} ${l.country || ''} ${l.company || ''} ${l.assigned_engineer || ''} ${l.local_it_contact || ''} ${l.notes || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
@@ -130,13 +172,18 @@ export default function Locations() {
           av = a.kickoff_email_sent_at ? new Date(a.kickoff_email_sent_at).getTime() : 0
           bv = b.kickoff_email_sent_at ? new Date(b.kickoff_email_sent_at).getTime() : 0
           break
+        case 'local_it_contact':
+          // Empty contacts sort last for both directions (~ sorts high in ASCII)
+          av = (a.local_it_contact || '~').toLowerCase()
+          bv = (b.local_it_contact || '~').toLowerCase()
+          break
       }
       if (av < bv) return sortDir === 'asc' ? -1 : 1
       if (av > bv) return sortDir === 'asc' ? 1 : -1
       return a.site_code.localeCompare(b.site_code)
     }
     return [...matches].sort(compare)
-  }, [locations, search, statusFilter, regionFilter, sortKey, sortDir])
+  }, [locations, search, statusFilter, regionFilter, itContactFilter, sortKey, sortDir])
 
   const stats = useMemo(() => ({
     total: locations.length,
@@ -147,12 +194,16 @@ export default function Locations() {
   }), [locations])
 
   const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (sortKey === key) {
+        next.set('dir', sortDir === 'asc' ? 'desc' : 'asc')
+      } else {
+        next.set('sort', key)
+        next.set('dir', 'asc')
+      }
+      return next
+    }, { replace: true })
   }
 
   const toggleOne = (id: string) => {
@@ -258,7 +309,7 @@ export default function Locations() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <input
             type="text"
-            placeholder="Search site, city, company..."
+            placeholder="Search site, city, company, contact, notes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input pl-9 w-72"
@@ -276,6 +327,23 @@ export default function Locations() {
           <option value="">All regions</option>
           {filterOptions.regions.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
+        <select value={itContactFilter} onChange={(e) => setItContactFilter(e.target.value)}
+          className="input py-1.5 px-2.5 text-sm w-auto min-w-[180px] max-w-[260px]"
+          title="Filter by Local IT Contact">
+          <option value="">All IT contacts</option>
+          <option value="__missing__">— Missing contact —</option>
+          {filterOptions.itContacts.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(search || statusFilter || regionFilter || itContactFilter) && (
+          <button
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}
+            className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1"
+            title="Clear all filters and sorting"
+          >
+            <X className="h-3 w-3" />
+            Clear filters
+          </button>
+        )}
         <span className="text-sm text-zinc-500 ml-auto">
           {filtered.length} of {locations.length}
         </span>
@@ -319,6 +387,8 @@ export default function Locations() {
                 <SortHeader label="Complexity" sortKey="complexity" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Planned" sortKey="planned" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Users" sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
+                <SortHeader label="IT Contact" sortKey="local_it_contact" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Notes</th>
                 <SortHeader label="Kick-off" sortKey="kickoff_sent" current={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Project" sortKey="project" current={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
@@ -511,6 +581,33 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
       <td className={`px-3 py-2 text-sm ${complexityClass}`}>{l.complexity || '—'}</td>
       <td className="px-3 py-2 text-zinc-400 text-xs">{plannedDisplay}</td>
       <td className="px-3 py-2 text-zinc-300 text-right font-mono">{l.estimated_users || '—'}</td>
+      <td className="px-3 py-2 text-zinc-300 text-xs">
+        {l.local_it_contact ? (
+          <a
+            href={`mailto:${l.local_it_contact}`}
+            className="text-zinc-300 hover:text-primary-300 truncate inline-block max-w-[220px] align-middle"
+            title={l.local_it_contact}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {l.local_it_contact}
+          </a>
+        ) : (
+          <span className="text-zinc-600">—</span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-zinc-400 text-xs">
+        {l.notes ? (
+          <span
+            className="inline-flex items-center gap-1.5 max-w-[260px] truncate align-middle"
+            title={l.notes}
+          >
+            <StickyNote className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <span className="truncate">{l.notes}</span>
+          </span>
+        ) : (
+          <span className="text-zinc-600">—</span>
+        )}
+      </td>
       <td className="px-3 py-2">
         {l.kickoff_email_sent_at ? (
           <span
