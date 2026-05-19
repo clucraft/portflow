@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useParticlePreference } from '../hooks/useParticlePreference'
 
 function generateParticles(count: number, spacing: number, color: string): string {
   const shadows: string[] = []
@@ -16,9 +17,10 @@ interface ParticleLayerProps {
   duration: number
   color: string
   spacing: number
+  paused: boolean
 }
 
-function ParticleLayer({ count, size, duration, color, spacing }: ParticleLayerProps) {
+function ParticleLayer({ count, size, duration, color, spacing, paused }: ParticleLayerProps) {
   const boxShadow = useMemo(() => generateParticles(count, spacing, color), [count, spacing, color])
   const boxShadowAfter = useMemo(() => generateParticles(Math.floor(count * 0.8), spacing, color), [count, spacing, color])
 
@@ -35,6 +37,7 @@ function ParticleLayer({ count, size, duration, color, spacing }: ParticleLayerP
         boxShadow,
         borderRadius: '50%',
         animation: `particleFloat ${duration}s linear infinite`,
+        animationPlayState: paused ? 'paused' : 'running',
       }}
     >
       <div
@@ -54,7 +57,19 @@ function ParticleLayer({ count, size, duration, color, spacing }: ParticleLayerP
 }
 
 export default function ParticleBackground() {
+  const [enabled] = useParticlePreference()
+  const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.visibilityState === 'hidden')
   const spacing = 2000
+
+  // Pause the CSS animation when the tab is hidden — the work is GPU-cheap but
+  // not free, and there's no point compositing for a tab the user isn't looking at.
+  useEffect(() => {
+    const onVisibility = () => setHidden(document.visibilityState === 'hidden')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  if (!enabled) return null
 
   return (
     <div className="particle-background">
@@ -83,9 +98,9 @@ export default function ParticleBackground() {
 
       {/* Multiple layers with different speeds for depth effect */}
       {/* Cyan particles matching the primary accent color */}
-      <ParticleLayer count={250} size={1} duration={90} color="#06b6d4" spacing={spacing} />
-      <ParticleLayer count={150} size={1} duration={130} color="#22d3ee" spacing={spacing} />
-      <ParticleLayer count={80} size={2} duration={170} color="#67e8f9" spacing={spacing} />
+      <ParticleLayer count={250} size={1} duration={90} color="#06b6d4" spacing={spacing} paused={hidden} />
+      <ParticleLayer count={150} size={1} duration={130} color="#22d3ee" spacing={spacing} paused={hidden} />
+      <ParticleLayer count={80} size={2} duration={170} color="#67e8f9" spacing={spacing} paused={hidden} />
     </div>
   )
 }

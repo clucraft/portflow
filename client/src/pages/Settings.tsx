@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download, DollarSign, Database, AlertTriangle, Check } from 'lucide-react'
+import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X, Key, Upload, Download, DollarSign, Database, AlertTriangle, Check, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
   type TeamMember, type Carrier, formatCarrierType
 } from '../services/api'
+import { useParticlePreference } from '../hooks/useParticlePreference'
 
-type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'integrations' | 'audit' | 'backup'
+type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'integrations' | 'appearance' | 'audit' | 'backup'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
@@ -19,6 +20,7 @@ export default function Settings() {
     { id: 'policies', label: 'Policies', icon: FileText },
     { id: 'pricing', label: 'Pricing', icon: DollarSign },
     { id: 'integrations', label: 'Integrations', icon: Mail },
+    { id: 'appearance', label: 'Appearance', icon: Sparkles },
     { id: 'audit', label: 'Audit Log', icon: Shield, adminOnly: true },
     { id: 'backup', label: 'Backup', icon: Database, adminOnly: true },
   ]
@@ -60,6 +62,7 @@ export default function Settings() {
       {activeTab === 'policies' && <PoliciesTab />}
       {activeTab === 'pricing' && <PricingTab />}
       {activeTab === 'integrations' && <IntegrationsTab />}
+      {activeTab === 'appearance' && <AppearanceTab />}
       {activeTab === 'audit' && isAdmin && <AuditLogTab />}
       {activeTab === 'backup' && isAdmin && <BackupTab />}
     </div>
@@ -1244,6 +1247,40 @@ Thanks,
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ============ APPEARANCE TAB ============
+function AppearanceTab() {
+  const [particlesEnabled, setParticlesEnabled] = useParticlePreference()
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold text-zinc-100 mb-1 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary-400" />
+          Visual Effects
+        </h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Adjust visual effects to improve performance on lower-end hardware. Preferences are stored in your browser and apply only to this device.
+        </p>
+
+        <label className="flex items-start gap-3 cursor-pointer select-none p-3 -mx-3 rounded hover:bg-surface-700/40 transition-colors">
+          <input
+            type="checkbox"
+            checked={particlesEnabled}
+            onChange={(e) => setParticlesEnabled(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-surface-500 bg-surface-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-0"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-zinc-200">Animated particle background</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              The drifting cyan particles behind the UI. Disabling can noticeably reduce CPU/GPU load on older laptops.
+            </p>
+          </div>
+        </label>
       </div>
     </div>
   )
