@@ -5,6 +5,7 @@ import { Plus, Calendar, Users, Phone, CheckCircle, Clock, Zap, Search, Bell, Ar
 import { migrationsApi, carriersApi, notificationsApi, WORKFLOW_STAGES, effectiveUserCount, type WorkflowStage, type Migration } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportSurveyDialog from '../components/ImportSurveyDialog'
+import { useDensityPreference } from '../hooks/useDensityPreference'
 
 const stageColors: Record<string, string> = {
   estimate: 'bg-zinc-500',
@@ -76,6 +77,11 @@ export default function Dashboard() {
   const { canWrite } = useAuth()
   const [showImport, setShowImport] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [density] = useDensityPreference()
+  const isCompact = density === 'compact'
+  const cardCls = isCompact ? 'block p-2.5 bg-surface-700/50 border border-surface-600 rounded-lg hover:border-primary-500/50 hover:bg-surface-700 transition-all duration-200' : 'block p-4 bg-surface-700/50 border border-surface-600 rounded-lg hover:border-primary-500/50 hover:bg-surface-700 transition-all duration-200'
+  const innerSectionMb = isCompact ? 'mb-2' : 'mb-3'
+  const listGap = isCompact ? 'space-y-2' : 'space-y-4'
 
   // Filter/sort state backed by URL params (persists across navigation)
   const searchQuery = searchParams.get('q') || ''
@@ -375,7 +381,7 @@ export default function Dashboard() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className={listGap}>
             {activeMigrations.map((migration) => {
               const stageInfo = getStageInfo(migration.workflow_stage)
               const carrierName = formatCarrierName(migration.target_carrier)
@@ -387,9 +393,9 @@ export default function Dashboard() {
                 <Link
                   key={migration.id}
                   to={`/migrations/${migration.id}`}
-                  className="block p-4 bg-surface-700/50 border border-surface-600 rounded-lg hover:border-primary-500/50 hover:bg-surface-700 transition-all duration-200"
+                  className={cardCls}
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className={`flex items-start justify-between ${innerSectionMb}`}>
                     <div>
                       <h3 className="font-medium text-zinc-100 flex items-center gap-1.5">
                         {migration.name}
@@ -409,7 +415,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Info pills */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
+                  <div className={`flex flex-wrap gap-1.5 ${innerSectionMb}`}>
                     {migration.assigned_to_name && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-primary-500/10 border-primary-500/30 text-primary-400">
                         {migration.assigned_to_name}
@@ -481,7 +487,7 @@ export default function Dashboard() {
               <Link
                 key={m.id}
                 to={`/migrations/${m.id}`}
-                className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors"
+                className={`flex items-center justify-between ${isCompact ? 'p-1.5' : 'p-3'} bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -519,7 +525,7 @@ export default function Dashboard() {
                 <Link
                   key={m.id}
                   to={`/migrations/${m.id}`}
-                  className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
+                  className={`flex items-center justify-between ${isCompact ? 'p-1.5' : 'p-3'} bg-green-500/10 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium text-zinc-200">{m.name}</span>

@@ -7,6 +7,7 @@ import {
   type TeamMember, type Carrier, formatCarrierType
 } from '../services/api'
 import { useParticlePreference } from '../hooks/useParticlePreference'
+import { useDensityPreference } from '../hooks/useDensityPreference'
 
 type SettingsTab = 'users' | 'carriers' | 'policies' | 'pricing' | 'integrations' | 'appearance' | 'audit' | 'backup'
 
@@ -1255,6 +1256,7 @@ Thanks,
 // ============ APPEARANCE TAB ============
 function AppearanceTab() {
   const [particlesEnabled, setParticlesEnabled] = useParticlePreference()
+  const [density, setDensity] = useDensityPreference()
 
   return (
     <div className="space-y-6">
@@ -1282,7 +1284,58 @@ function AppearanceTab() {
           </div>
         </label>
       </div>
+
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold text-zinc-100 mb-1">Table Density</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Controls row height and font size on data tables (Locations, Migrations, Reports). Compact fits more rows on screen at the cost of less breathing room.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <DensityOption
+            value="comfortable"
+            current={density}
+            onSelect={setDensity}
+            label="Comfortable"
+            description="Default. Easier to scan."
+          />
+          <DensityOption
+            value="compact"
+            current={density}
+            onSelect={setDensity}
+            label="Compact"
+            description="~30% more rows visible."
+          />
+        </div>
+      </div>
     </div>
+  )
+}
+
+function DensityOption({ value, current, onSelect, label, description }: {
+  value: 'comfortable' | 'compact'
+  current: 'comfortable' | 'compact'
+  onSelect: (v: 'comfortable' | 'compact') => void
+  label: string
+  description: string
+}) {
+  const active = value === current
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={`text-left p-3 rounded-lg border transition-colors ${
+        active
+          ? 'border-primary-500/60 bg-primary-500/10 ring-1 ring-primary-500/40'
+          : 'border-surface-600 bg-surface-800 hover:border-surface-500 hover:bg-surface-700/50'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className={`text-sm font-medium ${active ? 'text-primary-300' : 'text-zinc-200'}`}>{label}</span>
+        {active && <Check className="h-4 w-4 text-primary-400" />}
+      </div>
+      <p className="text-xs text-zinc-500 mt-1">{description}</p>
+    </button>
   )
 }
 

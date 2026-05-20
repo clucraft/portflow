@@ -8,6 +8,7 @@ import ImportLocationsDialog from '../components/ImportLocationsDialog'
 import NewLocationDialog from '../components/NewLocationDialog'
 import SendKickoffEmailDialog from '../components/SendKickoffEmailDialog'
 import MarkKickoffSentDialog from '../components/MarkKickoffSentDialog'
+import { useDensityPreference, tableCellClasses, tableHeaderCellClasses, type Density } from '../hooks/useDensityPreference'
 
 const STATUS_LABELS: Record<LocationStatus, string> = {
   planned: 'Planned',
@@ -72,6 +73,9 @@ export default function Locations() {
   const { canWrite } = useAuth()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [density] = useDensityPreference()
+  const cellCls = tableCellClasses(density)
+  const headerCls = tableHeaderCellClasses(density)
 
   // Filter/sort state backed by URL params so navigating to a location and
   // hitting back restores the exact view (search, filters, sort, page state).
@@ -366,7 +370,7 @@ export default function Locations() {
             <thead>
               <tr className="bg-surface-700/50 border-b border-surface-600">
                 {canWrite && (
-                  <th className="px-3 py-2 w-10">
+                  <th className={`${headerCls} w-10`}>
                     <input
                       type="checkbox"
                       checked={filtered.length > 0 && selected.size === filtered.length}
@@ -379,18 +383,18 @@ export default function Locations() {
                     />
                   </th>
                 )}
-                <SortHeader label="Code" sortKey="site_code" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Location" sortKey="location_name" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Region" sortKey="region" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Status" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Priority" sortKey="priority" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Complexity" sortKey="complexity" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Planned" sortKey="planned" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Users" sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right" />
-                <SortHeader label="IT Contact" sortKey="local_it_contact" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <th className="px-3 py-2 text-left text-zinc-400 font-medium">Notes</th>
-                <SortHeader label="Kick-off" sortKey="kickoff_sent" current={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHeader label="Project" sortKey="project" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortHeader label="Code" sortKey="site_code" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Location" sortKey="location_name" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Region" sortKey="region" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Status" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Priority" sortKey="priority" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Complexity" sortKey="complexity" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Planned" sortKey="planned" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Users" sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right" headerCls={headerCls} />
+                <SortHeader label="IT Contact" sortKey="local_it_contact" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <th className={`${headerCls} text-left text-zinc-400 font-medium`}>Notes</th>
+                <SortHeader label="Kick-off" sortKey="kickoff_sent" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
+                <SortHeader label="Project" sortKey="project" current={sortKey} dir={sortDir} onSort={toggleSort} headerCls={headerCls} />
               </tr>
             </thead>
             <tbody>
@@ -401,6 +405,8 @@ export default function Locations() {
                   selectable={canWrite}
                   selected={selected.has(l.id)}
                   onToggle={() => toggleOne(l.id)}
+                  density={density}
+                  cellCls={cellCls}
                 />
               ))}
             </tbody>
@@ -493,17 +499,18 @@ export default function Locations() {
   )
 }
 
-function SortHeader({ label, sortKey, current, dir, onSort, align }: {
+function SortHeader({ label, sortKey, current, dir, onSort, align, headerCls }: {
   label: string
   sortKey: SortKey
   current: SortKey
   dir: SortDir
   onSort: (k: SortKey) => void
   align?: 'left' | 'right'
+  headerCls: string
 }) {
   const isActive = current === sortKey
   return (
-    <th className={`px-3 py-2 text-${align || 'left'} text-zinc-400 font-medium`}>
+    <th className={`${headerCls} text-${align || 'left'} text-zinc-400 font-medium`}>
       <button
         onClick={() => onSort(sortKey)}
         className={`inline-flex items-center gap-1 hover:text-zinc-200 transition-colors ${isActive ? 'text-zinc-200' : ''}`}
@@ -534,11 +541,13 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   )
 }
 
-function LocationRow({ location: l, selectable, selected, onToggle }: {
+function LocationRow({ location: l, selectable, selected, onToggle, density, cellCls }: {
   location: Location
   selectable: boolean
   selected: boolean
   onToggle: () => void
+  density: Density
+  cellCls: string
 }) {
   const planned = [l.planned_start_date, l.planned_end_date].filter(Boolean) as string[]
   const plannedDisplay = planned.length === 2
@@ -549,11 +558,13 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
 
   const priorityClass = PRIORITY_COLORS[(l.priority || '').toLowerCase()] || 'text-zinc-500'
   const complexityClass = PRIORITY_COLORS[(l.complexity || '').toLowerCase()] || 'text-zinc-500'
+  // In compact mode, cellCls is already text-xs; in comfortable, override to xs for low-priority columns.
+  const xsCell = density === 'compact' ? cellCls : `${cellCls.replace('text-sm', '')} text-xs`
 
   return (
     <tr className={`border-b border-surface-700 hover:bg-surface-700/30 transition-colors ${selected ? 'bg-primary-500/5' : ''}`}>
       {selectable && (
-        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+        <td className={cellCls} onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={selected}
@@ -562,26 +573,26 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
           />
         </td>
       )}
-      <td className="px-3 py-2">
+      <td className={cellCls}>
         <Link to={`/locations/${l.id}`} className="font-mono font-semibold text-primary-400 hover:text-primary-300">
           {l.site_code}
         </Link>
       </td>
-      <td className="px-3 py-2 text-zinc-200">
+      <td className={`${cellCls} text-zinc-200`}>
         {l.location_name}
         {l.country && <span className="text-zinc-500 ml-1.5">{l.country}</span>}
       </td>
-      <td className="px-3 py-2 text-zinc-300">{l.region || '—'}</td>
-      <td className="px-3 py-2">
+      <td className={`${cellCls} text-zinc-300`}>{l.region || '—'}</td>
+      <td className={cellCls}>
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${STATUS_BADGES[l.status]}`}>
           {STATUS_LABELS[l.status]}
         </span>
       </td>
-      <td className={`px-3 py-2 text-sm ${priorityClass}`}>{l.priority || '—'}</td>
-      <td className={`px-3 py-2 text-sm ${complexityClass}`}>{l.complexity || '—'}</td>
-      <td className="px-3 py-2 text-zinc-400 text-xs">{plannedDisplay}</td>
-      <td className="px-3 py-2 text-zinc-300 text-right font-mono">{l.estimated_users || '—'}</td>
-      <td className="px-3 py-2 text-zinc-300 text-xs">
+      <td className={`${cellCls} ${priorityClass}`}>{l.priority || '—'}</td>
+      <td className={`${cellCls} ${complexityClass}`}>{l.complexity || '—'}</td>
+      <td className={`${xsCell} text-zinc-400`}>{plannedDisplay}</td>
+      <td className={`${cellCls} text-zinc-300 text-right font-mono`}>{l.estimated_users || '—'}</td>
+      <td className={`${xsCell} text-zinc-300`}>
         {l.local_it_contact ? (
           <a
             href={`mailto:${l.local_it_contact}`}
@@ -595,7 +606,7 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
           <span className="text-zinc-600">—</span>
         )}
       </td>
-      <td className="px-3 py-2 text-zinc-400 text-xs">
+      <td className={`${xsCell} text-zinc-400`}>
         {l.notes ? (
           <span
             className="inline-flex items-center gap-1.5 max-w-[260px] truncate align-middle"
@@ -608,7 +619,7 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
           <span className="text-zinc-600">—</span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className={cellCls}>
         {l.kickoff_email_sent_at ? (
           <span
             className="inline-flex items-center gap-1.5 text-xs text-green-400"
@@ -621,7 +632,7 @@ function LocationRow({ location: l, selectable, selected, onToggle }: {
           <span className="text-xs text-zinc-600">—</span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className={cellCls}>
         {l.migration_id ? (
           <Link to={`/migrations/${l.migration_id}`} className="inline-flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300">
             <Link2 className="h-3 w-3" />

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-05-20
+
+### Added
+- **Table density toggle** in Settings → Appearance with Comfortable (default) and Compact options. Compact mode tightens cell padding (`py-2` → `py-1`) and drops body text one step (`text-sm` → `text-xs`), fitting roughly 30% more rows on screen. Applies to Locations table, Migrations cards (Dashboard), and Reports row lists (Completed / In Progress / On Hold). Preference is stored per-device in localStorage and updates immediately across all pages without remount
+
 ## [0.17.0] - 2026-05-13
 
 ### Added
@@ -468,7 +473,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/clucraft/portflow/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/clucraft/portflow/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/clucraft/portflow/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/clucraft/portflow/compare/v0.16.0...v0.16.1

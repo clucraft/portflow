@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Download, Calendar, Users, CheckCircle, TrendingUp, ClipboardList, PauseCircle, MapPin, Printer, Copy, FileText, Check } from 'lucide-react'
 import { migrationsApi, teamApi, locationsApi, formatRoutingType, effectiveUserCount } from '../services/api'
 import { QUESTIONNAIRE_SECTIONS, type QuestionnaireData } from '../constants/questionnaireSchema'
+import { useDensityPreference } from '../hooks/useDensityPreference'
 
 // Format carrier name for display
 function formatCarrierName(carrier: string): string {
@@ -25,6 +26,8 @@ function getPhaseFromStage(stage: string): string {
 }
 
 export default function Reports() {
+  const [density] = useDensityPreference()
+  const rowCls = density === 'compact' ? 'px-2 py-1 text-xs' : 'px-3 py-2.5 text-sm'
   const { data: migrations, isLoading } = useQuery({
     queryKey: ['migrations', 'dashboard'],
     queryFn: migrationsApi.dashboard,
@@ -606,7 +609,7 @@ export default function Reports() {
             <div className="divide-y divide-surface-700 max-h-[28rem] overflow-auto">
               {completedSorted.length === 0 && <div className="px-3 py-3 text-xs text-zinc-500">No completed projects.</div>}
               {completedSorted.map(m => (
-                <div key={m.id} className="px-3 py-2.5 text-sm">
+                <div key={m.id} className={rowCls}>
                   <div>
                     <span className="font-mono font-semibold text-primary-400">{m.name}</span>
                     <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
@@ -636,7 +639,7 @@ export default function Reports() {
                   : m.verizon_request_submitted_at ? `Submitted: ${fmtDate(m.verizon_request_submitted_at)}`
                   : ''
                 return (
-                  <div key={m.id} className="px-3 py-2.5 text-sm">
+                  <div key={m.id} className={rowCls}>
                     <div>
                       <span className="font-mono font-semibold text-primary-400">{m.name}</span>
                       <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
@@ -667,7 +670,7 @@ export default function Reports() {
                 const since = m.on_hold_at
                 const prev = m.on_hold_previous_stage
                 return (
-                  <div key={m.id} className="px-3 py-2.5 text-sm">
+                  <div key={m.id} className={rowCls}>
                     <div>
                       <span className="font-mono font-semibold text-primary-400">{m.name}</span>
                       <span className="text-zinc-500"> — {m.site_name}{m.site_city && `, ${m.site_city}`}{m.site_country && `, ${m.site_country}`}</span>
