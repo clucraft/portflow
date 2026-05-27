@@ -1,7 +1,22 @@
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Plus, Trash2 } from 'lucide-react'
 import type { Migration, Carrier } from '../services/api'
+import { hardwareAddersApi } from '../services/api'
 
 type SelectedMethod = 'A' | 'B' | 'C' | null
+
+// Per-estimate hardware row. The name + unit_price are snapshots from the
+// catalog at the time the row was added, so future catalog price changes
+// (or deletions) don't retro-edit historical quotes.
+export interface HardwareItem {
+  id: string                    // client-side row id
+  source: 'adder' | 'custom'
+  adder_id?: string             // informational reference back to catalog
+  name: string
+  unit_price: number
+  qty: number
+}
 
 interface CostCalculatorData {
   // Shared inputs
@@ -28,10 +43,27 @@ interface CostCalculatorData {
   // Method B custom overrides
   smartphones_b: number
   headsets_b: number
+  // Additional hardware (ATAs, SBCs, custom one-offs). Same subtotal added
+  // to every method's one-time total.
+  additional_hardware: HardwareItem[]
   // Selected method
   selected_method: SelectedMethod
   // Notes
   notes: string
+}
+
+function newRowId(): string {
+  // Crypto.randomUUID is widely available in modern browsers; fall back to
+  // a timestamp+random string if it's not (older Safari, file:// contexts).
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function hardwareTotal(items: HardwareItem[] | undefined): number {
+  if (!items || !Array.isArray(items)) return 0
+  return items.reduce((sum, h) => sum + (Number(h.qty) || 0) * (Number(h.unit_price) || 0), 0)
 }
 
 interface PricingRates {
@@ -85,7 +117,8 @@ function initFromMigration(
 ): CostCalculatorData {
   const saved = migration.cost_calculator as CostCalculatorData | null
   if (saved && typeof saved === 'object' && 'total_users' in saved) {
-    return { ...saved }
+    // Back-fill additional_hardware for estimates saved before this feature existed.
+    return { ...saved, additional_hardware: Array.isArray(saved.additional_hardware) ? saved.additional_hardware : [] }
   }
 
   // Pre-fill from questionnaire
@@ -128,6 +161,7 @@ function initFromMigration(
     desk_phones_c: deskPhones,
     smartphones_b: 0,
     headsets_b: 0,
+    additional_hardware: [],
     selected_method: null,
     notes: migration.estimate_notes || '',
   }
@@ -156,7 +190,8 @@ function calcMethod(data: CostCalculatorData, method: 'A' | 'B' | 'C'): MethodRe
     deskPhones * data.desk_phone_cost +
     smartphones * data.smartphone_cost +
     headsets * data.headset_cost +
-    data.activation_fee
+    data.activation_fee +
+    hardwareTotal(data.additional_hardware)
   const monthly = data.total_users * data.user_service_rate + data.carrier_monthly_flat
   const annual = monthly * 12
   const firstYear = annual + onetime
@@ -181,6 +216,52 @@ export default function CostCalculator({
   }, [migration.cost_calculator, lastCalcJson])
 
   const update = (patch: Partial<CostCalculatorData>) => setData(d => ({ ...d, ...patch }))
+
+  // Catalog for the "Add from catalog" picker. Failure is non-fatal — the
+  // picker just won't have options; users can still add custom rows.
+  const { data: adders = [] } = useQuery({
+    queryKey: ['hardware-adders'],
+    queryFn: hardwareAddersApi.list,
+  })
+
+  const addHardwareFromCatalog = (adderId: string) => {
+    const adder = adders.find(a => a.id === adderId)
+    if (!adder) return
+    update({
+      additional_hardware: [
+        ...data.additional_hardware,
+        {
+          id: newRowId(),
+          source: 'adder',
+          adder_id: adder.id,
+          name: adder.name,
+          unit_price: Number(adder.unit_price) || 0,
+          qty: 1,
+        },
+      ],
+    })
+  }
+
+  const addCustomHardware = () => {
+    update({
+      additional_hardware: [
+        ...data.additional_hardware,
+        { id: newRowId(), source: 'custom', name: '', unit_price: 0, qty: 1 },
+      ],
+    })
+  }
+
+  const updateHardware = (id: string, patch: Partial<HardwareItem>) => {
+    update({
+      additional_hardware: data.additional_hardware.map(h => (h.id === id ? { ...h, ...patch } : h)),
+    })
+  }
+
+  const removeHardware = (id: string) => {
+    update({ additional_hardware: data.additional_hardware.filter(h => h.id !== id) })
+  }
+
+  const hardwareSubtotal = hardwareTotal(data.additional_hardware)
 
   const resultA = calcMethod(data, 'A')
   const resultB = calcMethod(data, 'B')
@@ -286,6 +367,84 @@ export default function CostCalculator({
             <label className="label">Carrier Activation Fee</label>
             <input type="number" className="input" step="0.01" value={data.activation_fee || ''}
               onChange={e => update({ activation_fee: parseFloat(e.target.value) || 0 })} />
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Hardware */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-zinc-400">Additional Hardware</div>
+          {hardwareSubtotal > 0 && (
+            <div className="text-xs text-zinc-500">
+              Subtotal: <span className="text-zinc-300 font-mono">{currencySymbol}{fmt(hardwareSubtotal)}</span>
+            </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          {data.additional_hardware.length > 0 && (
+            <div className="space-y-1.5">
+              {data.additional_hardware.map(h => (
+                <div key={h.id} className="grid grid-cols-12 gap-2 items-center">
+                  <input
+                    type="text"
+                    className="input col-span-6 py-1 text-sm"
+                    placeholder={h.source === 'custom' ? 'Description' : 'Name'}
+                    value={h.name}
+                    onChange={e => updateHardware(h.id, { name: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    className="input col-span-2 py-1 text-sm text-right"
+                    placeholder="Qty"
+                    value={h.qty || ''}
+                    onChange={e => updateHardware(h.id, { qty: parseInt(e.target.value) || 0 })}
+                  />
+                  <input
+                    type="number"
+                    className="input col-span-2 py-1 text-sm text-right"
+                    placeholder="Unit"
+                    step="0.01"
+                    value={h.unit_price || ''}
+                    onChange={e => updateHardware(h.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                  />
+                  <div className="col-span-1 text-right text-xs text-zinc-300 font-mono">
+                    {currencySymbol}{fmt(h.qty * h.unit_price)}
+                  </div>
+                  <button
+                    onClick={() => removeHardware(h.id)}
+                    className="col-span-1 text-zinc-500 hover:text-red-400 transition-colors flex justify-center"
+                    title="Remove row"
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-1">
+            <select
+              className="input py-1 text-sm w-auto min-w-[200px]"
+              value=""
+              onChange={e => { if (e.target.value) { addHardwareFromCatalog(e.target.value); e.target.value = '' } }}
+              disabled={adders.length === 0}
+            >
+              <option value="">{adders.length === 0 ? 'No catalog items — add custom →' : 'Add from catalog…'}</option>
+              {adders.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name} — {currencySymbol}{Number(a.unit_price).toFixed(2)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addCustomHardware}
+              className="btn btn-secondary text-xs flex items-center gap-1 py-1"
+            >
+              <Plus className="h-3 w-3" />
+              Add custom row
+            </button>
           </div>
         </div>
       </div>

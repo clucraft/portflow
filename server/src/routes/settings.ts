@@ -5,6 +5,7 @@ import * as carriersController from '../controllers/carriersController.js';
 import * as policiesController from '../controllers/policiesController.js';
 import * as auditController from '../controllers/auditController.js';
 import * as backupController from '../controllers/backupController.js';
+import * as hardwareAddersController from '../controllers/hardwareAddersController.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -24,6 +25,12 @@ router.post('/voice-routing-policies/import', requireAdmin, policiesController.i
 router.post('/voice-routing-policies', requireAdmin, policiesController.createVoiceRoutingPolicy);
 router.put('/voice-routing-policies/:id', requireAdmin, policiesController.updateVoiceRoutingPolicy);
 router.delete('/voice-routing-policies/:id', requireAdmin, policiesController.removeVoiceRoutingPolicy);
+
+// === Hardware Adders CRUD ===
+router.get('/hardware-adders', hardwareAddersController.list);
+router.post('/hardware-adders', requireAdmin, hardwareAddersController.create);
+router.put('/hardware-adders/:id', requireAdmin, hardwareAddersController.update);
+router.delete('/hardware-adders/:id', requireAdmin, hardwareAddersController.remove);
 
 // === Dial Plans CRUD ===
 router.get('/dial-plans', policiesController.listDialPlans);

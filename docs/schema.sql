@@ -625,3 +625,21 @@ FROM migrations m
 LEFT JOIN team_members tm ON tm.id = m.created_by
 LEFT JOIN team_members tm2 ON tm2.id = m.assigned_to
 WHERE m.workflow_stage NOT IN ('cancelled');
+
+-- ============ HARDWARE ADDERS ============
+-- Catalog of named hardware items (ATAs, SBCs, etc.) that can be added to a
+-- migration's cost estimate. Per-estimate selections snapshot name + unit
+-- price into migrations.cost_calculator JSONB so price changes don't
+-- retro-edit historical quotes.
+CREATE TABLE IF NOT EXISTS hardware_adders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  unit_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hardware_adders_active_sort
+  ON hardware_adders (is_active, sort_order, name);

@@ -41,6 +41,21 @@ interface CalcData {
   smartphones_b: number
   headsets_b: number
   selected_method: string | null
+  additional_hardware?: HardwareItem[]
+}
+
+interface HardwareItem {
+  id: string
+  source: 'adder' | 'custom'
+  adder_id?: string
+  name: string
+  unit_price: number
+  qty: number
+}
+
+function hardwareTotal(items: HardwareItem[] | undefined): number {
+  if (!items || !Array.isArray(items)) return 0
+  return items.reduce((sum, h) => sum + (Number(h.qty) || 0) * (Number(h.unit_price) || 0), 0)
 }
 
 interface MethodResult {
@@ -68,7 +83,7 @@ function calcMethod(data: CalcData, method: 'A' | 'B' | 'C'): MethodResult {
     smartphones = Math.round(data.dect_phones * 0.5)
     headsets = Math.round(data.total_users * 0.2) + data.additional_headsets
   }
-  const onetime = deskPhones * data.desk_phone_cost + smartphones * data.smartphone_cost + headsets * data.headset_cost + data.activation_fee
+  const onetime = deskPhones * data.desk_phone_cost + smartphones * data.smartphone_cost + headsets * data.headset_cost + data.activation_fee + hardwareTotal(data.additional_hardware)
   const monthly = data.total_users * data.user_service_rate + data.carrier_monthly_flat
   const annual = monthly * 12
   return { desk_phones: deskPhones, smartphones, headsets, onetime, monthly, annual, firstYear: annual + onetime }
@@ -358,6 +373,13 @@ export default function EstimateAccept() {
       if (calc.activation_fee > 0) {
         s1.push(['Carrier Activation Fee', '', fmt(calc.activation_fee)])
       }
+      if (Array.isArray(calc.additional_hardware) && calc.additional_hardware.length > 0) {
+        s1.push([], ['Additional Hardware', '', `Amount (${sym})`])
+        calc.additional_hardware.forEach(h => {
+          s1.push([h.name || '(unnamed)', `${h.qty} x ${sym}${Number(h.unit_price).toFixed(2)}`, fmt(h.qty * h.unit_price)])
+        })
+        s1.push(['Hardware Subtotal', '', fmt(hardwareTotal(calc.additional_hardware))])
+      }
     } else {
       s1.push(
         ['Monthly Charges', '', `Amount (${sym})`],
@@ -646,6 +668,30 @@ export default function EstimateAccept() {
                       <span className="text-zinc-400">Carrier Activation Fee</span>
                       <span className="text-zinc-200 font-mono">
                         {currencySymbol}{formatCurrency(calc.activation_fee)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {Array.isArray(calc.additional_hardware) && calc.additional_hardware.length > 0 && (
+                  <div className="border-b border-surface-600 pb-2 space-y-1">
+                    <div className="text-xs text-zinc-500 uppercase tracking-wider pt-1">Additional Hardware</div>
+                    {calc.additional_hardware.map(h => (
+                      <div key={h.id}>
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-zinc-400">{h.name || '(unnamed)'}</span>
+                          <span className="text-zinc-200 font-mono">
+                            {currencySymbol}{formatCurrency(h.qty * h.unit_price)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-500 pl-3">
+                          {h.qty} {h.qty === 1 ? 'unit' : 'units'} &times; {currencySymbol}{Number(h.unit_price).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-1 text-xs">
+                      <span className="text-zinc-500">Hardware Subtotal</span>
+                      <span className="text-zinc-300 font-mono">
+                        {currencySymbol}{formatCurrency(hardwareTotal(calc.additional_hardware))}
                       </span>
                     </div>
                   </div>

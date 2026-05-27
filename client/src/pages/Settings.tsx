@@ -4,7 +4,8 @@ import { Settings as SettingsIcon, Users, Truck, FileText, Mail, Shield, Plus, X
 import { useAuth } from '../contexts/AuthContext'
 import {
   teamApi, carriersApi, voiceRoutingPoliciesApi, dialPlansApi, settingsApi, auditApi,
-  type TeamMember, type Carrier, formatCarrierType
+  hardwareAddersApi,
+  type TeamMember, type Carrier, type HardwareAdder, formatCarrierType
 } from '../services/api'
 import { useParticlePreference } from '../hooks/useParticlePreference'
 import { useDensityPreference } from '../hooks/useDensityPreference'
@@ -944,6 +945,161 @@ function PricingTab() {
               {saveMutation.isPending ? 'Saving...' : 'Save Rates'}
             </button>
           </div>
+        )}
+      </div>
+
+      <HardwareAddersSection isAdmin={isAdmin} />
+    </div>
+  )
+}
+
+function HardwareAddersSection({ isAdmin }: { isAdmin: boolean }) {
+  const queryClient = useQueryClient()
+  const { data: adders = [] } = useQuery({
+    queryKey: ['hardware-adders'],
+    queryFn: hardwareAddersApi.list,
+  })
+
+  const [newName, setNewName] = useState('')
+  const [newPrice, setNewPrice] = useState('')
+
+  const createMutation = useMutation({
+    mutationFn: () => hardwareAddersApi.create({
+      name: newName.trim(),
+      unit_price: parseFloat(newPrice) || 0,
+      sort_order: (adders[adders.length - 1]?.sort_order ?? 0) + 10,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hardware-adders'] })
+      setNewName('')
+      setNewPrice('')
+    },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => hardwareAddersApi.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hardware-adders'] }),
+  })
+
+  return (
+    <div className="card space-y-3 mt-4">
+      <div>
+        <h3 className="text-sm font-medium text-zinc-300">Hardware Adders</h3>
+        <p className="text-xs text-zinc-500">
+          Named hardware items (ATAs, SBCs, etc.) available in the estimator's "Additional Hardware" section. Price changes here do not affect existing estimates — each estimate snapshots the price at the time the row was added.
+        </p>
+      </div>
+
+      {adders.length > 0 && (
+        <div className="space-y-1.5">
+          {adders.map(a => (
+            <HardwareAdderRow key={a.id} adder={a} isAdmin={isAdmin} />
+          ))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="grid grid-cols-12 gap-2 items-end pt-3 border-t border-surface-600">
+          <div className="col-span-7">
+            <label className="label text-xs">New adder name</label>
+            <input
+              type="text"
+              className="input py-1 text-sm"
+              placeholder="e.g. Poly EDGE E450"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+            />
+          </div>
+          <div className="col-span-3">
+            <label className="label text-xs">Unit price</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input py-1 text-sm"
+              placeholder="0.00"
+              value={newPrice}
+              onChange={e => setNewPrice(e.target.value)}
+            />
+          </div>
+          <div className="col-span-2">
+            <button
+              type="button"
+              onClick={() => createMutation.mutate()}
+              disabled={!newName.trim() || createMutation.isPending}
+              className="btn btn-secondary w-full py-1 text-sm"
+            >
+              {createMutation.isPending ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {removeMutation.isError && (
+        <p className="text-xs text-red-400">Delete failed. Try again.</p>
+      )}
+    </div>
+  )
+}
+
+function HardwareAdderRow({ adder, isAdmin }: { adder: HardwareAdder; isAdmin: boolean }) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(adder.name)
+  const [price, setPrice] = useState(Number(adder.unit_price).toFixed(2))
+
+  const updateMutation = useMutation({
+    mutationFn: () => hardwareAddersApi.update(adder.id, {
+      name: name.trim(),
+      unit_price: parseFloat(price) || 0,
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hardware-adders'] }),
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: () => hardwareAddersApi.remove(adder.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hardware-adders'] }),
+  })
+
+  const dirty = name.trim() !== adder.name || price !== Number(adder.unit_price).toFixed(2)
+
+  return (
+    <div className="grid grid-cols-12 gap-2 items-center">
+      <input
+        type="text"
+        className="input col-span-7 py-1 text-sm"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        disabled={!isAdmin}
+      />
+      <input
+        type="number"
+        step="0.01"
+        className="input col-span-3 py-1 text-sm text-right"
+        value={price}
+        onChange={e => setPrice(e.target.value)}
+        disabled={!isAdmin}
+      />
+      <div className="col-span-2 flex items-center gap-1 justify-end">
+        {isAdmin && dirty && (
+          <button
+            type="button"
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending || !name.trim()}
+            className="text-xs text-primary-400 hover:text-primary-300"
+            title="Save"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => { if (confirm(`Delete "${adder.name}"?`)) removeMutation.mutate() }}
+            disabled={removeMutation.isPending}
+            className="text-zinc-500 hover:text-red-400"
+            title="Delete"
+          >
+            <X className="h-4 w-4" />
+          </button>
         )}
       </div>
     </div>

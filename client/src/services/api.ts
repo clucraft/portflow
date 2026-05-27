@@ -391,6 +391,25 @@ export const settingsApi = {
   ).then((r) => r.data),
 }
 
+export interface HardwareAdder {
+  id: string
+  name: string
+  unit_price: number | string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export const hardwareAddersApi = {
+  list: () => api.get<HardwareAdder[]>('/settings/hardware-adders').then((r) => r.data),
+  create: (data: { name: string; unit_price: number; sort_order?: number }) =>
+    api.post<HardwareAdder>('/settings/hardware-adders', data).then((r) => r.data),
+  update: (id: string, data: Partial<{ name: string; unit_price: number; sort_order: number; is_active: boolean }>) =>
+    api.put<HardwareAdder>(`/settings/hardware-adders/${id}`, data).then((r) => r.data),
+  remove: (id: string) => api.delete(`/settings/hardware-adders/${id}`),
+}
+
 export const carriersApi = {
   list: () => api.get<Carrier[]>('/settings/carriers').then((r) => r.data),
   create: (data: Partial<Carrier>) => api.post<Carrier>('/settings/carriers', data).then((r) => r.data),

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-05-27
+
+### Added
+- **Additional Hardware in cost estimates** — quote ATAs, SBCs, or any other one-off hardware alongside the Method A/B/C breakdown. Settings → Pricing → "Hardware Adders" is a small editable catalog of named items (seeded with *Poly ATA 400 (4-port)* and *AudioCodes Mediant 500 SBC*). In the estimator on a migration, an "Additional Hardware" card lets you pick from the catalog or add ad-hoc custom rows, set qty + unit price, and see the subtotal. Each method's one-time and first-year totals roll the hardware in automatically.
+- **Itemized hardware on the customer estimate review page** — line items (name, qty × unit price, line total) appear under One-time Charges with a subtotal, so customers see the full breakdown rather than a lump sum. Hardware is also included in the Excel export.
+
+### Changed
+- `updateEstimate` controller now sums `cost_calculator.additional_hardware` into `estimate_total_onetime`, so the persisted grand total matches what's shown on screen.
+
+### Database Migration Required
+```sql
+-- Run docs/migration_add_hardware_adders.sql
+CREATE TABLE IF NOT EXISTS hardware_adders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  unit_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- (plus index + default seed; see migration file for full SQL)
+```
+
+### Design Notes
+- **Snapshot pattern**: when you add a row from the catalog, the name and unit price are copied into the migration's `cost_calculator` JSON. Future catalog price changes (or deletions) do not retro-edit historical quotes.
+- Hardware rows live inside the existing `cost_calculator` JSONB on the migration — no new child table for per-estimate line items.
+
 ## [0.17.1] - 2026-05-20
 
 ### Added
@@ -473,7 +501,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.17.1...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/clucraft/portflow/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/clucraft/portflow/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/clucraft/portflow/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/clucraft/portflow/compare/v0.16.1...v0.16.2

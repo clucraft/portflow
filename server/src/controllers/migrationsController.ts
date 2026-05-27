@@ -178,7 +178,18 @@ export const updateEstimate = async (req: Request, res: Response, next: NextFunc
     // One-time includes carrier activation fee from cost_calculator when present
     const activation_fee = (cost_calculator && typeof cost_calculator === 'object')
       ? (Number(cost_calculator.activation_fee) || 0) : 0;
-    const total_onetime = final_equipment + activation_fee;
+    // Sum any additional hardware adders (snapshots stored in cost_calculator)
+    const hardware_total = (cost_calculator && typeof cost_calculator === 'object' && Array.isArray(cost_calculator.additional_hardware))
+      ? cost_calculator.additional_hardware.reduce((sum: number, item: unknown) => {
+          if (item && typeof item === 'object') {
+            const qty = Number((item as { qty?: unknown }).qty) || 0;
+            const price = Number((item as { unit_price?: unknown }).unit_price) || 0;
+            return sum + qty * price;
+          }
+          return sum;
+        }, 0)
+      : 0;
+    const total_onetime = final_equipment + activation_fee + hardware_total;
 
     const migrations = await query<Migration>(
       `UPDATE migrations SET
