@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-05-27
+
+### Added
+- **Bulk edit on Locations** — new "Edit Field" action in the bulk action bar. Select multiple locations, pick a field (IT contact, engineer, priority, status, region, dates, notes, etc.), set a value, apply. Includes a preview showing how many of the selected locations already have a value for that field (so you know what's being overwritten). Single-field-per-action by design; replace-only for notes
+- New backend endpoint `PATCH /api/locations/bulk` with a server-side whitelist of editable fields (excludes `site_code`, `location_name`, `migration_id`, and the kick-off sent fields, which have their own dedicated bulk action)
+- Audit log entry per bulk action: `location.bulk_update` with the field, value preview, and count
+
 ## [0.18.0] - 2026-05-27
 
 ### Added
@@ -501,7 +508,8 @@ ALTER TABLE migrations ADD COLUMN IF NOT EXISTS estimate_accepted_by TEXT;
 - TanStack Query for data fetching
 - Tailwind CSS for styling
 
-[Unreleased]: https://github.com/clucraft/portflow/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/clucraft/portflow/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/clucraft/portflow/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/clucraft/portflow/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/clucraft/portflow/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/clucraft/portflow/compare/v0.16.2...v0.17.0

@@ -229,6 +229,76 @@ export const bulkRemove = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+// Whitelist of fields that can be bulk-edited via PATCH /api/locations/bulk.
+// Excludes:
+//  - site_code (unique identifier)
+//  - location_name (per product decision — too easy to nuke real names)
+//  - migration_id (has dedicated link/unlink UI)
+//  - kickoff_email_sent_at / kickoff_email_sent_to (have a dedicated bulk action)
+//  - complexity_reasons (JSON array, doesn't fit a single-value editor)
+const BULK_EDITABLE_FIELDS = [
+  'region', 'country', 'company',
+  'estimated_users', 'priority', 'complexity',
+  'assigned_engineer', 'local_it_contact',
+  'planned_start_date', 'planned_end_date',
+  'verizon_request_submitted_date', 'setup_complete_date',
+  'kickoff_with_it_date', 'kickoff_complete_date',
+  'port_scheduling_submitted_date', 'port_complete_date',
+  'hypercare_start_date', 'hypercare_end_date',
+  'notes', 'status',
+] as const;
+
+type BulkEditableField = typeof BULK_EDITABLE_FIELDS[number];
+
+// PATCH /api/locations/bulk - update a single field across many locations.
+// Shape: { ids: string[], field: string, value: unknown }.
+export const bulkUpdate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, field, value } = req.body as { ids?: string[]; field?: string; value?: unknown };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw ApiError.badRequest('ids array is required');
+    }
+    if (typeof field !== 'string' || !(BULK_EDITABLE_FIELDS as readonly string[]).includes(field)) {
+      throw ApiError.badRequest(`field must be one of: ${BULK_EDITABLE_FIELDS.join(', ')}`);
+    }
+
+    // Normalize value: empty string -> null for nullable columns. Numeric
+    // fields get coerced. Pass everything else through and let Postgres
+    // type-check (invalid status enum, bad date, etc. surface as 500s with
+    // a clear DB error).
+    let normalized: unknown = value;
+    if (value === '' || value === undefined) {
+      normalized = null;
+    } else if (field === 'estimated_users') {
+      const n = Number(value);
+      normalized = Number.isFinite(n) ? Math.trunc(n) : null;
+    }
+
+    // Use a parameterized UPDATE with the field name spliced in safely
+    // (validated against the whitelist above, so no SQL injection risk).
+    const result = await query<{ id: string; site_code: string }>(
+      `UPDATE locations SET ${field as BulkEditableField} = $1, updated_at = NOW()
+       WHERE id = ANY($2::uuid[])
+       RETURNING id, site_code`,
+      [normalized, ids]
+    );
+
+    const valuePreview = normalized === null ? '(cleared)'
+      : typeof normalized === 'string' && normalized.length > 60
+      ? `${normalized.slice(0, 60)}…`
+      : String(normalized);
+    logActivity(
+      req.user?.id || null,
+      'location.bulk_update',
+      `Bulk-set ${field} = "${valuePreview}" on ${result.length} location${result.length === 1 ? '' : 's'}`
+    ).catch(() => {});
+
+    res.json({ updated: result.length, field, value: normalized });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /api/locations/:id
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {

@@ -477,6 +477,8 @@ export const locationsApi = {
     }).then((r) => r.data),
   markKickoffSent: (ids: string[], sent_at?: string) =>
     api.post<{ updated: number }>('/locations/kickoff/mark-sent', { ids, sent_at }).then((r) => r.data),
+  bulkUpdate: (ids: string[], field: string, value: unknown) =>
+    api.patch<{ updated: number; field: string; value: unknown }>('/locations/bulk', { ids, field, value }).then((r) => r.data),
   kickoffSend: (ids: string[], overrides?: { subject?: string; body?: string; from_address?: string; from_name?: string; bcc?: string[] }) =>
     api.post<{ sent: number; skipped: number; errors: { site_code: string; error: string }[] }>(
       '/locations/kickoff/send',

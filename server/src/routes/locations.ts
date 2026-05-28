@@ -9,6 +9,7 @@ router.post('/', locationsController.create);
 router.post('/import/preview', locationsController.importPreview);
 router.post('/import', locationsController.importLocations);
 router.post('/bulk-delete', locationsController.bulkRemove);
+router.patch('/bulk', locationsController.bulkUpdate);
 router.post('/kickoff/preview', locationsController.kickoffPreview);
 router.post('/kickoff/send', locationsController.kickoffSend);
 router.post('/kickoff/mark-sent', locationsController.bulkMarkKickoffSent);

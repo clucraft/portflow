@@ -1,13 +1,14 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown, MailCheck, StickyNote } from 'lucide-react'
+import { MapPin, Plus, Upload, Search, Link2, ExternalLink, Trash2, X, Mail, ArrowUp, ArrowDown, ChevronsUpDown, MailCheck, StickyNote, Pencil } from 'lucide-react'
 import { locationsApi, type Location, type LocationStatus } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import ImportLocationsDialog from '../components/ImportLocationsDialog'
 import NewLocationDialog from '../components/NewLocationDialog'
 import SendKickoffEmailDialog from '../components/SendKickoffEmailDialog'
 import MarkKickoffSentDialog from '../components/MarkKickoffSentDialog'
+import BulkEditLocationsDialog from '../components/BulkEditLocationsDialog'
 import { useDensityPreference, tableCellClasses, tableHeaderCellClasses, type Density } from '../hooks/useDensityPreference'
 
 const STATUS_LABELS: Record<LocationStatus, string> = {
@@ -106,6 +107,7 @@ export default function Locations() {
   const [showNew, setShowNew] = useState(false)
   const [showKickoff, setShowKickoff] = useState(false)
   const [showMarkKickoff, setShowMarkKickoff] = useState(false)
+  const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
@@ -295,6 +297,14 @@ export default function Locations() {
             >
               <MailCheck className="h-4 w-4" />
               Mark Kick-off Sent
+            </button>
+            <button
+              onClick={() => setShowBulkEdit(true)}
+              className="btn btn-secondary text-sm flex items-center gap-2 text-primary-400 hover:text-primary-300 hover:border-primary-500/50"
+              title="Set the same value on one field across all selected locations"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Field
             </button>
             <button
               onClick={() => setShowBulkConfirm(true)}
@@ -493,6 +503,15 @@ export default function Locations() {
           selectedLocations={selectedLocations}
           onClose={() => setShowMarkKickoff(false)}
           onComplete={() => { refetch() }}
+        />
+      )}
+
+      {showBulkEdit && (
+        <BulkEditLocationsDialog
+          open={showBulkEdit}
+          selectedLocations={selectedLocations}
+          onClose={() => setShowBulkEdit(false)}
+          onComplete={() => { refetch(); setSelected(new Set()) }}
         />
       )}
     </div>
